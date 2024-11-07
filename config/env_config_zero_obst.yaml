@@ -34,5 +34,5 @@ robot_sensor_angle: 6.28318530718
 
 # 1 - continuous acceleration
 # 2 - fixed acceleration
-# 3 - fixed velocity
-action_mode:        3
+# 3 - continuous velocity
+action_mode:        1

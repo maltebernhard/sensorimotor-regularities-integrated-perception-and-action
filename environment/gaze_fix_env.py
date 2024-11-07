@@ -275,7 +275,7 @@ class GazeFixEnv(BaseEnv):
         # set xy and angular accelerations
         if self.action_mode == 1 or self.action_mode == 2:
             acc = self.action[:2] * self.robot.max_acc
-            acc_rot = self.action[2]*self.robot.max_acc_rot
+            acc_rot = self.action[2] * self.robot.max_acc_rot
             self.robot.vel += acc * self.timestep                   # update robot velocity vector
             self.robot.vel_rot += acc_rot * self.timestep           # update rotational velocity
             self.limit_robot_velocity()
@@ -400,7 +400,7 @@ class GazeFixEnv(BaseEnv):
                 radius = self.world_size / 10
                 pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
                 # Ensure the obstacle doesn't spawn too close to robot
-                if np.linalg.norm(pos-self.robot.pos) > radius + self.penalty_margin + self.robot.size:
+                if np.linalg.norm(pos-self.robot.pos) > radius + 5 * self.robot.size:
                     self.obstacles.append(Obstacle(radius, pos))
                     break
 
@@ -425,11 +425,12 @@ class GazeFixEnv(BaseEnv):
         if robot_frame_target_mean is not None and robot_frame_target_cov is not None:
             # print("=========================================")
             # print("Robot Offset: ", self.robot.orientation)
-            print("Robot Frame Target Cov:\n", robot_frame_target_cov)
-            mean = self.rotation_matrix(self.robot.orientation) @ robot_frame_target_mean + self.robot.pos
-            cov = self.rotation_matrix(self.robot.orientation) @ robot_frame_target_cov @ self.rotation_matrix(self.robot.orientation).T
+            # print("Robot Frame Target Cov:\n", robot_frame_target_cov)
+            mean = self.rotation_matrix(self.robot.orientation) @ robot_frame_target_mean[:2] + self.robot.pos
+            cov = self.rotation_matrix(self.robot.orientation) @ robot_frame_target_cov[:2,:2] @ self.rotation_matrix(self.robot.orientation).T
             # print("World Frame Cov:\n", cov)
-            self.draw_gaussian(mean, robot_frame_target_cov)
+            self.draw_gaussian(mean, robot_frame_target_cov[:2,:2])
+            pygame.draw.circle(self.viewer, RED, self.pxl_coordinates(mean), 5)
 
         self.display_info()
         if self.record_video:
@@ -438,20 +439,13 @@ class GazeFixEnv(BaseEnv):
         self.rt_clock.tick(1/self.timestep*real_time_factor)
 
     def draw_gaussian(self, world_frame_mean, robot_frame_cov):
-
-        # ang = np.pi/4
-        # pos = self.pxl_coordinates((20, 20))
-        
-
-
-
         eigvals, eigvecs = np.linalg.eig(robot_frame_cov)
-        angle = np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2
+        eigvals = np.real(eigvals)
+        eigvecs = np.real(eigvecs)
+        angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2
         width, height = 2*np.sqrt(eigvals)
-        # # TODO: This is just a hotfix
         width = max(0.1, width)
         height = max(0.1, height)
-
         ellipse_surface = pygame.Surface((width*self.scale, height*self.scale), pygame.SRCALPHA)
         pygame.draw.ellipse(ellipse_surface, (255, 0, 0, 128), ellipse_surface.get_rect())
         rotated_ellipse = pygame.transform.rotate(ellipse_surface, -np.degrees(angle))
@@ -527,7 +521,7 @@ class GazeFixEnv(BaseEnv):
             left_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/4, self.world_size))
             right_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/4, self.world_size))
             pygame.draw.polygon(self.viewer, WHITE, [robot_point, left_angle, left_corner, right_corner, right_angle])
-        elif self.robot.sensor_angle == 2*np.pi:
+        elif abs(self.robot.sensor_angle - 2*np.pi) < 0.01:
             self.viewer.fill(WHITE)
         else:
             self.viewer.fill(WHITE)
