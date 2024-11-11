@@ -19,6 +19,8 @@ LIGHT_RED = (255, 200, 200)
 BLACK = (0, 0, 0)
 GREY = (200, 200, 200)
 
+COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (0, 255, 255)]
+
 SCREEN_SIZE = 900
 
 # =====================================================================================================
@@ -406,7 +408,7 @@ class GazeFixEnv(BaseEnv):
 
     # ----------------------------------- render stuff -----------------------------------------
 
-    def render(self, real_time_factor = 1.0, robot_frame_target_mean = None, robot_frame_target_cov = None):
+    def render(self, real_time_factor = 1.0, robot_frame_means: Dict[str, np.ndarray] = None, robot_frame_covs: Dict[str, np.ndarray] = None):
         if self.viewer is None:
             pygame.init()
             # Clock to control frame rate
@@ -422,15 +424,14 @@ class GazeFixEnv(BaseEnv):
         # draw an arrow for the robot's action
         self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])), self.robot.size*2, RED)
 
-        if robot_frame_target_mean is not None and robot_frame_target_cov is not None:
-            # print("=========================================")
-            # print("Robot Offset: ", self.robot.orientation)
-            # print("Robot Frame Target Cov:\n", robot_frame_target_cov)
-            mean = self.rotation_matrix(self.robot.orientation) @ robot_frame_target_mean[:2] + self.robot.pos
-            cov = self.rotation_matrix(self.robot.orientation) @ robot_frame_target_cov[:2,:2] @ self.rotation_matrix(self.robot.orientation).T
-            # print("World Frame Cov:\n", cov)
-            self.draw_gaussian(mean, robot_frame_target_cov[:2,:2])
-            pygame.draw.circle(self.viewer, RED, self.pxl_coordinates(mean), 5)
+        if robot_frame_means is not None and robot_frame_covs is not None:
+            assert len(robot_frame_means) == len(robot_frame_covs), "Number of means and covariances must be equal"
+            assert len(robot_frame_means) <= 6, "Only up to 6 estimator states can be visualized"
+            for i, key in enumerate(robot_frame_means.keys()):
+                mean = self.rotation_matrix(self.robot.orientation) @ robot_frame_means[key][:2] + self.robot.pos
+                #cov = self.rotation_matrix(self.robot.orientation) @ robot_frame_covs[key][:2,:2] @ self.rotation_matrix(self.robot.orientation).T
+                self.draw_gaussian(mean, robot_frame_covs[key][:2,:2], COLORS[i])
+                pygame.draw.circle(self.viewer, COLORS[i], self.pxl_coordinates(mean), 5)
 
         self.display_info()
         if self.record_video:
@@ -438,7 +439,7 @@ class GazeFixEnv(BaseEnv):
         pygame.display.flip()
         self.rt_clock.tick(1/self.timestep*real_time_factor)
 
-    def draw_gaussian(self, world_frame_mean, robot_frame_cov):
+    def draw_gaussian(self, world_frame_mean, robot_frame_cov, color):
         eigvals, eigvecs = np.linalg.eig(robot_frame_cov)
         eigvals = np.real(eigvals)
         eigvecs = np.real(eigvecs)
@@ -447,7 +448,7 @@ class GazeFixEnv(BaseEnv):
         width = max(0.1, width)
         height = max(0.1, height)
         ellipse_surface = pygame.Surface((width*self.scale, height*self.scale), pygame.SRCALPHA)
-        pygame.draw.ellipse(ellipse_surface, (255, 0, 0, 128), ellipse_surface.get_rect())
+        pygame.draw.ellipse(ellipse_surface, (*color, 128), ellipse_surface.get_rect())
         rotated_ellipse = pygame.transform.rotate(ellipse_surface, -np.degrees(angle))
         ellipse_rect = rotated_ellipse.get_rect(center=self.pxl_coordinates(world_frame_mean))
         self.viewer.blit(rotated_ellipse, ellipse_rect)

@@ -7,7 +7,7 @@ from components.aicon import AICON
 from components.active_interconnection import ActiveInterconnection as AI
 from components.estimator import RecursiveEstimator, Robot_Vel_Estimator, Target_Distance_Estimator, Target_Pos_Estimator, Target_Pos_Estimator_No_Forward
 from components.goal import Goal
-from components.measurement_model import ImplicitMeasurementModel, Robot_Vel_MM, Target_Dist_MM, Target_Pos_MM
+from components.measurement_model import ImplicitMeasurementModel, Robot_Vel_MM, Target_Dist_MM, Pos_MM
 from environment.gaze_fix_env import GazeFixEnv
 from run_env import pick_action
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
         mean = torch.tensor([20.0, 0.0], dtype=torch.float32).to(DEVICE),
         cov = 1000 * torch.eye(2, dtype=torch.float32).to(DEVICE)
     )
-    target_pos_measurement_model = Target_Pos_MM(DEVICE)
+    target_pos_measurement_model = Pos_MM(DEVICE)
     # --------------------------------------------------
     target_pos_estimator_no_forward = Target_Pos_Estimator_No_Forward(DEVICE)
     target_pos_estimator_no_forward.set_state(

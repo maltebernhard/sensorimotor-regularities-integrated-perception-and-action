@@ -5,7 +5,7 @@ import yaml
 from environment.gaze_fix_env import GazeFixEnv
 
 from components.estimator import Robot_Vel_Estimator, Target_Pos_Estimator
-from components.measurement_model import Robot_Vel_MM, Target_Pos_MM
+from components.measurement_model import Robot_Vel_MM, Pos_MM
 
 # ==================================================================================================
 
@@ -54,7 +54,7 @@ def run_env(version):
     target_pos_estimator = Target_Pos_Estimator().to(DEVICE)
     target_pos_estimator.set_state(torch.tensor([20.0, 0.0], dtype=torch.float32).to(DEVICE), 1000 * torch.eye(2, dtype=torch.float32).to(DEVICE))
     target_pos_estimator.set_static_motion_noise(0.01 * torch.eye(2, dtype=torch.float32).to(DEVICE))
-    target_pos_measurement_model = Target_Pos_MM().to(DEVICE)
+    target_pos_measurement_model = Pos_MM().to(DEVICE)
 
     robot_vel_estimator = Robot_Vel_Estimator().to(DEVICE)
     robot_vel_measurement_model= Robot_Vel_MM().to(DEVICE)
