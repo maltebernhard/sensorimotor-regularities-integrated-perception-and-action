@@ -5,7 +5,7 @@ import yaml
 
 from components.aicon import AICON
 from components.active_interconnection import ActiveInterconnection as AI
-from components.estimator import RecursiveEstimator, Robot_Vel_Estimator, Target_Distance_Estimator, Target_Pos_Estimator, Target_Pos_Estimator_No_Forward
+from components.estimator import RecursiveEstimator, Robot_Vel_Estimator, Target_Distance_Estimator, Pos_Estimator_Internal_Vel, Target_Pos_Estimator_No_Forward
 from components.goal import Goal
 from components.measurement_model import ImplicitMeasurementModel, Robot_Vel_MM, Target_Dist_MM, Pos_MM
 from environment.gaze_fix_env import GazeFixEnv
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     robot_vel_estimator = Robot_Vel_Estimator(DEVICE)
     robot_vel_measurement_model = Robot_Vel_MM(DEVICE)
     # --------------------------------------------------
-    target_pos_estimator = Target_Pos_Estimator(DEVICE)
+    target_pos_estimator = Pos_Estimator_Internal_Vel(DEVICE)
     target_pos_estimator.set_state(
         mean = torch.tensor([20.0, 0.0], dtype=torch.float32).to(DEVICE),
         cov = 1000 * torch.eye(2, dtype=torch.float32).to(DEVICE)

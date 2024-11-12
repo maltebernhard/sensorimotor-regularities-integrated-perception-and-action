@@ -219,7 +219,9 @@ class GazeFixEnv(BaseEnv):
         }
         for o in range(self.num_obstacles):
             self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o].pos))
+            self.observations[f"obstacle{o+1}_radius"] = Observation(0.0, np.inf, lambda o=o: self.obstacles[o].radius)
             self.observations[f"obstacle{o+1}_coverage"] = Observation(0.0, 1.0, lambda o=o: self.calculate_circle_coverage(self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_visual_angle"] = Observation(0.0, np.inf, lambda o=o: 2 * math.asin(min(1.0, self.obstacles[o].radius / np.linalg.norm(self.obstacles[o].pos-self.robot.pos))))
             self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: self.calculate_obstacle_distance(o))
             self.observations[f"del_obstacle{o+1}_distance"] = Observation(-1.0, 1.0, lambda o=o: self.compute_del_obstacle_distance(o))
 

@@ -5,15 +5,13 @@ from torch.nn import Module
 from torch.func import functional_call
 from torch.func import jacrev
 
-#from components.active_interconnection import ImplicitMeasurementModel
-
 # =========================================================================================
 
 class RecursiveEstimator(ABC, Module):
 
     def __init__(self, id, state_dim, device, dtype = torch.float32):
         super().__init__()
-        self.id = id
+        self.id: str = id
         self.state_dim = state_dim
         self.dtype = dtype
 
@@ -92,7 +90,7 @@ class RecursiveEstimator(ABC, Module):
     # ----------------------------- everything related to measurement update ----------------------------------
 
     def update_with_specific_meas(self, meas_dict,
-                                  implicit_meas_model,#: ImplicitMeasurementModel,
+                                  implicit_meas_model,
                                   custom_measurement_noise: Optional[Dict] = None):
         
         assert meas_dict.keys() == implicit_meas_model.meas_config.keys(), (
@@ -122,6 +120,8 @@ class RecursiveEstimator(ABC, Module):
             if custom_measurement_noise is None:
                 # NOTE cannot also have (or custom_measurement_noise[key] is None) in the if because
                 # vmap doesn't broadcast over None within a dict!
+                #print(f"Q: {getattr(implicit_meas_model, f'_Q_{key}')}")
+                #print(f"F_t.t: {F_t_dict[key].t()}")
                 K_part_2 += torch.matmul(F_t_dict[key], torch.matmul(getattr(implicit_meas_model, f'_Q_{key}'), F_t_dict[key].t()))
             else:
                 # Sometimes it is beneficial to send only the diagonal of the noise covariance
@@ -291,35 +291,36 @@ class Robot_Vel_Estimator(RecursiveEstimator):
         ret_mean[2] = vel_rot_new
         return ret_mean
 
-class Target_Pos_Estimator(RecursiveEstimator):
+class Pos_Estimator_Internal_Vel(RecursiveEstimator):
     """
     Estimator for Target state x:
     x[0]: target frontal offset
     x[1]: target lateral offset
     """
-    def __init__(self, device):
-        super().__init__("TargetPos", 2, device)
+    def __init__(self, device, id: str):
+        super().__init__(id, 5, device)
 
     def forward_model(self, x_mean, u):
         ret_mean = torch.empty_like(x_mean)
-        robot_vel_rot = u[2]
-        timestep = u[3]
+        timestep = u[0]
         rotation_matrix = torch.stack([
-            torch.stack([torch.cos(-robot_vel_rot*timestep), -torch.sin(-robot_vel_rot*timestep)]),
-            torch.stack([torch.sin(-robot_vel_rot*timestep), torch.cos(-robot_vel_rot*timestep)]),
+            torch.stack([torch.cos(x_mean[4]*timestep), -torch.sin(x_mean[4]*timestep)]),
+            torch.stack([torch.sin(x_mean[4]*timestep), torch.cos(x_mean[4]*timestep)]),
         ]).squeeze()
-        ret_mean = torch.matmul(rotation_matrix, x_mean - timestep * u[:2])
+        ret_mean[:2] = torch.matmul(rotation_matrix, x_mean[:2] + timestep * x_mean[2:4])
+        ret_mean[2:4] = torch.matmul(rotation_matrix, x_mean[2:4])
+        ret_mean[4] = x_mean[4]
         return ret_mean
 
 # Same as Target Pos estimator - unnecessary
-class Obstacle_Pos_Estimator(RecursiveEstimator):
+class Pos_Estimator_External_Vel(RecursiveEstimator):
     """
     Estimator for Target state x:
     x[0]: target frontal offset
     x[1]: target lateral offset
     """
-    def __init__(self, device):
-        super().__init__("TargetPos", 2, device)
+    def __init__(self, device, id: str):
+        super().__init__(id, 2, device)
 
     def forward_model(self, x_mean, u):
         ret_mean = torch.empty_like(x_mean)
@@ -340,6 +341,18 @@ class Target_Pos_Estimator_No_Forward(RecursiveEstimator):
     """
     def __init__(self, device):
         super().__init__("TargetPosNoForward", 2, device)
+
+    def forward_model(self, x_mean, u):
+        return x_mean
+    
+class Obstacle_Rad_Estimator(RecursiveEstimator):
+    """
+    Estimator for obstacle radius state x:
+    x[0]: obstacle radius
+    """
+    def __init__(self, device):
+        super().__init__("ObstacleRad", 1, device)
+        self.set_static_motion_noise(torch.eye(1, device=device)*1e-1)
 
     def forward_model(self, x_mean, u):
         return x_mean

@@ -161,9 +161,8 @@ class Pos_MM(ImplicitMeasurementModel):
     state:          target position
     measurement:    angular offset
     """
-    def __init__(self, device, angle_key) -> None:
-        self.angle_key = angle_key
-        super().__init__(2, {self.angle_key: 1}, device)
+    def __init__(self, device) -> None:
+        super().__init__(2, {'offset_angle': 1}, device)
 
     def implicit_measurement_model(self, x, meas_dict):
         # avoids NaN from atan2(0,0)
@@ -171,9 +170,44 @@ class Pos_MM(ImplicitMeasurementModel):
             angle = torch.tensor([0.0]).to(x.device)
         else:
             angle = torch.atan2(x[1],x[0])
-        angle_diff = meas_dict[self.angle_key] - angle
+        angle_diff = meas_dict['offset_angle'] - angle
         return ((angle_diff + torch.pi) % (2*torch.pi)) - torch.pi
     
+# measurement model between target position state and angular offset measurement
+class Pos_Vel_MM(ImplicitMeasurementModel):
+    """
+    Measurement Model:
+    state:          target position
+    measurement:    angular offset
+    """
+    def __init__(self, device) -> None:
+        super().__init__(5, {'offset_angle': 1, 'robot_vel': 3}, device)
+
+    def implicit_measurement_model(self, x, meas_dict):
+        # avoids NaN from atan2(0,0)
+        if x[1] == 0.0 and x[0] == 0.0:
+            angle = torch.tensor([0.0]).to(x.device)
+        else:
+            angle = torch.atan2(x[1],x[0])
+        angle_diff = meas_dict['offset_angle'] - angle
+        return torch.concat([
+            ((angle_diff + torch.pi) % (2*torch.pi)) - torch.pi,
+            - meas_dict['robot_vel'] - x[2:],
+        ]).squeeze()
+
+class Radius_MM(ImplicitMeasurementModel):
+    """
+    Measurement Model:
+    state:          object radius
+    measurement:    object distance and angle in visual field
+    """
+    def __init__(self, device) -> None:
+        super().__init__(1, {'pos': 2, 'visual_angle': 1}, device)
+
+    def implicit_measurement_model(self, x, meas_dict):
+        # TODO: bad fix: minimum to ensure asin doesn't output NaN
+        return torch.asin(torch.minimum(torch.ones_like(x[0]), x[0] / meas_dict['pos'].norm())) - meas_dict['visual_angle'] / 2
+
 # measurement model between target position state and angular offset measurement
 class Target_Dist_MM(ImplicitMeasurementModel):
     """
