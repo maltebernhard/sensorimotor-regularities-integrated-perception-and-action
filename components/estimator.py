@@ -7,25 +7,21 @@ from torch.func import jacrev
 
 # =========================================================================================
 
-class RecursiveEstimator(ABC, Module):
-
-    def __init__(self, id, state_dim, device, dtype = torch.float32):
+class State(Module):
+    def __init__(self, id, state_dim, device, dtype = torch.float64):
         super().__init__()
         self.id: str = id
         self.state_dim = state_dim
+        self.device = device
         self.dtype = dtype
 
         self.register_buffer('state_mean', torch.zeros(self.state_dim, dtype=dtype))
         self.register_buffer('state_cov', torch.eye(self.state_dim, dtype=dtype))
 
-        # Initialize static process/motion noise to identity
-        self.register_buffer('forward_noise', torch.eye(self.state_dim, dtype=self.dtype))
-
         self.to(device)
-
         self.set_buffer_dict()
 
-    # --------------------------- properties, getters and setters ---------------------------------
+    # -----------------------------------------------------------------------------------------------------
 
     @property
     def state(self):
@@ -33,7 +29,11 @@ class RecursiveEstimator(ABC, Module):
         # if required. Otherwise, simply access the buffers directly
         return self.state_mean, self.state_cov
 
-    def set_state(self, mean: torch.Tensor, cov:torch.Tensor=None):
+    def set_buffer_dict(self):
+        self.buffer_dict = dict(self.named_buffers())
+        return self.buffer_dict
+    
+    def set_state(self, mean: torch.Tensor, cov: torch.Tensor=None):
         assert mean.shape == (self.state_dim,), ("Mean shape does not match state_dim")
         if cov is not None:
             assert cov.shape == (self.state_dim, self.state_dim), ("Covariance shape does not match state_dim")
@@ -42,14 +42,22 @@ class RecursiveEstimator(ABC, Module):
             self.state_dim, dtype=self.dtype, device=self.state_mean.device) if cov is None else cov
         self.set_buffer_dict()
 
+# =========================================================================================
+
+class RecursiveEstimator(ABC, State):
+    def __init__(self, id, state_dim, device, dtype = torch.float64):
+        super().__init__(id, state_dim, device, dtype)
+        
+        # Initialize static process/motion noise to identity
+        self.register_buffer('forward_noise', torch.eye(self.state_dim, device=self.device, dtype=self.dtype))
+        self.set_buffer_dict()
+
+    # --------------------------- properties, getters and setters ---------------------------------
+
     def set_static_motion_noise(self, noise_cov: torch.Tensor) -> None:
         assert noise_cov.shape == (self.state_dim, self.state_dim), (
             f"Motion noise shape {noise_cov.shape} does not match {self.state_dim}")
         setattr(self, '_R', noise_cov.to(self.dtype))
-
-    def set_buffer_dict(self):
-        self.buffer_dict = dict(self.named_buffers())
-        return self.buffer_dict
 
     # --------------------------- everything related to forward model ------------------------------------
 
@@ -59,7 +67,6 @@ class RecursiveEstimator(ABC, Module):
 
     def forward_model_jac(self, state, control_input):
         """Autograd jacobian w.r.t state.
-
         Override to implement own jacobian"""
         return jacrev(self.forward_model, 0)(state, control_input)
 
@@ -92,9 +99,9 @@ class RecursiveEstimator(ABC, Module):
     def update_with_specific_meas(self, meas_dict,
                                   implicit_meas_model,
                                   custom_measurement_noise: Optional[Dict] = None):
-        
-        assert meas_dict.keys() == implicit_meas_model.meas_config.keys(), (
-            f'All measurements must be provided as mentioned in {implicit_meas_model} meas_config')
+        #TODO: this doesn't work with current ActiveInterconnection implementation
+        # assert meas_dict.keys() == implicit_meas_model.meas_config.keys(), (
+        #     f'All measurements must be provided as mentioned in {implicit_meas_model} meas_config')
         if custom_measurement_noise is not None:
             assert meas_dict.keys() == custom_measurement_noise.keys(), (
                 f'All measurements must be provided as mentioned in {custom_measurement_noise}')
@@ -238,6 +245,8 @@ class RecursiveEstimator(ABC, Module):
         elif type_of_compute == 'update_with_specific_meas':
             # NOTE only first argument in args considered
             self.update_with_specific_meas(kwargs['meas_dict'], args[0], kwargs.get('custom_measurement_noise', None))
+        # elif type_of_compute == 'update_with_active_interconnection':
+        #     self.update_with_specific_meas(kwargs['meas_dict'], args[0], kwargs.get('custom_measurement_noise', None))
         else:
             raise TypeError(f'Unknown type_of_compute {type_of_compute}.'
                             ' NOTE you can also call predict() and '
@@ -253,15 +262,15 @@ class RecursiveEstimator(ABC, Module):
             'state_cov': self.state_cov
         }
     
-    def call_predict(self, u):
-        args_to_be_passed = ('predict')
+    def call_predict(self, u, buffer_dict):
+        args_to_be_passed = ('predict',)
         kwargs = {'u': u}
-        return functional_call(self, self.buffer_dict, args_to_be_passed, kwargs)
+        return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
 
-    def call_update_with_specific_meas(self, specific_meas_model, meas_dict: Dict[str, torch.Tensor]):
-        args_to_be_passed = ('update_with_specific_meas', specific_meas_model)
-        kwargs = {'meas_dict': meas_dict}
-        return functional_call(self, self.buffer_dict, args_to_be_passed, kwargs)
+    def call_update_with_specific_meas(self, active_interconnection, buffer_dict: Dict[str, torch.Tensor]):
+        args_to_be_passed = ('update_with_specific_meas', active_interconnection)
+        kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id)}
+        return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
 
 # ==================================== Specific Implementations =====================================================
 
@@ -289,6 +298,53 @@ class Robot_Vel_Estimator(RecursiveEstimator):
         vel_trans_new = torch.matmul(rotation_matrix, x_mean[:2] + u[:2] * u[3])
         ret_mean[:2] = vel_trans_new
         ret_mean[2] = vel_rot_new
+        return ret_mean
+    
+class Polar_Pos_Estimator_External_Vel(RecursiveEstimator):
+    """
+    Estimator for Target state x:
+    x[0]: target offset angle
+    x[1]: target distance
+    """
+    def __init__(self, device, id: str):
+        super().__init__(id, 2, device)
+
+    def forward_model(self, x_mean: torch.Tensor, u: torch.Tensor):
+        ret_mean = torch.empty_like(x_mean)
+        robot_vel = u[:2]
+
+        # timestep = u[3]
+        # rotation_matrix = torch.stack([
+        #     torch.stack([torch.cos(-u[2]*timestep), -torch.sin(-u[2]*timestep)]),
+        #     torch.stack([torch.sin(-u[2]*timestep), torch.cos(-u[2]*timestep)]),
+        # ]).squeeze()
+        # robot_vel = torch.matmul(rotation_matrix, robot_vel)
+
+        robot_target_frame_rotation_matrix = torch.stack([
+            torch.stack([torch.cos(-x_mean[0]), -torch.sin(-x_mean[0])]),
+            torch.stack([torch.sin(-x_mean[0]), torch.cos(-x_mean[0])]),
+        ]).squeeze()
+        robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, robot_vel)
+
+        ret_mean[0] = x_mean[0] + (u[0]*torch.sin(x_mean[0]) - u[1]*torch.cos(x_mean[0]) - u[2]) * u[3]
+        ret_mean[1] = (x_mean[1].pow(2) + (robot_target_frame_vel[1]*u[3]).pow(2)).sqrt() - robot_target_frame_vel[0] * u[3]
+
+        return ret_mean
+    
+class Polar_Pos_Estimator_Internal_Vel(RecursiveEstimator):
+    """
+    Estimator for Target state x:
+    x[0]: target offset angle
+    x[1]: target distance
+    """
+    def __init__(self, device, id: str):
+        super().__init__(id, 4, device)
+
+    def forward_model(self, x_mean: torch.Tensor, u: torch.Tensor):
+        ret_mean = torch.empty_like(x_mean)
+        ret_mean[0] = x_mean[0] + x_mean[2] * u[0]
+        ret_mean[1] = x_mean[1] + x_mean[3] * u[0]
+        ret_mean[2:] = x_mean[2:]
         return ret_mean
 
 class Pos_Estimator_Internal_Vel(RecursiveEstimator):
@@ -350,8 +406,8 @@ class Obstacle_Rad_Estimator(RecursiveEstimator):
     Estimator for obstacle radius state x:
     x[0]: obstacle radius
     """
-    def __init__(self, device):
-        super().__init__("ObstacleRad", 1, device)
+    def __init__(self, device, id: str):
+        super().__init__(id, 1, device)
         self.set_static_motion_noise(torch.eye(1, device=device)*1e-1)
 
     def forward_model(self, x_mean, u):

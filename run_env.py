@@ -52,8 +52,8 @@ def run_env(version):
     env = GazeFixEnv(env_config)
 
     target_pos_estimator = Pos_Estimator_Internal_Vel().to(DEVICE)
-    target_pos_estimator.set_state(torch.tensor([20.0, 0.0], dtype=torch.float32).to(DEVICE), 1000 * torch.eye(2, dtype=torch.float32).to(DEVICE))
-    target_pos_estimator.set_static_motion_noise(0.01 * torch.eye(2, dtype=torch.float32).to(DEVICE))
+    target_pos_estimator.set_state(torch.tensor([20.0, 0.0], dtype=torch.float64).to(DEVICE), 1000 * torch.eye(2, dtype=torch.float64).to(DEVICE))
+    target_pos_estimator.set_static_motion_noise(0.01 * torch.eye(2, dtype=torch.float64).to(DEVICE))
     target_pos_measurement_model = Pos_MM().to(DEVICE)
 
     robot_vel_estimator = Robot_Vel_Estimator().to(DEVICE)
@@ -78,13 +78,13 @@ def run_env(version):
             env.timestep,
             env.robot.max_vel,
             env.robot.max_vel_rot
-        ], dtype=torch.float32).to(DEVICE)
+        ], dtype=torch.float64).to(DEVICE)
         u_target_pos = torch.tensor([
             obs[4]*env.robot.max_vel,
             obs[5]*env.robot.max_vel,
             obs[3]*env.robot.max_vel_rot,
             env.timestep
-        ], dtype=torch.float32).to(DEVICE)
+        ], dtype=torch.float64).to(DEVICE)
         robot_vel_estimator.predict(u_robot_vel)
         target_pos_estimator.predict(u_target_pos)
 
@@ -93,8 +93,8 @@ def run_env(version):
         obs, reward, done, truncated, info = env.step(action)
 
         # ------------------------------------------------------------------------------------------------------------------------------
-        target_offset_angle = torch.tensor([obs[1]], dtype=torch.float32).to(DEVICE)
-        robot_vel = torch.tensor([obs[4]*env.robot.max_vel, obs[5]*env.robot.max_vel, obs[3]*env.robot.max_vel_rot], dtype=torch.float32).to(DEVICE)
+        target_offset_angle = torch.tensor([obs[1]], dtype=torch.float64).to(DEVICE)
+        robot_vel = torch.tensor([obs[4]*env.robot.max_vel, obs[5]*env.robot.max_vel, obs[3]*env.robot.max_vel_rot], dtype=torch.float64).to(DEVICE)
         target_pos_estimator.update_with_specific_meas({'target_offset_angle': target_offset_angle}, target_pos_measurement_model)
         robot_vel_estimator.update_with_specific_meas({'vel_frontal': robot_vel[0], 'vel_lateral': robot_vel[1], 'vel_rot': robot_vel[2]}, robot_vel_measurement_model)
         print(f"Robot Vel Estimator State:       {robot_vel_estimator.state_mean.tolist()}")

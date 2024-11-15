@@ -30,9 +30,9 @@ def polar_to_cartesian_state(polar_mean, polar_cov):
     J = torch.tensor([
         [torch.cos(theta+np.pi/2), -r * torch.sin(theta+np.pi/2)],
         [torch.sin(theta+np.pi/2), r * torch.cos(theta+np.pi/2)]
-    ], dtype=torch.float32).to(DEVICE)
+    ], dtype=torch.float64).to(DEVICE)
     cartesian_cov = J @ polar_cov[:2, :2] @ J.T
-    cartesian_mean = torch.tensor([x_mean, y_mean], dtype=torch.float32).to(DEVICE)
+    cartesian_mean = torch.tensor([x_mean, y_mean], dtype=torch.float64).to(DEVICE)
     return cartesian_mean, cartesian_cov
 
 # class PosToDistMM(ImplicitMeasurementModel):
@@ -96,21 +96,21 @@ if __name__ == "__main__":
     # --------------------------------------------------
     target_pos_estimator = Pos_Estimator_Internal_Vel(DEVICE)
     target_pos_estimator.set_state(
-        mean = torch.tensor([20.0, 0.0], dtype=torch.float32).to(DEVICE),
-        cov = 1000 * torch.eye(2, dtype=torch.float32).to(DEVICE)
+        mean = torch.tensor([20.0, 0.0], dtype=torch.float64).to(DEVICE),
+        cov = 1000 * torch.eye(2, dtype=torch.float64).to(DEVICE)
     )
     target_pos_measurement_model = Pos_MM(DEVICE)
     # --------------------------------------------------
     target_pos_estimator_no_forward = Target_Pos_Estimator_No_Forward(DEVICE)
     target_pos_estimator_no_forward.set_state(
-        mean = torch.tensor([20.0, 0.0], dtype=torch.float32).to(DEVICE),
-        cov = 1000 * torch.eye(2, dtype=torch.float32).to(DEVICE)
+        mean = torch.tensor([20.0, 0.0], dtype=torch.float64).to(DEVICE),
+        cov = 1000 * torch.eye(2, dtype=torch.float64).to(DEVICE)
     )
     # --------------------------------------------------
     target_dist_estimator = Target_Distance_Estimator(DEVICE)
     target_dist_estimator.set_state(
-        mean = torch.tensor([0.0, 20.0], dtype=torch.float32).to(DEVICE),
-        cov = 1000 * torch.eye(2, dtype=torch.float32).to(DEVICE)
+        mean = torch.tensor([0.0, 20.0], dtype=torch.float64).to(DEVICE),
+        cov = 1000 * torch.eye(2, dtype=torch.float64).to(DEVICE)
     )
     target_dist_measurement_model = Target_Dist_MM(DEVICE)
     
@@ -149,18 +149,18 @@ if __name__ == "__main__":
             action[1]*env.robot.max_acc,
             action[2]*env.robot.max_acc_rot,
             env.timestep,
-        ], dtype=torch.float32).to(DEVICE)
+        ], dtype=torch.float64).to(DEVICE)
         u_target_pos1 = torch.stack([
             robot_vel_estimator.state_mean[0],
             robot_vel_estimator.state_mean[1],
             robot_vel_estimator.state_mean[2],
-            torch.tensor(env.timestep, dtype=torch.float32, device=DEVICE),
+            torch.tensor(env.timestep, dtype=torch.float64, device=DEVICE),
         ]).squeeze()
         u_target_pos2 = torch.stack([
-            torch.tensor(env.robot.vel[0], dtype=torch.float32, device=DEVICE),
-            torch.tensor(env.robot.vel[1], dtype=torch.float32, device=DEVICE),
-            torch.tensor(env.robot.vel_rot, dtype=torch.float32, device=DEVICE),
-            torch.tensor(env.timestep, dtype=torch.float32, device=DEVICE),
+            torch.tensor(env.robot.vel[0], dtype=torch.float64, device=DEVICE),
+            torch.tensor(env.robot.vel[1], dtype=torch.float64, device=DEVICE),
+            torch.tensor(env.robot.vel_rot, dtype=torch.float64, device=DEVICE),
+            torch.tensor(env.timestep, dtype=torch.float64, device=DEVICE),
         ]).squeeze()
 
         if torch.equal(u_target_pos1, u_target_pos2):
@@ -171,10 +171,10 @@ if __name__ == "__main__":
             print(u_target_pos2)
 
         u_target_dist = torch.stack([
-            torch.tensor(env.robot.vel[0], dtype=torch.float32, device=DEVICE),
-            torch.tensor(env.robot.vel[1], dtype=torch.float32, device=DEVICE),
-            torch.tensor(env.robot.vel_rot, dtype=torch.float32, device=DEVICE),
-            torch.tensor(env.timestep, dtype=torch.float32, device=DEVICE),
+            torch.tensor(env.robot.vel[0], dtype=torch.float64, device=DEVICE),
+            torch.tensor(env.robot.vel[1], dtype=torch.float64, device=DEVICE),
+            torch.tensor(env.robot.vel_rot, dtype=torch.float64, device=DEVICE),
+            torch.tensor(env.timestep, dtype=torch.float64, device=DEVICE),
         ]).squeeze()
 
         robot_vel_estimator.call_predict(u_robot_vel)
@@ -194,9 +194,9 @@ if __name__ == "__main__":
 
         # ------------------------------------------------------------------------------------------------------------------------------
         
-        target_offset_angle = torch.tensor([obs[1]], dtype=torch.float32).to(DEVICE)
-        del_target_offset_angle = torch.tensor([obs[2]], dtype=torch.float32).to(DEVICE)
-        robot_vel_env = torch.tensor([obs[4]*env.robot.max_vel, obs[5]*env.robot.max_vel, obs[3]*env.robot.max_vel_rot], dtype=torch.float32).to(DEVICE)
+        target_offset_angle = torch.tensor([obs[1]], dtype=torch.float64).to(DEVICE)
+        del_target_offset_angle = torch.tensor([obs[2]], dtype=torch.float64).to(DEVICE)
+        robot_vel_env = torch.tensor([obs[4]*env.robot.max_vel, obs[5]*env.robot.max_vel, obs[3]*env.robot.max_vel_rot], dtype=torch.float64).to(DEVICE)
         robot_vel_estimator.load_state_dict(robot_vel_estimator.buffer_dict)
         robot_vel = robot_vel_estimator.state_mean
 

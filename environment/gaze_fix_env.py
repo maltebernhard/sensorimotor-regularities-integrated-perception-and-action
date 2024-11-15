@@ -162,6 +162,13 @@ class GazeFixEnv(BaseEnv):
     def get_observation(self):
         return {key: obs.calculate_value() for key, obs in self.observations.items()}
         
+    def get_observation_unnormalized(self):
+        obs = self.get_observation()
+        obs["vel_rot"] = obs["vel_rot"] * self.robot.max_vel_rot
+        obs["vel_frontal"] = obs["vel_frontal"] * self.robot.max_vel
+        obs["vel_lateral"] = obs["vel_lateral"] * self.robot.max_vel
+        return obs
+
     def get_rewards(self):
         time_left = 1.0 - self.time / self.episode_duration
         # reward for being close to target distance

@@ -46,6 +46,6 @@ class AvoidObstacleGoal(Goal):
 
     def loss_function(self, current_state_mean: torch.Tensor, current_state_cov, buffer_dict):
         estimated_dist_to_obstacle = torch.maximum(current_state_mean[:2].norm() - buffer_dict[self._estimator.id.split('Pos')[0]+'Rad']['state_mean'], 0.0001*torch.ones(1, device=current_state_mean.device))
-        loss_mean = (100 / estimated_dist_to_obstacle).sum()
+        loss_mean = (1000 / estimated_dist_to_obstacle).sum()
         loss_cov = 0.1 * torch.trace(current_state_cov[:2,:2]).sum()
         return loss_mean + loss_cov

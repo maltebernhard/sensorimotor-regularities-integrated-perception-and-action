@@ -6,7 +6,7 @@ from torch.func import jacrev
 
 # ===================================================================================================
 
-class ImplicitMeasurementModel(ABC, Module):
+class ImplicitMeasurementModel(Module):
     """
     Abstract interface to define a measurement model using implicit function and
     optionally its Jacobian. This will be used by MIMEKF.
@@ -14,12 +14,12 @@ class ImplicitMeasurementModel(ABC, Module):
     Notation as in Thrun et al., Probabilistic Robotics
     """
     def __init__(self,
-                 state_dim: int, meas_config: dict,
+                 meas_config: dict,
                  device='cpu',
                  outlier_rejection_enabled=False,
                  outlier_threshold=1.0,
                  regularize_kalman_gain=False,
-                 dtype=torch.float32) -> None:
+                 dtype=torch.float64) -> None:
         """
         Args: 
             state_dim: Dimension of the state this measurement model will be attached to
@@ -28,8 +28,7 @@ class ImplicitMeasurementModel(ABC, Module):
         """
         super().__init__()
 
-        self.state_dim = state_dim # For any asserts (in future)
-        
+        self.device = device
         self.meas_config = meas_config
         self.dtype = dtype
 
@@ -96,8 +95,9 @@ class ImplicitMeasurementModel(ABC, Module):
     def implicit_measurement_model_eval_and_jac(self, x, meas_dict):
         """Override to implement own jacobian"""
         # NOTE this check works correctly in Python 3+ only
-        assert meas_dict.keys() == self.meas_config.keys(), (
-            'All measurements must be provided as mentioned in meas_config')
+        # TODO: This dosn't work with current ActiveInterconnection implementation
+        # assert meas_dict.keys() == self.meas_config.keys(), (
+        #     'All measurements must be provided as mentioned in meas_config')
         jacobians, implicit_measurement_model_eval = jacrev(
             self._implicit_measurement_model_with_aux,
             argnums=(0, 1), # x and meas_dict (all measurements within the dict!)
@@ -132,8 +132,8 @@ class ImplicitMeasurementModel(ABC, Module):
 # ========================= Standard Implicit Measurement Model: Innovation Space = State Space ===========================
 
 class StandardImplicitMeasurementModel(ImplicitMeasurementModel):
-    def __init__(self, state_dim: int, meas_config: dict, device, dtype=torch.float32) -> None:
-        super().__init__(state_dim, meas_config, device, dtype=dtype)
+    def __init__(self, meas_config: dict, device, dtype=torch.float64) -> None:
+        super().__init__(meas_config, device, dtype=dtype)
     
     def implicit_measurement_model(self, x, meas_dict):
         return torch.stack([torch.norm(x[i] - meas_dict[key]) for i, key in enumerate(self.meas_config.keys())]).squeeze()
@@ -148,13 +148,41 @@ class Robot_Vel_MM(ImplicitMeasurementModel):
     measurement:    robot velocity
     """
     def __init__(self, device) -> None:
-        super().__init__(3, {"robot_vel" : 3}, device)
+        super().__init__({"robot_vel" : 3}, device)
     
     def implicit_measurement_model(self, x, meas_dict):
         robot_vel = meas_dict["robot_vel"]
         return torch.stack([robot_vel[0] - x[0], robot_vel[1] - x[1], robot_vel[2] - x[2]]).squeeze()
 
-# measurement model between target position state and angular offset measurement
+# measurement model between polar position state and angular offset measurement
+class Polar_Pos_Vel_MM(ImplicitMeasurementModel):
+    """
+    Measurement Model:
+    state:          estimated position
+                    x[0] = theta
+                    x[1] = r
+                    x[2] = del_theta
+                    x[3] = del_r
+    measurement:    angular offset
+                    robot_vel
+    """
+    def __init__(self, device) -> None:
+        super().__init__({'offset_angle': 1, 'del_offset_angle': 1, 'robot_vel': 3}, device)
+
+    def implicit_measurement_model(self, x, meas_dict):
+        robot_target_frame_rotation_matrix = torch.stack([
+            torch.stack([torch.cos(-x[0]), -torch.sin(-x[0])]),
+            torch.stack([torch.sin(-x[0]), torch.cos(-x[0])]),
+        ]).squeeze()
+        robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, meas_dict['robot_vel'][:2])
+        return torch.stack([
+            meas_dict['offset_angle'] - x[0],
+            #torch.tensor([x[2] + meas_dict['robot_vel'][2] - torch.atan2(robot_target_frame_vel[1], x[1])], device=x.device),
+            meas_dict['del_offset_angle'] - x[2],
+            torch.tensor([x[3] - robot_target_frame_vel[0]], device=x.device),
+        ]).squeeze()
+
+# measurement model between position state and angular offset measurement
 class Pos_MM(ImplicitMeasurementModel):
     """
     Measurement Model:
@@ -162,7 +190,7 @@ class Pos_MM(ImplicitMeasurementModel):
     measurement:    angular offset
     """
     def __init__(self, device) -> None:
-        super().__init__(2, {'offset_angle': 1}, device)
+        super().__init__({'offset_angle': 1}, device)
 
     def implicit_measurement_model(self, x, meas_dict):
         # avoids NaN from atan2(0,0)
@@ -181,7 +209,7 @@ class Pos_Vel_MM(ImplicitMeasurementModel):
     measurement:    angular offset
     """
     def __init__(self, device) -> None:
-        super().__init__(5, {'offset_angle': 1, 'robot_vel': 3}, device)
+        super().__init__({'offset_angle': 1, 'robot_vel': 3}, device)
 
     def implicit_measurement_model(self, x, meas_dict):
         # avoids NaN from atan2(0,0)
@@ -202,7 +230,7 @@ class Radius_MM(ImplicitMeasurementModel):
     measurement:    object distance and angle in visual field
     """
     def __init__(self, device) -> None:
-        super().__init__(1, {'pos': 2, 'visual_angle': 1}, device)
+        super().__init__({'pos': 2, 'visual_angle': 1}, device)
 
     def implicit_measurement_model(self, x, meas_dict):
         # TODO: bad fix: minimum to ensure asin doesn't output NaN
@@ -216,7 +244,7 @@ class Target_Dist_MM(ImplicitMeasurementModel):
     measurement:    angular offset
     """
     def __init__(self, device) -> None:
-        super().__init__(4, {'robot_vel': 3, 'target_offset_angle': 1, 'del_target_offset_angle': 1}, device)
+        super().__init__({'robot_vel': 3, 'target_offset_angle': 1, 'del_target_offset_angle': 1}, device)
 
     def implicit_measurement_model(self, x, meas_dict):
         meas_theta = - meas_dict['target_offset_angle']
