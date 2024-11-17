@@ -84,7 +84,11 @@ class Vel_AI(ActiveInterconnection):
         super().__init__(estimators, device)
 
     def implicit_interconnection_model(self, meas_dict):
-        return torch.stack([meas_dict['vel_frontal'] - meas_dict['RobotVel'][0], meas_dict['vel_lateral'] - meas_dict['RobotVel'][1], meas_dict['vel_rot'] - meas_dict['RobotVel'][2]]).squeeze()
+        return torch.stack([
+            meas_dict['vel_frontal'] - meas_dict['RobotVel'][0],
+            meas_dict['vel_lateral'] - meas_dict['RobotVel'][1],
+            meas_dict['vel_rot'] - meas_dict['RobotVel'][2]
+        ]).squeeze()
 
 class Radius_Pos_VisAngle_AI(ActiveInterconnection):
     """
@@ -99,3 +103,35 @@ class Radius_Pos_VisAngle_AI(ActiveInterconnection):
 
     def implicit_interconnection_model(self, meas_dict):
         return torch.asin(torch.minimum(torch.ones_like(meas_dict[f'Obstacle{self.obstacle_id}Rad'][0]), meas_dict[f'Obstacle{self.obstacle_id}Rad'][0] / meas_dict[f'Obstacle{self.obstacle_id}Pos'][:2].norm())) - meas_dict[f'obstacle{self.obstacle_id}_visual_angle'] / 2
+    
+class Polar_Angle_AI(ActiveInterconnection):
+    """
+    Measurement Model:
+    polar pos state:    object position and vel in polar robot frame
+    angle:              target polar angle
+    """
+    def __init__(self, estimators: List[RecursiveEstimator], object_name: str, device) -> None:
+        self.object_name = object_name
+        super().__init__(estimators, device)
+
+    def implicit_interconnection_model(self, meas_dict):
+        return torch.stack([
+            meas_dict[f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'Polar{self.object_name}Pos'][0],
+            meas_dict[f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'Polar{self.object_name}Pos'][2],
+        ]).squeeze()
+    
+class Polar_Distance_AI(ActiveInterconnection):
+    """
+    Measurement Model:
+    polar pos state:    object position and vel in polar robot frame
+    distance:           target polar distance
+    """
+    def __init__(self, estimators: List[RecursiveEstimator], object_name: str, device) -> None:
+        self.object_name = object_name
+        super().__init__(estimators, device)
+
+    def implicit_interconnection_model(self, meas_dict):
+        return torch.stack([
+            meas_dict[f'{self.object_name}Pos'][:2].norm() - meas_dict[f'Polar{self.object_name}Pos'][1],
+            meas_dict[f'{self.object_name}Pos'][2:4].norm() - meas_dict[f'Polar{self.object_name}Pos'][3]
+        ]).squeeze()

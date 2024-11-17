@@ -313,13 +313,6 @@ class Polar_Pos_Estimator_External_Vel(RecursiveEstimator):
         ret_mean = torch.empty_like(x_mean)
         robot_vel = u[:2]
 
-        # timestep = u[3]
-        # rotation_matrix = torch.stack([
-        #     torch.stack([torch.cos(-u[2]*timestep), -torch.sin(-u[2]*timestep)]),
-        #     torch.stack([torch.sin(-u[2]*timestep), torch.cos(-u[2]*timestep)]),
-        # ]).squeeze()
-        # robot_vel = torch.matmul(rotation_matrix, robot_vel)
-
         robot_target_frame_rotation_matrix = torch.stack([
             torch.stack([torch.cos(-x_mean[0]), -torch.sin(-x_mean[0])]),
             torch.stack([torch.sin(-x_mean[0]), torch.cos(-x_mean[0])]),
@@ -336,14 +329,16 @@ class Polar_Pos_Estimator_Internal_Vel(RecursiveEstimator):
     Estimator for Target state x:
     x[0]: target offset angle
     x[1]: target distance
+    x[2]: del target offset angle
+    x[3]: del target distance
     """
     def __init__(self, device, id: str):
         super().__init__(id, 4, device)
 
     def forward_model(self, x_mean: torch.Tensor, u: torch.Tensor):
+        timestep = u[0]
         ret_mean = torch.empty_like(x_mean)
-        ret_mean[0] = x_mean[0] + x_mean[2] * u[0]
-        ret_mean[1] = x_mean[1] + x_mean[3] * u[0]
+        ret_mean[:2] = x_mean[:2] + x_mean[2:] * timestep
         ret_mean[2:] = x_mean[2:]
         return ret_mean
 
@@ -352,6 +347,9 @@ class Pos_Estimator_Internal_Vel(RecursiveEstimator):
     Estimator for Target state x:
     x[0]: target frontal offset
     x[1]: target lateral offset
+    x[2]: del target frontal offset
+    x[3]: del target lateral offset
+    x[4]: del robot target target frame rotation
     """
     def __init__(self, device, id: str):
         super().__init__(id, 5, device)

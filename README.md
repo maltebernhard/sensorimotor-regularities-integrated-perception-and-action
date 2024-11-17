@@ -5,10 +5,6 @@
 - Covariance
     - Target Pos Estimate is in Robot Frame. Covariance Rotates with Robot because it is not transformed in forward model of estimator. --> How to approach this? If predict function is called multiple times, won't a direct reassignment of covariance lead to problems?
 
-- Active Interconnection:
-    - Specify class
-        - one measurement model function or dependent on which state is selected?
-
 - Estimators:
     - timestep
 

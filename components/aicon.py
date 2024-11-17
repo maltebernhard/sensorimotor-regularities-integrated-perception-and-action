@@ -6,7 +6,7 @@ from typing import Dict, List
 
 import yaml
 #from components.active_interconnection import ActiveInterconnection
-from components.active_interconnection import ActiveInterconnection, Pos_Angle_AI, Pos_Angle_Vel_AI, Radius_Pos_VisAngle_AI, Vel_AI
+from components.active_interconnection import ActiveInterconnection, Polar_Angle_AI, Polar_Distance_AI, Pos_Angle_AI, Pos_Angle_Vel_AI, Radius_Pos_VisAngle_AI, Vel_AI
 from components.estimator import Obstacle_Rad_Estimator, Polar_Pos_Estimator_Internal_Vel, Pos_Estimator_External_Vel, Pos_Estimator_Internal_Vel, RecursiveEstimator, Robot_Vel_Estimator, State
 from components.goal import AvoidObstacleGoal, GoToTargetGoal, Goal, StopGoal
 from components.measurement_model import ImplicitMeasurementModel, Polar_Pos_Vel_MM, Pos_Vel_MM, Pos_MM, Radius_MM, Robot_Vel_MM
@@ -213,7 +213,9 @@ class MinimalAICON(AICON):
             if num_obstacles > 1:
                 AIs["Obstacle2Pos"] = Pos_Angle_AI([REs["Obstacle2Pos"], self.obs["obstacle2_offset_angle"]], "Obstacle2", self.device)
                 AIs["Obstacle2Rad"] = Radius_Pos_VisAngle_AI([REs["Obstacle2Pos"], REs["Obstacle2Rad"], self.obs["obstacle2_visual_angle"]], 2, self.device)
-        AIs["PolarTargetPos"] = Polar_Pos_Vel_MM(self.device)
+        #AIs["PolarTargetPos"] = Polar_Pos_Vel_MM(self.device)
+        AIs["PolarDistance"] = Polar_Distance_AI([REs["PolarTargetPos"], self.REs["TargetPos"]], "Target", self.device)
+        AIs["PolarAngle"] = Polar_Angle_AI([REs["PolarTargetPos"], self.obs["target_offset_angle"], self.obs["del_target_offset_angle"]], "Target", self.device)
         self.set_active_interconnections(AIs)
 
         goals = {
@@ -301,6 +303,8 @@ class MinimalAICON(AICON):
         if self.num_obstacles > 1:
             self.REs["Obstacle2Pos"].call_update_with_specific_meas(self.AIs["Obstacle2Pos"], buffer_dict)
             self.REs["Obstacle2Rad"].call_update_with_specific_meas(self.AIs["Obstacle2Rad"], buffer_dict)
+        self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
+        self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarAngle"], buffer_dict)
         return buffer_dict
 
     def compute_action(self, gradients):
