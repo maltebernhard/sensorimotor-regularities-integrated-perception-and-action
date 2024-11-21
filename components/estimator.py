@@ -65,16 +65,16 @@ class RecursiveEstimator(ABC, State):
     def forward_model(self, state: torch.Tensor, control_input: Dict[str, torch.Tensor]):
         raise NotImplementedError
 
-    def forward_model_jac(self, state, control_input):
+    def forward_model_jac(self, state_mean, state_cov, control_input):
         """Autograd jacobian w.r.t state.
         Override to implement own jacobian"""
-        return jacrev(self.forward_model, 0)(state, control_input)
+        return jacrev(self.forward_model, 0)(state_mean, state_cov, control_input)[0]
 
     def predict(self, u, custom_motion_noise=None):
         u = torch.atleast_1d(u) # Force scalar to be 1D
 
-        self.state_mean = self.forward_model(self.state_mean, u)
-        G_t = self.forward_model_jac(self.state_mean, u)
+        self.state_mean, self.state_cov = self.forward_model(self.state_mean, self.state_cov, u)
+        G_t = self.forward_model_jac(self.state_mean, self.state_cov, u)
 
         forward_noise = self.forward_noise if custom_motion_noise is None else custom_motion_noise
         self.state_cov = torch.matmul(G_t, torch.matmul(self.state_cov, G_t.t())) + forward_noise
@@ -175,7 +175,7 @@ class RecursiveEstimator(ABC, State):
             K_part_2_inv = torch.inverse(K_part_2)
         except RuntimeError as e:
             # TODO convert this to log() instead of print()            
-            print(f"WARN: Kalman update was not possible as {e}. Filter should (normally) recover soon.")
+            print(f"WARN: {self.id} - Kalman update was not possible as {e}. Filter should (normally) recover soon.")
             # HACK resetting covariances. Maybe a more systematic approach is warranted
             self.set_state(torch.zeros_like(self.state[0]))
             return
@@ -278,7 +278,7 @@ class Robot_Vel_Estimator(RecursiveEstimator):
     def __init__(self, device):
         super().__init__("RobotVel", 3, device)
 
-    def forward_model(self, x_mean: torch.Tensor, u: torch.Tensor):
+    def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """
         Args:
             x_mean: Mean of the state
@@ -298,7 +298,7 @@ class Robot_Vel_Estimator(RecursiveEstimator):
         vel_trans_new = torch.matmul(rotation_matrix, x_mean[:2] + u[:2] * u[3])
         ret_mean[:2] = vel_trans_new
         ret_mean[2] = vel_rot_new
-        return ret_mean
+        return ret_mean, cov
     
 class Polar_Pos_Estimator_External_Vel(RecursiveEstimator):
     """
@@ -309,20 +309,20 @@ class Polar_Pos_Estimator_External_Vel(RecursiveEstimator):
     def __init__(self, device, id: str):
         super().__init__(id, 2, device)
 
-    def forward_model(self, x_mean: torch.Tensor, u: torch.Tensor):
+    def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         ret_mean = torch.empty_like(x_mean)
         robot_vel = u[:2]
 
         robot_target_frame_rotation_matrix = torch.stack([
-            torch.stack([torch.cos(-x_mean[0]), -torch.sin(-x_mean[0])]),
-            torch.stack([torch.sin(-x_mean[0]), torch.cos(-x_mean[0])]),
+            torch.stack([torch.cos(-x_mean[1]), -torch.sin(-x_mean[1])]),
+            torch.stack([torch.sin(-x_mean[1]), torch.cos(-x_mean[1])]),
         ]).squeeze()
         robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, robot_vel)
 
-        ret_mean[0] = x_mean[0] + (u[0]*torch.sin(x_mean[0]) - u[1]*torch.cos(x_mean[0]) - u[2]) * u[3]
-        ret_mean[1] = (x_mean[1].pow(2) + (robot_target_frame_vel[1]*u[3]).pow(2)).sqrt() - robot_target_frame_vel[0] * u[3]
+        ret_mean[0] = (x_mean[0].pow(2) + (robot_target_frame_vel[1]*u[3]).pow(2)).sqrt() - robot_target_frame_vel[0] * u[3]
+        ret_mean[1] = x_mean[1] + (u[0]*torch.sin(x_mean[1]) - u[1]*torch.cos(x_mean[1]) - u[2]) * u[3]
 
-        return ret_mean
+        return ret_mean, cov
     
 class Polar_Pos_Estimator_Internal_Vel(RecursiveEstimator):
     """
@@ -335,12 +335,12 @@ class Polar_Pos_Estimator_Internal_Vel(RecursiveEstimator):
     def __init__(self, device, id: str):
         super().__init__(id, 4, device)
 
-    def forward_model(self, x_mean: torch.Tensor, u: torch.Tensor):
+    def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
         ret_mean = torch.empty_like(x_mean)
         ret_mean[:2] = x_mean[:2] + x_mean[2:] * timestep
         ret_mean[2:] = x_mean[2:]
-        return ret_mean
+        return ret_mean, cov
 
 class Pos_Estimator_Internal_Vel(RecursiveEstimator):
     """
@@ -354,7 +354,7 @@ class Pos_Estimator_Internal_Vel(RecursiveEstimator):
     def __init__(self, device, id: str):
         super().__init__(id, 5, device)
 
-    def forward_model(self, x_mean, u):
+    def forward_model(self, x_mean, cov: torch.Tensor, u):
         ret_mean = torch.empty_like(x_mean)
         timestep = u[0]
         rotation_matrix = torch.stack([
@@ -364,7 +364,17 @@ class Pos_Estimator_Internal_Vel(RecursiveEstimator):
         ret_mean[:2] = torch.matmul(rotation_matrix, x_mean[:2] + timestep * x_mean[2:4])
         ret_mean[2:4] = torch.matmul(rotation_matrix, x_mean[2:4])
         ret_mean[4] = x_mean[4]
-        return ret_mean
+
+        ret_cov = torch.empty_like(cov)
+        ret_cov[:2, :2] = torch.matmul(rotation_matrix, torch.matmul(cov[:2, :2], rotation_matrix.t()))
+        ret_cov[2:4, 2:4] = torch.matmul(rotation_matrix, torch.matmul(cov[2:4, 2:4], rotation_matrix.t()))
+
+        ret_cov[:2, 2:4] = torch.matmul(rotation_matrix, cov[:2, 2:4])
+        ret_cov[2:4, :2] = torch.matmul(cov[2:4, :2], rotation_matrix.t())
+        ret_cov[:4, 4] = cov[:4, 4]
+        ret_cov[4, :4] = cov[4, :4]
+        ret_cov[4, 4] = cov[4, 4]
+        return ret_mean, ret_cov
 
 # Same as Target Pos estimator - unnecessary
 class Pos_Estimator_External_Vel(RecursiveEstimator):
@@ -376,7 +386,7 @@ class Pos_Estimator_External_Vel(RecursiveEstimator):
     def __init__(self, device, id: str):
         super().__init__(id, 2, device)
 
-    def forward_model(self, x_mean, u):
+    def forward_model(self, x_mean, cov: torch.Tensor, u):
         ret_mean = torch.empty_like(x_mean)
         robot_vel_rot = u[2]
         timestep = u[3]
@@ -385,7 +395,10 @@ class Pos_Estimator_External_Vel(RecursiveEstimator):
             torch.stack([torch.sin(-robot_vel_rot*timestep), torch.cos(-robot_vel_rot*timestep)]),
         ]).squeeze()
         ret_mean = torch.matmul(rotation_matrix, x_mean - timestep * u[:2])
-        return ret_mean
+
+        ret_cov = torch.empty_like(cov)
+        ret_cov[:2, :2] = torch.matmul(rotation_matrix, torch.matmul(cov[:2, :2], rotation_matrix.t()))
+        return ret_mean, ret_cov
     
 class Target_Pos_Estimator_No_Forward(RecursiveEstimator):
     """
@@ -396,8 +409,8 @@ class Target_Pos_Estimator_No_Forward(RecursiveEstimator):
     def __init__(self, device):
         super().__init__("TargetPosNoForward", 2, device)
 
-    def forward_model(self, x_mean, u):
-        return x_mean
+    def forward_model(self, x_mean, cov: torch.Tensor, u):
+        return x_mean, cov
     
 class Obstacle_Rad_Estimator(RecursiveEstimator):
     """
@@ -408,8 +421,8 @@ class Obstacle_Rad_Estimator(RecursiveEstimator):
         super().__init__(id, 1, device)
         self.set_static_motion_noise(torch.eye(1, device=device)*1e-1)
 
-    def forward_model(self, x_mean, u):
-        return x_mean
+    def forward_model(self, x_mean, cov: torch.Tensor, u):
+        return x_mean, cov
 
 class Target_Distance_Estimator(RecursiveEstimator):
     """
@@ -422,7 +435,7 @@ class Target_Distance_Estimator(RecursiveEstimator):
     def __init__(self, device):
         super().__init__("TargetDist", 2, device)
 
-    def forward_model(self, x_mean, u):
+    def forward_model(self, x_mean, cov: torch.Tensor, u):
         ret_mean = torch.empty_like(x_mean)
 
         robot_vel_rot = u[2]
@@ -436,7 +449,7 @@ class Target_Distance_Estimator(RecursiveEstimator):
         target_frame_vel = torch.matmul(rotation_matrix, u[:2])
         ret_mean[0] = x_mean[0] - timestep * robot_vel_rot
         ret_mean[1] = x_mean[1] - timestep * target_frame_vel[0]
-        return ret_mean
+        return ret_mean, cov
 
 # =========================================================================================
 

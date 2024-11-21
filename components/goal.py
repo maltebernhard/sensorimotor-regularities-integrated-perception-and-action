@@ -26,19 +26,49 @@ class Goal(ABC, Module):
 
 # ==================================================================================
 
+class PolarGoToTargetGoal(Goal):
+    def __init__(self, estimator: RecursiveEstimator):
+        super().__init__(estimator, torch.zeros_like(estimator.state_mean))
+
+    def loss_function(self, current_state_mean, current_state_cov, buffer_dict):
+        loss_mean = torch.concat([
+            1.0 * torch.atleast_1d(current_state_mean[0] - self.desired_state[0]),
+            0.0 * torch.atleast_1d(current_state_mean[1] - self.desired_state[1]),
+            0.0 * torch.atleast_1d(current_state_mean[3] - self.desired_state[3])
+        ]).pow(2).sum()
+        loss_cov = 0.0 * (current_state_cov[1,1] + 0.0 * current_state_cov[3,3])
+        print("Polar Loss: ", loss_mean + loss_cov)
+        return loss_mean + loss_cov
+
 class GoToTargetGoal(Goal):
     def __init__(self, estimator: RecursiveEstimator):
         super().__init__(estimator, torch.zeros_like(estimator.state_mean))
 
     def loss_function(self, current_state_mean, current_state_cov, buffer_dict):
-        return ((current_state_mean[:2] - self.desired_state[:2]).pow(2) + 0.5 * torch.trace(current_state_cov[:2,:2])).sum()
+        loss_mean = 3.0 * (current_state_mean[:2] - self.desired_state[:2]).pow(2).sum()
+        loss_cov = 0.0 * torch.trace(current_state_cov[:2,:2])
+        return loss_mean + loss_cov
+    
+class GazeFixationGoal(Goal):
+    def __init__(self, estimator: RecursiveEstimator):
+        super().__init__(estimator, torch.zeros_like(estimator.state_mean))
+
+    def loss_function(self, current_state_mean, current_state_cov, buffer_dict):
+        loss_mean = torch.concat([
+            torch.atleast_1d(current_state_mean[1] - self.desired_state[1]),
+            torch.atleast_1d(current_state_mean[3] - self.desired_state[3])
+        ]).pow(2).sum()
+        loss_cov = 0.5 * (current_state_cov[1,1] + 0.5 * current_state_cov[3,3])
+        return loss_mean + loss_cov
     
 class StopGoal(Goal):
     def __init__(self, estimator: RecursiveEstimator):
         super().__init__(estimator, torch.zeros_like(estimator.state_mean))
 
     def loss_function(self, current_state_mean, current_state_cov, buffer_dict):
-        return ((current_state_mean[:3] - self.desired_state[:3]).pow(2) + 0.1 * torch.trace(current_state_cov[:3,:3])).sum()
+        loss_mean = (current_state_mean[:3] - self.desired_state[:3]).pow(2).sum()
+        loss_cov = 0.1 * torch.trace(current_state_cov[:3,:3])
+        return loss_mean + loss_cov
     
 class AvoidObstacleGoal(Goal):
     def __init__(self, estimator: RecursiveEstimator):
@@ -46,6 +76,6 @@ class AvoidObstacleGoal(Goal):
 
     def loss_function(self, current_state_mean: torch.Tensor, current_state_cov, buffer_dict):
         estimated_dist_to_obstacle = torch.maximum(current_state_mean[:2].norm() - buffer_dict[self._estimator.id.split('Pos')[0]+'Rad']['state_mean'], 0.0001*torch.ones(1, device=current_state_mean.device))
-        loss_mean = (1000 / estimated_dist_to_obstacle).sum()
-        loss_cov = 0.1 * torch.trace(current_state_cov[:2,:2]).sum()
+        loss_mean = (800 / estimated_dist_to_obstacle).sum()
+        loss_cov = 0.2 * torch.trace(current_state_cov[:2,:2]).sum()
         return loss_mean + loss_cov

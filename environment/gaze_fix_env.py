@@ -114,7 +114,7 @@ class GazeFixEnv(BaseEnv):
         self.set_robot_velocity()
         self.move_robot()
         self.move_target()
-        self.last_observation, rewards, done, trun, info = self.get_observation(), self.get_rewards(), self.get_terminated(), False, self.get_info()
+        self.last_observation, rewards, done, trun, info = self._get_observation(), self.get_rewards(), self.get_terminated(), False, self.get_info()
 
         # add observation to history
         self.history.insert(0, self.last_observation.copy())
@@ -150,7 +150,7 @@ class GazeFixEnv(BaseEnv):
         self.generate_target()
         self.generate_obstacles()
 
-        self.last_observation, info = self.get_observation(), self.get_info()
+        self.last_observation, info = self._get_observation(), self.get_info()
         self.history.append(self.last_observation.copy())
 
         return np.array(list(self.last_observation.values())), info
@@ -159,11 +159,14 @@ class GazeFixEnv(BaseEnv):
         pygame.quit()
         self.screen = None
         
-    def get_observation(self):
+    def _get_observation(self):
         return {key: obs.calculate_value() for key, obs in self.observations.items()}
         
-    def get_observation_unnormalized(self):
-        obs = self.get_observation()
+    def get_observation(self):
+        try:
+            obs = self.history[0].copy()
+        except:
+            obs = self._get_observation()
         obs["vel_rot"] = obs["vel_rot"] * self.robot.max_vel_rot
         obs["vel_frontal"] = obs["vel_frontal"] * self.robot.max_vel
         obs["vel_lateral"] = obs["vel_lateral"] * self.robot.max_vel
@@ -216,13 +219,14 @@ class GazeFixEnv(BaseEnv):
 
     def generate_observation_space(self):
         self.observations: Dict[str, Observation] = {
-            "target_distance" :         Observation(0.0, self.config["target_distance"], lambda: self.target.distance),
-            "target_offset_angle" :     Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.target.pos)),
-            "del_target_offset_angle" : Observation(-2*np.pi/self.timestep/self.robot.max_vel_rot, 2*np.pi/self.timestep/self.robot.max_vel_rot, lambda: self.compute_del_offset_angle(self.compute_offset_angle(self.target.pos))),
-            "vel_rot" :                 Observation(-1.0, 1.0, lambda: self.robot.vel_rot/self.robot.max_vel_rot),
-            "vel_frontal" :             Observation(-1.0, 1.0, lambda: self.robot.vel[0]/self.robot.max_vel),
-            "vel_lateral" :             Observation(-1.0, 1.0, lambda: self.robot.vel[1]/self.robot.max_vel),
-            "robot_target_distance" :   Observation(0.0, np.inf, lambda: self.robot_target_distance())
+            "target_distance" :           Observation(0.0, self.config["target_distance"], lambda: self.target.distance),
+            "target_offset_angle" :       Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.target.pos)),
+            "del_target_offset_angle" :   Observation(-2*np.pi/self.timestep/self.robot.max_vel_rot, 2*np.pi/self.timestep/self.robot.max_vel_rot, lambda: self.compute_del_offset_angle(self.compute_offset_angle(self.target.pos))),
+            "vel_rot" :                   Observation(-1.0, 1.0, lambda: self.robot.vel_rot/self.robot.max_vel_rot),
+            "vel_frontal" :               Observation(-1.0, 1.0, lambda: self.robot.vel[0]/self.robot.max_vel),
+            "vel_lateral" :               Observation(-1.0, 1.0, lambda: self.robot.vel[1]/self.robot.max_vel),
+            "robot_target_distance" :     Observation(0.0, np.inf, lambda: self.robot_target_distance()),
+            "del_robot_target_distance" : Observation(-1.0, 1.0, lambda: self.compute_del_target_distance()),
         }
         for o in range(self.num_obstacles):
             self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o].pos))
@@ -265,7 +269,7 @@ class GazeFixEnv(BaseEnv):
         for i, x in enumerate(x_positions):
             for j, y in enumerate(y_positions):
                 self.set_robot_position(np.array([x,y]), np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]))
-                observation_field[i][j] = np.array(list(self.get_observation().values()))
+                observation_field[i][j] = np.array(list(self._get_observation().values()))
         return observation_field
 
     def set_robot_position(self, pos, orientation):
@@ -365,15 +369,20 @@ class GazeFixEnv(BaseEnv):
     
     def compute_del_offset_angle(self, angle):
         if len(self.history) > 0:
-            return (self.history[0]["target_offset_angle"]-angle)/self.timestep/self.robot.max_vel_rot
+            return (angle-self.history[0]["target_offset_angle"])/self.timestep
         return 0.0
     
+    def compute_del_target_distance(self):
+        if len(self.history) > 0:
+            return (self.robot_target_distance() - self.history[0][f"robot_target_distance"])/self.timestep
+        return 0.0
+
     def calculate_obstacle_distance(self, o: int):
         return np.linalg.norm(self.obstacles[o].pos-self.robot.pos)-self.obstacles[o].radius
 
     def compute_del_obstacle_distance(self, o: int):
         if len(self.history) > 0:
-            return (self.history[0][f"obstacle{o+1}_distance"] - self.calculate_obstacle_distance(o))/self.timestep/self.robot.max_vel
+            return (self.calculate_obstacle_distance(o) - self.history[0][f"obstacle{o+1}_distance"])/self.timestep
         return 0.0
 
     def robot_target_distance(self):
@@ -432,6 +441,9 @@ class GazeFixEnv(BaseEnv):
 
         # draw an arrow for the robot's action
         self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])), self.robot.size*2, RED)
+        if self.action_mode in [1,2]:
+            # draw an arrow for the robot's velocity
+            self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.robot.vel[1],self.robot.vel[0]), self.robot.size*10*(np.linalg.norm(self.robot.vel)/self.robot.max_vel), self.robot.size*2, BLUE)
 
         if robot_frame_means is not None and robot_frame_covs is not None:
             assert len(robot_frame_means) == len(robot_frame_covs), "Number of means and covariances must be equal"

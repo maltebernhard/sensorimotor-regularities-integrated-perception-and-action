@@ -6,9 +6,9 @@ from typing import Dict, List
 
 import yaml
 #from components.active_interconnection import ActiveInterconnection
-from components.active_interconnection import ActiveInterconnection, Polar_Angle_AI, Polar_Distance_AI, Pos_Angle_AI, Pos_Angle_Vel_AI, Radius_Pos_VisAngle_AI, Vel_AI
-from components.estimator import Obstacle_Rad_Estimator, Polar_Pos_Estimator_Internal_Vel, Pos_Estimator_External_Vel, Pos_Estimator_Internal_Vel, RecursiveEstimator, Robot_Vel_Estimator, State
-from components.goal import AvoidObstacleGoal, GoToTargetGoal, Goal, StopGoal
+from components.active_interconnection import ActiveInterconnection, Polar_Angle_AI, Polar_Angle_Vel_AI, Polar_Angle_Vel_NonCart_AI, Polar_Distance_AI, Polar_Distance_Vel_AI, Pos_Angle_AI, Pos_Angle_Vel_AI, Radius_Pos_VisAngle_AI, Vel_AI
+from components.estimator import Obstacle_Rad_Estimator, Polar_Pos_Estimator_External_Vel, Polar_Pos_Estimator_Internal_Vel, Pos_Estimator_External_Vel, Pos_Estimator_Internal_Vel, RecursiveEstimator, Robot_Vel_Estimator, State
+from components.goal import AvoidObstacleGoal, GazeFixationGoal, GoToTargetGoal, Goal, StopGoal
 from components.measurement_model import ImplicitMeasurementModel, Polar_Pos_Vel_MM, Pos_Vel_MM, Pos_MM, Radius_MM, Robot_Vel_MM
 from environment.gaze_fix_env import GazeFixEnv
 
@@ -44,7 +44,7 @@ class AICON(ABC):
         self.goals = goals
 
     def update_observations(self):
-        observations: dict = self.env.get_observation_unnormalized()
+        observations: dict = self.env.get_observation()
         for key, value in observations.items():
             # TODO: consider measurement noise (possibly on env level)
             self.obs[key].set_state(torch.tensor([value], device=self.device, dtype=self.dtype), torch.zeros((1,1), device=self.device, dtype=self.dtype))
@@ -56,7 +56,7 @@ class AICON(ABC):
             env_action[:2] = env_action[:2] / env_action[:2].norm()
         if env_action[2] > 1.0:
             env_action[2] = 1.0
-        #print(f"Action: {env_action}")
+        print(f"Action: {env_action}")
         self.env.step(np.array(env_action.cpu()))
         buffers = self.eval_step(env_action)
         for key, buffer_dict in buffers.items():
@@ -125,6 +125,47 @@ class AICON(ABC):
                 input("Press Enter to continue...")
         self.env.reset()
 
+    def print_vector(self, vector: torch.Tensor, name = None, trail = "", use_scientific = False):
+        if not use_scientific:
+            use_scientific = any(abs(x.item()) < 1e-3 or abs(x.item()) > 1e3 for x in vector)
+        if name is not None:
+            print(f"{name}: [", end="")
+        else:
+            print("[", end="")
+        for i, x in enumerate(vector):
+            if i > 0:
+                print(" ", end="")
+            if 0 <= x.item():
+                print(" ", end="")
+            if use_scientific:
+                print(f"{x.item():.3e}", end="")
+            else:
+                print(f"{x.item():.3f}", end="")
+            if i < vector.shape[0] - 1:
+                print(", ", end="")
+        else:
+            print("]" + trail)
+
+    def print_matrix(self, matrix: torch.Tensor, name = None):
+        use_scientific = any(abs(x.item()) < 1e-3 or abs(x.item()) > 1e3 for x in matrix.flatten())
+        for i in range(matrix.shape[0]):
+            if i == 0:
+                if name is not None:
+                    print(f"{name}: [", end="")
+                else:
+                    print("[", end="")
+            else:
+                if name is not None:
+                    print(" " * (len(name) + 3), end="")
+                else:
+                    print(" ", end="")
+            self.print_vector(matrix[i], trail="," if i < matrix.shape[0] - 1 else "]", use_scientific=use_scientific)
+
+    def print_state(self, id, print_cov: bool = False):
+        self.print_vector(self.REs[id].state_mean, id + " Mean" if print_cov else id)
+        if print_cov:
+            self.print_matrix(self.REs[id].state_cov, f"{id} Cov")
+
     @abstractmethod
     def reset(self) -> None:
         """
@@ -166,105 +207,90 @@ class MinimalAICON(AICON):
         self.internal_vel = internal_vel
         self.num_obstacles = num_obstacles
 
-        assert num_obstacles in [0, 1, 2], "Number of obstacles must be 0, 1 or 2"
-        config = {
-            0: 'config/env_config_zero_obst.yaml',
-            1: 'config/env_config_one_obst.yaml',
-            2: 'config/env_config_two_obst.yaml'
-        }
-        with open(config[num_obstacles]) as file:
+        config = 'config/env_config.yaml'
+        with open(config) as file:
             env_config = yaml.load(file, Loader=yaml.FullLoader)
+            env_config["num_obstacles"] = num_obstacles
         self.set_env(GazeFixEnv(env_config))
 
         REs: Dict[str, RecursiveEstimator] = {"RobotVel": Robot_Vel_Estimator(self.device)}
         if internal_vel:
             REs["TargetPos"] = Pos_Estimator_Internal_Vel(self.device, "TargetPos")
-            if num_obstacles > 0:
-                REs["Obstacle1Pos"] = Pos_Estimator_Internal_Vel(self.device, "Obstacle1Pos")
-                REs["Obstacle1Rad"] = Obstacle_Rad_Estimator(self.device, "Obstacle1Rad")
-            if num_obstacles > 1:
-                REs["Obstacle2Pos"] = Pos_Estimator_Internal_Vel(self.device, "Obstacle2Pos")
-                REs["Obstacle2Rad"] = Obstacle_Rad_Estimator(self.device, "Obstacle2Rad")
+            REs["PolarTargetPos"] = Polar_Pos_Estimator_Internal_Vel(self.device, "PolarTargetPos")
+            for i in range(1, num_obstacles + 1):
+                REs[f"Obstacle{i}Pos"] = Pos_Estimator_Internal_Vel(self.device, f"Obstacle{i}Pos")
+                REs[f"Obstacle{i}Rad"] = Obstacle_Rad_Estimator(self.device, f"Obstacle{i}Rad")
         else:
             REs["TargetPos"] = Pos_Estimator_External_Vel(self.device, "TargetPos")
-            if num_obstacles > 0:
-                REs["Obstacle1Pos"] = Pos_Estimator_External_Vel(self.device, "Obstacle1Pos")
-                REs["Obstacle1Rad"] = Obstacle_Rad_Estimator(self.device, "Obstacle1Rad")
-            if num_obstacles > 1:
-                REs["Obstacle2Pos"] = Pos_Estimator_External_Vel(self.device, "Obstacle2Pos")
-                REs["Obstacle2Rad"] = Obstacle_Rad_Estimator(self.device, "Obstacle2Rad")
-        REs["PolarTargetPos"] = Polar_Pos_Estimator_Internal_Vel(self.device, "PolarTargetPos")
+            REs["PolarTargetPos"] = Polar_Pos_Estimator_External_Vel(self.device, "PolarTargetPos")
+            for i in range(1, num_obstacles + 1):
+                REs[f"Obstacle{i}Pos"] = Pos_Estimator_External_Vel(self.device, f"Obstacle{i}Pos")
+                REs[f"Obstacle{i}Rad"] = Obstacle_Rad_Estimator(self.device, f"Obstacle{i}Rad")
         self.set_estimators(REs)
 
         AIs = {"RobotVel": Vel_AI([self.REs["RobotVel"], self.obs["vel_frontal"], self.obs["vel_lateral"], self.obs["vel_rot"]], self.device)}
         if internal_vel:
             AIs["TargetPos-Angle"] = Pos_Angle_Vel_AI([REs["TargetPos"], REs["RobotVel"], self.obs["target_offset_angle"]], "Target", self.device)
-            if num_obstacles > 0:
-                AIs["Obstacle1Pos"] = Pos_Angle_Vel_AI([REs["Obstacle1Pos"], REs["RobotVel"], self.obs["obstacle1_offset_angle"]], "Obstacle1", self.device)
-                AIs["Obstacle1Rad"] = Radius_Pos_VisAngle_AI([REs["Obstacle1Pos"], REs["Obstacle1Rad"], self.obs["obstacle1_visual_angle"]], 1, self.device)
-            if num_obstacles > 1:
-                AIs["Obstacle2Pos"] = Pos_Angle_Vel_AI([REs["Obstacle2Pos"], REs["RobotVel"], self.obs["obstacle2_offset_angle"]], "Obstacle2", self.device)
-                AIs["Obstacle2Rad"] = Radius_Pos_VisAngle_AI([REs["Obstacle2Pos"], REs["Obstacle2Rad"], self.obs["obstacle2_visual_angle"]], 2, self.device)
+            AIs["PolarDistance"] = Polar_Distance_Vel_AI([REs["PolarTargetPos"], self.REs["TargetPos"]], "Target", self.device)
+            AIs["PolarAngle"] = Polar_Angle_Vel_AI([REs["PolarTargetPos"], self.obs["target_offset_angle"], self.obs["del_target_offset_angle"]], "Target", self.device)
+            for i in range(1, num_obstacles + 1):
+                AIs[f"Obstacle{i}Pos-Angle"] = Pos_Angle_Vel_AI([REs[f"Obstacle{i}Pos"], REs["RobotVel"], self.obs[f"obstacle{i}_offset_angle"]], f"Obstacle{i}", self.device)
+                AIs[f"Obstacle{i}Rad"] = Radius_Pos_VisAngle_AI([REs[f"Obstacle{i}Pos"], REs[f"Obstacle{i}Rad"], self.obs[f"obstacle{i}_visual_angle"]], i, self.device)
         else:
-            AIs["TargetPos-Angle"] = Pos_Angle_AI([REs["TargetPos", self.obs["target_offset_angle"]]], "Target", self.device)
-            if num_obstacles > 0:
-                AIs["Obstacle1Pos"] = Pos_Angle_AI([REs["Obstacle1Pos"], self.obs["obstacle1_offset_angle"]], "Obstacle1", self.device)
-                AIs["Obstacle1Rad"] = Radius_Pos_VisAngle_AI([REs["Obstacle1Pos"], REs["Obstacle1Rad"], self.obs["obstacle1_visual_angle"]], 1, self.device)
-            if num_obstacles > 1:
-                AIs["Obstacle2Pos"] = Pos_Angle_AI([REs["Obstacle2Pos"], self.obs["obstacle2_offset_angle"]], "Obstacle2", self.device)
-                AIs["Obstacle2Rad"] = Radius_Pos_VisAngle_AI([REs["Obstacle2Pos"], REs["Obstacle2Rad"], self.obs["obstacle2_visual_angle"]], 2, self.device)
-        #AIs["PolarTargetPos"] = Polar_Pos_Vel_MM(self.device)
-        AIs["PolarDistance"] = Polar_Distance_AI([REs["PolarTargetPos"], self.REs["TargetPos"]], "Target", self.device)
-        AIs["PolarAngle"] = Polar_Angle_AI([REs["PolarTargetPos"], self.obs["target_offset_angle"], self.obs["del_target_offset_angle"]], "Target", self.device)
+            AIs["TargetPos-Angle"] = Pos_Angle_AI([REs["TargetPos"], self.obs["target_offset_angle"]], "Target", self.device)
+            AIs["PolarDistance"] = Polar_Distance_AI([REs["PolarTargetPos"], self.REs["TargetPos"]], "Target", self.device)
+            AIs["PolarAngle"] = Polar_Angle_AI([REs["PolarTargetPos"], self.obs["target_offset_angle"]], "Target", self.device)
+            for i in range(1, num_obstacles + 1):
+                AIs[f"Obstacle{i}Pos-Angle"] = Pos_Angle_AI([REs[f"Obstacle{i}Pos"], self.obs[f"obstacle{i}_offset_angle"]], f"Obstacle{i}", self.device)
+                AIs[f"Obstacle{i}Rad"] = Radius_Pos_VisAngle_AI([REs[f"Obstacle{i}Pos"], REs[f"Obstacle{i}Rad"], self.obs[f"obstacle{i}_visual_angle"]], i, self.device)
+        
+        if not internal_vel:
+            raise Exception("TESTING PURPOSE: use internal vel")
+        AIs["PolarNoncart"] = Polar_Angle_Vel_NonCart_AI([REs["PolarTargetPos"], self.REs["RobotVel"], self.obs["target_offset_angle"], self.obs["del_target_offset_angle"]], "Target", self.device)
+        AIs["PolarNoncart"].set_static_measurement_noise("target_offset_angle", torch.eye(1, device=self.device)*1e-4)
+        AIs["PolarNoncart"].set_static_measurement_noise("del_target_offset_angle", torch.eye(1, device=self.device)*1e-4)
+        AIs["PolarNoncart"].set_static_measurement_noise("RobotVel", torch.eye(3, device=self.device)*1e-4)
+
         self.set_active_interconnections(AIs)
 
         goals = {
-            "Go-To-Target"     : GoToTargetGoal(REs["TargetPos"]),
-            "Stop"             : StopGoal(REs["RobotVel"]),
+            "Go-To-Target" : GoToTargetGoal(REs["TargetPos"]),
+            "PolarGo-To-Target" : GoToTargetGoal(REs["PolarTargetPos"]),
+            "Stop"         : StopGoal(REs["RobotVel"]),
+            "GazeFixation" : GazeFixationGoal(REs["PolarTargetPos"]),
         }
-        if num_obstacles > 0:
-            goals["AvoidObstacle1"] = AvoidObstacleGoal(REs["Obstacle1Pos"])
-        if num_obstacles > 1:
-            goals["AvoidObstacle2"] = AvoidObstacleGoal(REs["Obstacle2Pos"])
+        for i in range(1, num_obstacles + 1):
+            goals[f"AvoidObstacle{i}"] = AvoidObstacleGoal(REs[f"Obstacle{i}Pos"])
         self.set_goals(goals)
 
     def reset(self):
-        self.REs["RobotVel"].set_state(torch.tensor([0.0, 0.0, 0.0], device=self.device), torch.eye(3, device=self.device)*0.01)
+        self.REs["RobotVel"].set_state(torch.tensor([0.1, 0.1, 0.1], device=self.device), torch.eye(3, device=self.device)*1e1)
         self.REs["RobotVel"].set_static_motion_noise(torch.eye(3, device=self.device)*1e-1)
 
         if self.internal_vel:
             self.REs["TargetPos"].set_state(torch.tensor([20.0, 0.0, 0.0, 0.0, 0.0], device=self.device), torch.eye(5, device=self.device)*1e3)
             self.REs["TargetPos"].set_static_motion_noise(torch.eye(5, device=self.device)*1e-1)
+            self.REs["PolarTargetPos"].set_state(torch.tensor([20.0, 0.0, 0.0, 0.0], device=self.device), torch.eye(4, device=self.device)*1e3)
+            self.REs["PolarTargetPos"].set_static_motion_noise(torch.eye(4, device=self.device)*1e-1)
         else:
             self.REs["TargetPos"].set_state(torch.tensor([20.0, 0.0], device=self.device), torch.eye(2, device=self.device)*1e3)
             self.REs["TargetPos"].set_static_motion_noise(torch.eye(2, device=self.device)*1e-1)
+            self.REs["PolarTargetPos"].set_state(torch.tensor([20.0, 0.0], device=self.device), torch.eye(2, device=self.device)*1e3)
+            self.REs["PolarTargetPos"].set_static_motion_noise(torch.eye(2, device=self.device)*1e-1)
 
-        if self.num_obstacles > 0:
+        for i in range(1, self.num_obstacles + 1):
             if self.internal_vel:
-                self.REs["Obstacle1Pos"].set_state(torch.tensor([10.0, 0.0, 0.0, 0.0, 0.0], device=self.device), torch.eye(5, device=self.device)*1e3)
-                self.REs["Obstacle1Pos"].set_static_motion_noise(torch.eye(5, device=self.device)*1e-1)
+                self.REs[f"Obstacle{i}Pos"].set_state(torch.tensor([10.0, 0.0, 0.0, 0.0, 0.0], device=self.device), torch.eye(5, device=self.device)*1e3)
+                self.REs[f"Obstacle{i}Pos"].set_static_motion_noise(torch.eye(5, device=self.device)*1e-1)
             else:
-                self.REs["Obstacle1Pos"].set_state(torch.tensor([10.0, 0.0], device=self.device), torch.eye(2, device=self.device)*1e3)
-                self.REs["Obstacle1Pos"].set_static_motion_noise(torch.eye(2, device=self.device)*1e-1)
-            self.REs["Obstacle1Rad"].set_state(torch.tensor([1.0], device=self.device), torch.eye(1, device=self.device)*1e3)
-            self.REs["Obstacle1Rad"].set_static_motion_noise(torch.eye(1, device=self.device)*1e-3)
-
-        if self.num_obstacles > 1:
-            if self.internal_vel:
-                self.REs["Obstacle2Pos"].set_state(torch.tensor([10.0, 0.0, 0.0, 0.0, 0.0], device=self.device), torch.eye(5, device=self.device)*1e3)
-                self.REs["Obstacle2Pos"].set_static_motion_noise(torch.eye(5, device=self.device)*1e-1)
-            else:
-                self.REs["Obstacle2Pos"].set_state(torch.tensor([10.0, 0.0], device=self.device), torch.eye(2, device=self.device)*1e3)
-                self.REs["Obstacle2Pos"].set_static_motion_noise(torch.eye(2, device=self.device)*1e-1)
-            self.REs["Obstacle2Rad"].set_state(torch.tensor([1.0], device=self.device), torch.eye(1, device=self.device)*1e3)
-            self.REs["Obstacle2Rad"].set_static_motion_noise(torch.eye(1, device=self.device)*1e-3)
-
-        self.REs["PolarTargetPos"].set_state(torch.tensor([0.0, 20.0, 0.0, 0.0], device=self.device), torch.eye(4, device=self.device)*1e3)
-        self.REs["PolarTargetPos"].set_static_motion_noise(torch.eye(4, device=self.device)*1e-1)
+                self.REs[f"Obstacle{i}Pos"].set_state(torch.tensor([10.0, 0.0], device=self.device), torch.eye(2, device=self.device)*1e3)
+                self.REs[f"Obstacle{i}Pos"].set_static_motion_noise(torch.eye(2, device=self.device)*1e-1)
+            self.REs[f"Obstacle{i}Rad"].set_state(torch.tensor([1.0], device=self.device), torch.eye(1, device=self.device)*1e3)
+            self.REs[f"Obstacle{i}Rad"].set_static_motion_noise(torch.eye(1, device=self.device)*1e-3)
 
     def render(self):
-        estimator_means = {key: np.array(self.REs[key].state_mean.cpu()) for key in ["TargetPos", "Obstacle1Pos", "Obstacle2Pos"] if key in self.REs.keys()}
-        estimator_covs = {key: np.array(self.REs[key].state_cov.cpu()) for key in ["TargetPos", "Obstacle1Pos", "Obstacle2Pos"] if key in self.REs.keys()}
+        estimator_means = {key: np.array(self.REs[key].state_mean.cpu()) for key in ["TargetPos"] + [f"Obstacle{i}Pos" for i in range(1, self.num_obstacles + 1)] if key in self.REs.keys()}
+        estimator_covs = {key: np.array(self.REs[key].state_cov.cpu()) for key in ["TargetPos"] + [f"Obstacle{i}Pos" for i in range(1, self.num_obstacles + 1)] if key in self.REs.keys()}
         return self.env.render(1.0, estimator_means, estimator_covs)
 
     def eval_step(self, action):
@@ -277,67 +303,64 @@ class MinimalAICON(AICON):
         u_robot_vel = torch.concat([action[:2]*self.env.robot.max_acc, torch.tensor([action[2]*self.env.robot.max_acc_rot], device=self.device), torch.tensor([self.env.timestep], device=self.device)])
         self.REs["RobotVel"].call_predict(u_robot_vel, buffer_dict)
 
-        u_pos = torch.stack([
-            buffer_dict["RobotVel"]["state_mean"][0],
-            buffer_dict["RobotVel"]["state_mean"][1],
-            buffer_dict["RobotVel"]["state_mean"][2],
+        u_pos = torch.concat([
+            buffer_dict["RobotVel"]["state_mean"],
             torch.tensor(self.env.timestep, dtype=self.dtype, device=self.device),
         ]).squeeze() if not self.internal_vel else torch.tensor(self.env.timestep, dtype=self.dtype, device=self.device)
 
         self.REs["TargetPos"].call_predict(u_pos, buffer_dict)
-        if self.num_obstacles > 0:
-            self.REs["Obstacle1Pos"].call_predict(u_pos, buffer_dict)
-            self.REs["Obstacle1Rad"].call_predict(u_pos, buffer_dict)
-        if self.num_obstacles > 1:
-            self.REs["Obstacle2Pos"].call_predict(u_pos, buffer_dict)
-            self.REs["Obstacle2Rad"].call_predict(u_pos, buffer_dict)
-        self.REs["PolarTargetPos"].call_predict(u_pos, buffer_dict)
+        for i in range(1, self.num_obstacles + 1):
+            self.REs[f"Obstacle{i}Pos"].call_predict(u_pos, buffer_dict)
+            self.REs[f"Obstacle{i}Rad"].call_predict(u_pos, buffer_dict)
 
         # ----------------- measurement updates -----------------------
 
         self.REs["RobotVel"].call_update_with_specific_meas(self.AIs["RobotVel"], buffer_dict)
         self.REs["TargetPos"].call_update_with_specific_meas(self.AIs["TargetPos-Angle"], buffer_dict)
-        if self.num_obstacles > 0:
-            self.REs["Obstacle1Pos"].call_update_with_specific_meas(self.AIs["Obstacle1Pos"], buffer_dict)
-            self.REs["Obstacle1Rad"].call_update_with_specific_meas(self.AIs["Obstacle1Rad"], buffer_dict)
-        if self.num_obstacles > 1:
-            self.REs["Obstacle2Pos"].call_update_with_specific_meas(self.AIs["Obstacle2Pos"], buffer_dict)
-            self.REs["Obstacle2Rad"].call_update_with_specific_meas(self.AIs["Obstacle2Rad"], buffer_dict)
-        self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
-        self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarAngle"], buffer_dict)
+        # self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
+        # self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarAngle"], buffer_dict)
+        self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarNoncart"], buffer_dict)
+        for i in range(1, self.num_obstacles + 1):
+            self.REs[f"Obstacle{i}Pos"].call_update_with_specific_meas(self.AIs[f"Obstacle{i}Pos-Angle"], buffer_dict)
+            self.REs[f"Obstacle{i}Rad"].call_update_with_specific_meas(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
+
+        self.REs["PolarTargetPos"].call_predict(u_pos, buffer_dict)
+
         return buffer_dict
 
     def compute_action(self, gradients):
-        action = - (gradients[0])
-        if self.num_obstacles > 0:
-            action -= gradients[2]
-        if self.num_obstacles > 1:
-            action -= gradients[3]
+        action = - gradients[1] - gradients[3]
+        for i in range(self.num_obstacles):
+            action -= gradients[i+4] / self.num_obstacles
+        # manual gaze fixation
+        #action[2] = 0.05 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
         return action
 
-    def print_states(self):
+    def print_states(self, print_cov=False):
         """
         print filter and environment states for debugging
         """
-        print(f"Robot Vel Estimate: {[f'{x:.3f}' for x in self.REs['RobotVel'].state_mean.tolist()]}")
+        obs = self.env.get_observation()
+        self.print_state("RobotVel", print_cov=print_cov)
         actual_vel = list(self.env.robot.vel)
         actual_vel.append(self.env.robot.vel_rot)
-        print(f"True Robot Vel:     {[f'{x:.3f}' for x in actual_vel]}")
+        print(f"True Robot Vel: {[f'{x:.3f}' for x in actual_vel]}")
         print("--------------------------------------------------------------------")
-        print(f"Target Position Estimate: {[f'{x:.3f}' for x in self.REs['TargetPos'].state_mean.tolist()]}")
+        self.print_state("TargetPos", print_cov=print_cov)
         actual_pos = list(self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos))
         for v in actual_vel: actual_pos.append(-v)
-        print(f"True Target Position:      {[f'{x:.3f}' for x in actual_pos]}")
+        print(f"True Target Position: {[f'{x:.3f}' for x in actual_pos]}")
         print("--------------------------------------------------------------------")
-        if self.num_obstacles > 1:
-            print(f"Obstacle Radius Estimates: {[f'{x:.3f}' for x in self.REs['Obstacle1Rad'].state_mean.tolist()]}, {[f'{x:.3f}' for x in self.REs['Obstacle2Rad'].state_mean.tolist()]}")
-            actual_rads = [self.env.obstacles[0].radius, self.env.obstacles[1].radius]
-            print(f"True Obstacle Radius:      {[f'{x:.3f}' for x in actual_rads]}")
+        if self.num_obstacles > 0:
+            [self.print_state(f"Obstacle{i}Pos", print_cov=print_cov) for i in range(1, self.num_obstacles + 1)]
+            actual_radii = [self.env.obstacles[i-1].radius for i in range(1, self.num_obstacles + 1)]
+            print(f"True Obstacle Radius: {[f'{x:.3f}' for x in actual_radii]}")
             print("--------------------------------------------------------------------")
-        print(f"Polar Target Position Estimates: {[f'{x:.3f}' for x in self.REs['PolarTargetPos'].state_mean.tolist()]}")
+        self.print_state("PolarTargetPos", print_cov=print_cov)
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        print(f"True Polar Target Position:      {[angle, dist]}")
+        print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
+        print("====================================================================")
 
 # ================================================================================================================================
