@@ -265,7 +265,7 @@ class GazeFixEnv(BaseEnv):
     def get_observation_field(self, n = 20):
         observation_field = [[None]*n for _ in range(n)]
         x_positions = np.linspace(-self.world_size/4, 3*self.world_size/4, n)
-        y_positions = np.linspace(-self.world_size / 2, self.world_size / 2, n)
+        y_positions = np.linspace(-self.world_size/2, self.world_size/2, n)
         for i, x in enumerate(x_positions):
             for j, y in enumerate(y_positions):
                 self.set_robot_position(np.array([x,y]), np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]))
@@ -369,7 +369,7 @@ class GazeFixEnv(BaseEnv):
     
     def compute_del_offset_angle(self, angle):
         if len(self.history) > 0:
-            return (angle-self.history[0]["target_offset_angle"])/self.timestep
+            return ((angle-self.history[0]["target_offset_angle"] + np.pi) % (2*np.pi) - np.pi)/self.timestep
         return 0.0
     
     def compute_del_target_distance(self):

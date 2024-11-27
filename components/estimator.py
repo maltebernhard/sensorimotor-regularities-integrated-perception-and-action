@@ -45,7 +45,7 @@ class State(Module):
 # =========================================================================================
 
 class RecursiveEstimator(ABC, State):
-    def __init__(self, id, state_dim, device, dtype = torch.float64):
+    def __init__(self, id, state_dim, device, dtype=torch.float64):
         super().__init__(id, state_dim, device, dtype)
         
         # Initialize static process/motion noise to identity
@@ -171,13 +171,21 @@ class RecursiveEstimator(ABC, State):
             K_part_2 += 1e-6 * torch.eye(K_part_2.shape[0],
                                          dtype=self.dtype,
                                          device=self.state_mean.device)
+            
+        # if self.id == 'PolarTargetPos':
+        #     print(f"---------- F_t_dict: ----------")
+        #     for key, value in F_t_dict.items():
+        #         print(f"{key}:\n{value}")
+        #     #print(f"K_part_2: {K_part_2}")
+
         try:
             K_part_2_inv = torch.inverse(K_part_2)
         except RuntimeError as e:
             # TODO convert this to log() instead of print()            
             print(f"WARN: {self.id} - Kalman update was not possible as {e}. Filter should (normally) recover soon.")
             # HACK resetting covariances. Maybe a more systematic approach is warranted
-            self.set_state(torch.zeros_like(self.state[0]))
+            # TODO: No update on current state - does this make sense?
+            #self.set_state(torch.zeros_like(self.state[0]))
             return
 
         kalman_gain = torch.matmul(K_part_1, K_part_2_inv)
@@ -269,7 +277,7 @@ class RecursiveEstimator(ABC, State):
 
     def call_update_with_specific_meas(self, active_interconnection, buffer_dict: Dict[str, torch.Tensor]):
         args_to_be_passed = ('update_with_specific_meas', active_interconnection)
-        kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id)}
+        kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id), 'custom_measurement_noise': active_interconnection.get_cov_dict(buffer_dict, self.id)}
         return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
 
 # ==================================== Specific Implementations =====================================================
@@ -320,7 +328,7 @@ class Polar_Pos_Estimator_External_Vel(RecursiveEstimator):
         robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, robot_vel)
 
         ret_mean[0] = (x_mean[0].pow(2) + (robot_target_frame_vel[1]*u[3]).pow(2)).sqrt() - robot_target_frame_vel[0] * u[3]
-        ret_mean[1] = x_mean[1] + (u[0]*torch.sin(x_mean[1]) - u[1]*torch.cos(x_mean[1]) - u[2]) * u[3]
+        ret_mean[1] = x_mean[1] - u[2] * u[3] - torch.atan2(robot_target_frame_vel[1] * u[3], x_mean[0])
 
         return ret_mean, cov
     
@@ -339,6 +347,7 @@ class Polar_Pos_Estimator_Internal_Vel(RecursiveEstimator):
         timestep = u[0]
         ret_mean = torch.empty_like(x_mean)
         ret_mean[:2] = x_mean[:2] + x_mean[2:] * timestep
+        ret_mean[1] = (ret_mean[1] + torch.pi) % (2 * torch.pi) - torch.pi
         ret_mean[2:] = x_mean[2:]
         return ret_mean, cov
 
@@ -388,16 +397,17 @@ class Pos_Estimator_External_Vel(RecursiveEstimator):
 
     def forward_model(self, x_mean, cov: torch.Tensor, u):
         ret_mean = torch.empty_like(x_mean)
+        robot_vel = u[:2]
         robot_vel_rot = u[2]
         timestep = u[3]
         rotation_matrix = torch.stack([
             torch.stack([torch.cos(-robot_vel_rot*timestep), -torch.sin(-robot_vel_rot*timestep)]),
             torch.stack([torch.sin(-robot_vel_rot*timestep), torch.cos(-robot_vel_rot*timestep)]),
         ]).squeeze()
-        ret_mean = torch.matmul(rotation_matrix, x_mean - timestep * u[:2])
+        ret_mean = torch.matmul(rotation_matrix, x_mean - timestep * robot_vel)
 
         ret_cov = torch.empty_like(cov)
-        ret_cov[:2, :2] = torch.matmul(rotation_matrix, torch.matmul(cov[:2, :2], rotation_matrix.t()))
+        ret_cov = torch.matmul(rotation_matrix, torch.matmul(cov, rotation_matrix.t()))
         return ret_mean, ret_cov
     
 class Target_Pos_Estimator_No_Forward(RecursiveEstimator):
