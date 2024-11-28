@@ -72,8 +72,8 @@ class AICON(ABC):
         return state, state
 
     def compute_goal_action_gradient(self, goal):
-        action = torch.tensor([0.0, 0.0, 0.0], device=self.device)
-        #action = self.last_action
+        #action = torch.tensor([0.0, 0.0, 0.0], device=self.device)
+        action = self.last_action
         jacobian, step_eval = jacrev(
             self._eval_goal_with_aux,
             argnums=0,
@@ -104,7 +104,7 @@ class AICON(ABC):
                 steepest_gradient = gradient
         return steepest_gradient
 
-    def run(self, timesteps, env_seed, render = True, prints = 0, step_by_step = True, record_video = False):
+    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_video=False):
         """
         Runs AICON on the environment for a given number of timesteps
         Args:
@@ -119,6 +119,8 @@ class AICON(ABC):
         assert self.AIs is not None, "Active Interconnections not set"
         assert self.goals is not None, "Goals not set"
         self.reset()
+        if initial_action is not None:
+            self.last_action = initial_action
         self.env.reset(seed=env_seed, video_path="test_vid.mp4" if record_video else None)
         if render:
             self.render()

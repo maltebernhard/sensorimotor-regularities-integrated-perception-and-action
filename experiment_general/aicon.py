@@ -3,26 +3,30 @@ import yaml
 import torch
 from typing import Dict
 
-from components.active_interconnection import Angle_Meas_AI, Cartesian_Polar_AI, Pos_Angle_AI, Radius_Pos_VisAngle_AI, Triangulation_AI, Vel_AI
 from components.aicon import AICON
-from components.estimator import Obstacle_Rad_Estimator, Polar_Pos_Estimator_External_Vel, Polar_Pos_Estimator_Internal_Vel, Pos_Estimator_External_Vel, Pos_Estimator_Internal_Vel, RecursiveEstimator, Robot_Vel_Estimator
-from components.goal import AvoidObstacleGoal, GazeFixationGoal, GoToTargetGoal, PolarGoToTargetGoal, StopGoal
 from environment.gaze_fix_env import GazeFixEnv
+from experiment_general.estimators import Obstacle_Rad_Estimator, Polar_Pos_Estimator_External_Vel, Polar_Pos_Estimator_Internal_Vel, Pos_Estimator_External_Vel, Pos_Estimator_Internal_Vel, RecursiveEstimator, Robot_Vel_Estimator
+from experiment_general.active_interconnections import Angle_Meas_AI, Cartesian_Polar_AI, Pos_Angle_AI, Radius_Pos_VisAngle_AI, Triangulation_AI, Vel_AI
+from experiment_general.goals import AvoidObstacleGoal, GazeFixationGoal, GoToTargetGoal, PolarGoToTargetGoal, StopGoal
 
-# ========================================================================================================
+# =============================================================================================================================================================
 
-class MinimalAICON(AICON):
-    def __init__(self, num_obstacles=0, internal_vel=False):
+class GeneralTestAICON(AICON):
+    def __init__(self, num_obstacles=0, internal_vel=False, vel_control=False):
         super().__init__()
 
         self.internal_vel = internal_vel
         self.num_obstacles = num_obstacles
+        self.vel_control = vel_control
 
         config = 'config/env_config.yaml'
         with open(config) as file:
             env_config = yaml.load(file, Loader=yaml.FullLoader)
             env_config["num_obstacles"] = num_obstacles
-            env_config["action_mode"] = 1
+            if vel_control:
+                env_config["action_mode"] = 3
+            else:
+                env_config["action_mode"] = 1
         self.set_env(GazeFixEnv(env_config))
 
         REs: Dict[str, RecursiveEstimator] = {"RobotVel": Robot_Vel_Estimator(self.device)}
@@ -116,8 +120,12 @@ class MinimalAICON(AICON):
 
         #print("EVAL Action: ", action)
 
-        u_robot_vel = torch.concat([action[:2]*self.env.robot.max_acc, torch.tensor([action[2]*self.env.robot.max_acc_rot]), torch.tensor([self.env.timestep])])
-        self.REs["RobotVel"].call_predict(u_robot_vel, buffer_dict)
+        if self.vel_control:
+            buffer_dict["RobotVel"]["state_mean"] = torch.concat([action[:2]*self.env.robot.max_vel, torch.tensor([action[2]*self.env.robot.max_vel_rot])])
+            buffer_dict["RobotVel"]["state_cov"] = torch.eye(3) * 1e-3
+        else:
+            u_robot_vel = torch.concat([action[:2]*self.env.robot.max_acc, torch.tensor([action[2]*self.env.robot.max_acc_rot]), torch.tensor([self.env.timestep])])
+            self.REs["RobotVel"].call_predict(u_robot_vel, buffer_dict)
 
         u_pos = torch.concat([
             buffer_dict["RobotVel"]["state_mean"],
@@ -135,13 +143,14 @@ class MinimalAICON(AICON):
 
         # TODO: updating each other appears stupid
         #self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["CartPolarPos"], buffer_dict)
-        #self.REs["TargetPos"].call_update_with_specific_meas(self.AIs["CartPolarPos"], buffer_dict)
+        self.REs["TargetPos"].call_update_with_specific_meas(self.AIs["CartPolarPos"], buffer_dict)
         
         for i in range(1, self.num_obstacles + 1):
             self.REs[f"Obstacle{i}Pos"].call_update_with_specific_meas(self.AIs[f"Obstacle{i}Pos-Angle"], buffer_dict)
             self.REs[f"Obstacle{i}Rad"].call_update_with_specific_meas(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
 
-        self.REs["RobotVel"].call_update_with_specific_meas(self.AIs["RobotVel"], buffer_dict)
+        if not self.vel_control:
+            self.REs["RobotVel"].call_update_with_specific_meas(self.AIs["RobotVel"], buffer_dict)
 
         #print("POST Measurement: ", buffer_dict["PolarTargetPos"]["state_mean"])
 
@@ -156,11 +165,14 @@ class MinimalAICON(AICON):
         return buffer_dict
 
     def compute_action(self, gradients):
-        #action = - gradients["Go-To-Target"]
-        #action = self.last_action - 10.0 * gradients["Go-To-Target"]# - gradients["GazeFixation"]
-        action = self.last_action - 10.0 * gradients["PolarGo-To-Target"]# - gradients["GazeFixation"]
-        for i in range(self.num_obstacles):
-            action -= gradients[f"AvoidObstacle{i+4}"] / self.num_obstacles
+        if self.vel_control:
+            action = self.last_action - 1e-3 * gradients["PolarGo-To-Target"]# - gradients["GazeFixation"]
+            for i in range(self.num_obstacles):
+                action -= 1e-3 * gradients[f"AvoidObstacle{i+4}"] / self.num_obstacles
+        else:
+            action = self.last_action - 10.0 * gradients["PolarGo-To-Target"]# - gradients["GazeFixation"]
+            for i in range(self.num_obstacles):
+                action -= gradients[f"AvoidObstacle{i+4}"] / self.num_obstacles
         # manual gaze fixation
         #action[2] = 0.05 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
         return action
@@ -192,17 +204,111 @@ class MinimalAICON(AICON):
         print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
         print("====================================================================")
 
+# =============================================================================================================================================================
 
-# ==================================================================================
+class SimpleVelTestAICON(AICON):
+    def __init__(self):
+        super().__init__()
 
-if __name__ == "__main__":
+        config = 'config/env_config.yaml'
+        with open(config) as file:
+            env_config = yaml.load(file, Loader=yaml.FullLoader)
+            env_config["action_mode"] = 3
+        self.set_env(GazeFixEnv(env_config))
 
-    aicon = MinimalAICON(num_obstacles = 0, internal_vel = False)
-    aicon.reset()
-    #aicon.last_action = torch.tensor([1.0, 1.0, -0.1], device=aicon.device)
+        estimators = {
+            "RobotVel": Robot_Vel_Estimator(device=self.device),
+            "PolarTargetPos": Polar_Pos_Estimator_External_Vel(device=self.device, id='PolarTargetPos'),
+        }
+        self.set_estimators(estimators)
 
-    seed = 10
+        active_interconnections = {
+            "PolarAngle": Angle_Meas_AI([self.REs["PolarTargetPos"], self.obs["target_offset_angle"]], self.device, estimate_vel=False),
+            "PolarDistance": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"], self.obs["del_target_offset_angle"]], self.device, estimate_vel=False),
+        }
+        self.set_active_interconnections(active_interconnections)
 
-    #aicon.last_action = torch.tensor([1.0, 1.0, -1.0], device=aicon.device)
+        self.set_goals({
+            "GazeFixation": GazeFixationGoal(device=self.device),
+            "PolarGoToTarget": PolarGoToTargetGoal(device=self.device)
+        })
 
-    aicon.run(2500, seed, render=True, prints=1, step_by_step=True, record_video=False)
+        self.reset()
+
+    def reset(self):
+        self.REs["RobotVel"].set_state(torch.tensor([0.0, 0.0, 0.0]), torch.eye(3) * 0.01)
+        self.REs["RobotVel"].set_static_motion_noise(torch.eye(3) * 0.01)
+        self.REs["PolarTargetPos"].set_state(torch.tensor([10.0, 0.0]), torch.eye(2) * 1e3)
+        self.REs["PolarTargetPos"].set_static_motion_noise(torch.eye(2) * 0.01)
+
+    def eval_predict(self, action, buffer_dict):
+        vel = action * torch.tensor([self.env.robot.max_vel, self.env.robot.max_vel, self.env.robot.max_vel_rot])
+        timestep = torch.tensor([0.05], device=self.device)
+        self.REs["PolarTargetPos"].call_predict(torch.concat([vel, timestep]), buffer_dict)
+        buffer_dict["RobotVel"]["state_mean"] = vel
+        buffer_dict["RobotVel"]["state_cov"] = torch.eye(3) * 1e-3
+        return buffer_dict
+
+    def eval_step(self, action, new_step = False):
+        self.update_observations()
+        buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
+
+        if not new_step:
+            return self.eval_predict(action, buffer_dict)
+
+        vel = action * torch.tensor([self.env.robot.max_vel, self.env.robot.max_vel, self.env.robot.max_vel_rot])
+        timestep = torch.tensor([0.05], device=self.device)
+
+        if new_step:
+            print(
+                f"------------------- Pre Predict: -------------------\n",
+                f"Polar Pos: {buffer_dict['PolarTargetPos']['state_mean']}",
+            )
+
+        self.REs["PolarTargetPos"].call_predict(torch.concat([vel, timestep]), buffer_dict)
+
+        buffer_dict["RobotVel"]["state_mean"] = vel
+        buffer_dict["RobotVel"]["state_cov"] = torch.eye(3) * 1e-3
+
+        if new_step:
+            print(
+                f"------------------- Post Predict: -------------------\n",
+                f"Polar Pos: {buffer_dict['PolarTargetPos']['state_mean']}",
+            )
+
+        self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarAngle"], buffer_dict)
+        self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
+
+        if new_step:
+            print(
+                f"------------------ Post Measurement: ------------------\n",
+                f"Polar Pos: {buffer_dict['PolarTargetPos']['state_mean']}",
+            )
+
+        return buffer_dict
+    
+    def render(self):
+        estimator_means = {"PolarTargetPos": np.array(torch.stack([
+            self.REs["PolarTargetPos"].state_mean[0] * torch.cos(self.REs["PolarTargetPos"].state_mean[1]),
+            self.REs["PolarTargetPos"].state_mean[0] * torch.sin(self.REs["PolarTargetPos"].state_mean[1])
+        ]).cpu())}
+        cart_cov = torch.zeros((2, 2), device=self.device)
+        cart_cov[0, 0] = self.REs["PolarTargetPos"].state_cov[0, 0] * torch.cos(self.REs["PolarTargetPos"].state_mean[1])**2 + self.REs["PolarTargetPos"].state_cov[1, 1] * torch.sin(self.REs["PolarTargetPos"].state_mean[1])**2
+        cart_cov[0, 1] = (self.REs["PolarTargetPos"].state_cov[0, 0] - self.REs["PolarTargetPos"].state_cov[1, 1]) * torch.cos(self.REs["PolarTargetPos"].state_mean[1]) * torch.sin(self.REs["PolarTargetPos"].state_mean[1])
+        cart_cov[1, 0] = cart_cov[0, 1]
+        cart_cov[1, 1] = self.REs["PolarTargetPos"].state_cov[0, 0] * torch.sin(self.REs["PolarTargetPos"].state_mean[1])**2 + self.REs["PolarTargetPos"].state_cov[1, 1] * torch.cos(self.REs["PolarTargetPos"].state_mean[1])**2
+        estimator_covs = {"PolarTargetPos": np.array(cart_cov.cpu())}
+        return self.env.render(1.0, estimator_means, estimator_covs)
+
+    def compute_action(self, gradients):
+        """
+        CAN be implemented by user. Computes the action based on the gradients
+        """
+        return self.last_action - 1.0 * gradients["PolarGoToTarget"]
+    
+    def print_states(self):
+        obs = self.env._get_observation()
+        print("==========================================")
+        self.print_state("PolarTargetPos", False)
+        print(f"True PolarTargetPos: [{obs['robot_target_distance']:.3f}, {obs['target_offset_angle']:.3f}]")
+        print("==========================================")
