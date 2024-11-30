@@ -106,7 +106,7 @@ class Triangulation_AI(ActiveInterconnection):
             angular_vel = meas_dict[f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] + meas_dict['RobotVel'][2]
         # TODO: tan or plain?
         #triangulated_distance = torch.abs(robot_target_frame_vel[1] / torch.tan(angular_vel))
-        if robot_target_frame_vel[1] == 0 or angular_vel == 0.0:
+        if torch.abs(robot_target_frame_vel[1]) == 0.0 or torch.abs(angular_vel) == 0.0:
             triangulated_distance = meas_dict[f'Polar{self.object_name}Pos'][0]
         else:
             triangulated_distance = torch.abs(robot_target_frame_vel[1] / angular_vel)
@@ -119,7 +119,7 @@ class Triangulation_AI(ActiveInterconnection):
         else:
             return torch.atleast_1d(triangulated_distance - meas_dict[f'Polar{self.object_name}Pos'][0])
 
-# TODO: making these two update each other is stupid, it seems
+# TODO: making these two estimators update each other is stupid, it seems
 class Cartesian_Polar_AI(ActiveInterconnection):
     def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target", estimate_vel:bool=True) -> None:
         self.object_name = object_name

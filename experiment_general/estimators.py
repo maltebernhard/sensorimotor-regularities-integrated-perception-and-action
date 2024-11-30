@@ -6,6 +6,9 @@ from components.estimator import RecursiveEstimator
 class Robot_Vel_Estimator(RecursiveEstimator):
     def __init__(self, device):
         super().__init__("RobotVel", 3, device)
+        self.default_state = torch.tensor([0.0, 0.0, 0.0], device=device)
+        self.default_cov = 1e0 * torch.eye(3, device=device)
+        self.default_motion_noise = 1e-1 * torch.eye(3, device=device)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """
@@ -32,11 +35,14 @@ class Robot_Vel_Estimator(RecursiveEstimator):
 class Polar_Pos_Estimator_External_Vel(RecursiveEstimator):
     """
     Estimator for Target state x:
-    x[0]: target offset angle
-    x[1]: target distance
+    x[0]: target distance
+    x[1]: target offset angle
     """
     def __init__(self, device, id: str, ):
         super().__init__(id, 2, device)
+        self.default_state = torch.tensor([10.0, 0.0], device=device)
+        self.default_cov = 1e3 * torch.eye(2, device=device)
+        self.default_motion_noise = 1e0 * torch.eye(2, device=device)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         ret_mean = torch.empty_like(x_mean)
@@ -53,16 +59,42 @@ class Polar_Pos_Estimator_External_Vel(RecursiveEstimator):
 
         return ret_mean, cov
     
-class Polar_Pos_Estimator_Internal_Vel(RecursiveEstimator):
+class Polar_Pos_Estimator_Internal_Vel_Vel_Control(RecursiveEstimator):
     """
     Estimator for Target state x:
-    x[0]: target offset angle
-    x[1]: target distance
-    x[2]: del target offset angle
-    x[3]: del target distance
+    x[0]: target distance
+    x[1]: target offset angle
+    x[2]: del target distance
+    x[3]: del target offset angle
     """
     def __init__(self, device, id: str):
         super().__init__(id, 4, device)
+        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0], device=device)
+        self.default_cov = 1e3 * torch.eye(4, device=device)
+        self.default_motion_noise = 1e0 * torch.eye(4, device=device)
+
+    def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
+        timestep = u[0]
+        
+        ret_mean = torch.empty_like(x_mean)
+        ret_mean[:2] = x_mean[:2] + x_mean[2:] * timestep
+        ret_mean[1] = (ret_mean[1] + torch.pi) % (2 * torch.pi) - torch.pi
+        ret_mean[2:] = x_mean[2:]
+        return ret_mean, cov
+    
+class Polar_Pos_Estimator_Internal_Vel_Acc_Control(RecursiveEstimator):
+    """
+    Estimator for Target state x:
+    x[0]: target distance
+    x[1]: target offset angle
+    x[2]: del target distance
+    x[3]: del target offset angle
+    """
+    def __init__(self, device, id: str):
+        super().__init__(id, 4, device)
+        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0], device=device)
+        self.default_cov = 1e3 * torch.eye(4, device=device)
+        self.default_motion_noise = 1e0 * torch.eye(4, device=device)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
@@ -83,6 +115,9 @@ class Pos_Estimator_Internal_Vel(RecursiveEstimator):
     """
     def __init__(self, device, id: str):
         super().__init__(id, 5, device)
+        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0, 0.0], device=device)
+        self.default_cov = 1e3 * torch.eye(5, device=device)
+        self.default_motion_noise = 1e0 * torch.eye(5, device=device)
 
     def forward_model(self, x_mean, cov: torch.Tensor, u):
         ret_mean = torch.empty_like(x_mean)
@@ -106,7 +141,6 @@ class Pos_Estimator_Internal_Vel(RecursiveEstimator):
         ret_cov[4, 4] = cov[4, 4]
         return ret_mean, ret_cov
 
-# Same as Target Pos estimator - unnecessary
 class Pos_Estimator_External_Vel(RecursiveEstimator):
     """
     Estimator for Target state x:
@@ -115,6 +149,9 @@ class Pos_Estimator_External_Vel(RecursiveEstimator):
     """
     def __init__(self, device, id: str):
         super().__init__(id, 2, device)
+        self.default_state = torch.tensor([10.0, 0.0], device=device)
+        self.default_cov = 1e3 * torch.eye(2, device=device)
+        self.default_motion_noise = 1e0 * torch.eye(2, device=device)
 
     def forward_model(self, x_mean, cov: torch.Tensor, u):
         ret_mean = torch.empty_like(x_mean)
@@ -131,18 +168,6 @@ class Pos_Estimator_External_Vel(RecursiveEstimator):
         ret_cov = torch.matmul(rotation_matrix, torch.matmul(cov, rotation_matrix.t()))
         return ret_mean, ret_cov
     
-class Target_Pos_Estimator_No_Forward(RecursiveEstimator):
-    """
-    Estimator for Target state x:
-    x[0]: target frontal offset
-    x[1]: target lateral offset
-    """
-    def __init__(self, device):
-        super().__init__("TargetPosNoForward", 2, device)
-
-    def forward_model(self, x_mean, cov: torch.Tensor, u):
-        return x_mean, cov
-    
 class Obstacle_Rad_Estimator(RecursiveEstimator):
     """
     Estimator for obstacle radius state x:
@@ -150,34 +175,9 @@ class Obstacle_Rad_Estimator(RecursiveEstimator):
     """
     def __init__(self, device, id: str):
         super().__init__(id, 1, device)
-        self.set_static_motion_noise(torch.eye(1, device=device)*1e-1)
+        self.default_state = torch.tensor([1.0], device=device)
+        self.default_cov = 1e1 * torch.eye(1, device=device)
+        self.default_motion_noise = 1e-2 * torch.eye(1, device=device)
 
     def forward_model(self, x_mean, cov: torch.Tensor, u):
         return x_mean, cov
-
-class Target_Distance_Estimator(RecursiveEstimator):
-    """
-    Estimator for Target state x:
-    x[0]: target angular offset
-    x[1]: target distance
-    x[2]: del target angular offset
-    x[3]: del target distance
-    """
-    def __init__(self, device):
-        super().__init__("TargetDist", 2, device)
-
-    def forward_model(self, x_mean, cov: torch.Tensor, u):
-        ret_mean = torch.empty_like(x_mean)
-
-        robot_vel_rot = u[2]
-        target_angular_offset = x_mean[0]
-        timestep = u[3]
-
-        rotation_matrix = torch.stack([
-            torch.stack([torch.cos(-target_angular_offset), -torch.sin(-target_angular_offset)]),
-            torch.stack([torch.sin(-target_angular_offset), torch.cos(-target_angular_offset)]),
-        ]).squeeze()
-        target_frame_vel = torch.matmul(rotation_matrix, u[:2])
-        ret_mean[0] = x_mean[0] - timestep * robot_vel_rot
-        ret_mean[1] = x_mean[1] - timestep * target_frame_vel[0]
-        return ret_mean, cov

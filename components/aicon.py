@@ -7,22 +7,28 @@ from typing import Dict, List
 from components.active_interconnection import ActiveInterconnection
 from components.estimator import RecursiveEstimator, State
 from components.goal import Goal
+from environment.base_env import BaseEnv
 from environment.gaze_fix_env import GazeFixEnv
 
 # ========================================================================================
 
 class AICON(ABC):
     def __init__(self, propagate_meas_uncertainty: bool = True):
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype = torch.float64
         torch.set_default_device(self.device)
         torch.set_default_dtype(self.dtype)
         self.env: GazeFixEnv = None
+        self.set_env(self.define_env())
         self.REs: Dict[str, RecursiveEstimator] = None
+        self.set_estimators(self.define_estimators())
         self.AIs: Dict[str, ActiveInterconnection] = None
+        self.set_active_interconnections(self.define_active_interconnections())
         self.goals: Dict[str, Goal] = None
+        self.set_goals(self.define_goals())
         self.last_action = torch.tensor([0.0, 0.0, 0.0])
         self.propagate_meas_uncertainty = propagate_meas_uncertainty
+        self.reset()
 
     def set_env(self, env):
         self.env = env
@@ -69,6 +75,7 @@ class AICON(ABC):
     def _eval_estimator_with_aux(self, action, estimator_id):
         buffer_dict = self.eval_step(action, new_step=False)
         state = buffer_dict[estimator_id]
+        #print(f"{state=}\n============================================================")
         return state, state
 
     def compute_goal_action_gradient(self, goal):
@@ -119,9 +126,11 @@ class AICON(ABC):
         assert self.AIs is not None, "Active Interconnections not set"
         assert self.goals is not None, "Goals not set"
         self.reset()
+        self.env.reset(seed=env_seed, video_path="test_vid.mp4" if record_video else None)
+        print(f"============================ Initial State ================================")
+        self.print_states()
         if initial_action is not None:
             self.last_action = initial_action
-        self.env.reset(seed=env_seed, video_path="test_vid.mp4" if record_video else None)
         if render:
             self.render()
         input("Press Enter to continue...")
@@ -183,10 +192,36 @@ class AICON(ABC):
             cov = self.REs[id].state_cov if id in self.REs.keys() else self.obs[id].state_cov
             self.print_matrix(cov, f"{id} Cov")
 
-    @abstractmethod
     def reset(self) -> None:
+        for estimator in self.REs.values():
+            estimator.reset()
+        self.env.reset()
+
+    @abstractmethod
+    def define_env(self) -> BaseEnv:
         """
-        MUST be implemented by user. Sets initial states of all estimators.
+        MUST be implemented by user. Returns the environment
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def define_estimators(self) -> Dict[str, RecursiveEstimator]:
+        """
+        MUST be implemented by user. Returns the estimators
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def define_active_interconnections(self) -> Dict[str, ActiveInterconnection]:
+        """
+        MUST be implemented by user. Returns the active interconnections
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def define_goals(self) -> Dict[str, Goal]:
+        """
+        MUST be implemented by user. Returns the goals
         """
         raise NotImplementedError
 

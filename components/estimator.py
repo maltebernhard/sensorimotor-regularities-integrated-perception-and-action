@@ -47,12 +47,20 @@ class State(Module):
 class RecursiveEstimator(ABC, State):
     def __init__(self, id, state_dim, device, dtype=torch.float64):
         super().__init__(id, state_dim, device, dtype)
+
+        self.default_state = torch.zeros(self.state_dim, dtype=dtype, device=device)
+        self.default_cov = torch.eye(self.state_dim, dtype=dtype, device=device)
+        self.default_static_motion_noise = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
         
         # Initialize static process/motion noise to identity
         self.register_buffer('forward_noise', torch.eye(self.state_dim, device=self.device, dtype=self.dtype))
         self.set_buffer_dict()
 
     # --------------------------- properties, getters and setters ---------------------------------
+
+    def reset(self):
+        self.set_state(self.default_state, self.default_cov)
+        self.set_static_motion_noise(self.default_static_motion_noise)
 
     def set_static_motion_noise(self, noise_cov: torch.Tensor) -> None:
         assert noise_cov.shape == (self.state_dim, self.state_dim), (
