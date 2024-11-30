@@ -87,12 +87,13 @@ class GeneralTestAICON(AICON):
         estimator_covs = {"PolarTargetPos": np.array(cart_cov.cpu())}
         return self.env.render(1.0, estimator_means, estimator_covs)
 
-    def eval_step(self, action, new_step = False):
+    def eval_step(self, action: torch.Tensor, new_step = False):
         # Use a copy of the state to avoid modifying the actual state
         self.update_observations()
         buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
 
-        print("EVAL Action: ", action)
+        # print("EVAL Action: ", action)
+        # print("PRE Update: ", buffer_dict["PolarTargetPos"]["state_mean"])
 
         # ----------------------------- update vel -------------------------------------
         if self.vel_control:
@@ -109,14 +110,26 @@ class GeneralTestAICON(AICON):
 
         # ----------------------------- update and predict -------------------------------------
 
+        if (self.internal_vel and self.vel_control) or not self.internal_vel:
+            u_pos = torch.concat([
+                torch.atleast_1d(torch.tensor(self.env.timestep)),
+                buffer_dict["RobotVel"]["state_mean"],
+            ]).squeeze()
+        else:
+            u_pos = torch.concat([
+                torch.atleast_1d(torch.tensor(self.env.timestep)),
+                acc,
+            ]).squeeze()
+
         if new_step:
-            self.call_predicts(buffer_dict)
+            self.call_predicts(u_pos, buffer_dict)
             self.call_updates(buffer_dict)
         else:
             #self.call_updates(buffer_dict)
             #TODO: breaks everythang
             #self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
-            self.call_predicts(buffer_dict)
+            self.call_predicts(u_pos, buffer_dict)
+            #self.call_predicts(u_pos, buffer_dict)
 
         return buffer_dict
 
@@ -126,28 +139,33 @@ class GeneralTestAICON(AICON):
         for i in range(1, self.num_obstacles + 1):
             self.REs[f"Obstacle{i}Pos"].call_update_with_specific_meas(self.AIs[f"Obstacle{i}Pos-Angle"], buffer_dict)
             self.REs[f"Obstacle{i}Rad"].call_update_with_specific_meas(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
-        #print("POST Measurement: ", buffer_dict["PolarTargetPos"]["state_mean"], "\n", buffer_dict["PolarTargetPos"]["state_cov"])
+        #print("POST Measurement: ", buffer_dict["PolarTargetPos"]["state_mean"])#, "\n", buffer_dict["PolarTargetPos"]["state_cov"])
 
-    def call_predicts(self, buffer_dict):
-        u_pos = torch.concat([
-            buffer_dict["RobotVel"]["state_mean"],
-            torch.atleast_1d(torch.tensor(self.env.timestep)),
-        ]).squeeze() if not self.internal_vel else torch.tensor(self.env.timestep)
+    def call_predicts(self, u_pos, buffer_dict):
         self.REs["PolarTargetPos"].call_predict(u_pos, buffer_dict)
         for i in range(1, self.num_obstacles + 1):
             self.REs[f"Obstacle{i}Pos"].call_predict(u_pos, buffer_dict)
             self.REs[f"Obstacle{i}Rad"].call_predict(u_pos, buffer_dict)
-        #print("POST Prediction: ", buffer_dict["PolarTargetPos"]["state_mean"], "\n", buffer_dict["PolarTargetPos"]["state_cov"])
+        #print("POST Prediction: ", buffer_dict["PolarTargetPos"]["state_mean"])#, "\n", buffer_dict["PolarTargetPos"]["state_cov"])
 
     def compute_action(self, gradients):
-        if self.vel_control:
-            action = self.last_action - 5e-2 * gradients["PolarGo-To-Target"]# - gradients["GazeFixation"]
+        if self.vel_control and self.internal_vel:
+            action = self.last_action - 5e-2 * gradients["PolarGo-To-Target"]
             for i in range(self.num_obstacles):
                 action -= 1e-2 * gradients[f"AvoidObstacle{i+1}"] / self.num_obstacles
-        else:
-            action = self.last_action - 10.0 * gradients["PolarGo-To-Target"]# - gradients["GazeFixation"]
+        elif self.vel_control and not self.internal_vel:
+            action = self.last_action - 5e-4 * gradients["PolarGo-To-Target"]
             for i in range(self.num_obstacles):
-                action -= gradients[f"AvoidObstacle{i+1}"] / self.num_obstacles
+                action -= 1e-2 * gradients[f"AvoidObstacle{i+1}"] / self.num_obstacles
+        elif not self.vel_control and self.internal_vel:
+            action = self.last_action - 5e-2 * gradients["PolarGo-To-Target"]
+            for i in range(self.num_obstacles):
+                action -= 1e0 * gradients[f"AvoidObstacle{i+1}"] / self.num_obstacles
+        elif not self.vel_control and not self.internal_vel:
+            action = self.last_action - 5e-2 * gradients["PolarGo-To-Target"]
+            for i in range(self.num_obstacles):
+                action -= 1e-2 * gradients[f"AvoidObstacle{i+1}"] / self.num_obstacles
+
         # manual gaze fixation
         #action[2] = 0.05 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
         return action

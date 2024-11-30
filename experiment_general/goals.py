@@ -14,13 +14,13 @@ class PolarGoToTargetGoal(Goal):
         robot_vel = buffer_dict['RobotVel']['state_mean']
         polar_target_pos_uncertainty = buffer_dict['PolarTargetPos']['state_cov']
         trans_vel_penalty = torch.atleast_1d(torch.abs(robot_vel[:2].norm()-desired_distance) / torch.clamp(polar_target_pos[0], min=0.01)) if polar_target_pos[0] < 10 else torch.zeros(1)
-        angular_vel_penalty = torch.atleast_1d(robot_vel[2])# / torch.clamp(torch.abs(polar_target_pos[1]), min=0.01))# if polar_target_pos[1] < 0.3 else torch.zeros(1)
+        angular_vel_penalty = torch.atleast_1d(robot_vel[2]) / torch.clamp(0.1 * torch.abs(polar_target_pos[1]), min=0.1) if torch.abs(polar_target_pos[1]) < 0.5 else torch.zeros(1)
         
         loss_mean = torch.concat([
             1.0 * torch.atleast_1d(polar_target_pos[0] - desired_distance),
-            #1.0 * torch.atleast_1d(polar_target_pos[1] - desired_distance),
+            1.0 * torch.atleast_1d(polar_target_pos[1]),
             1e-1 * trans_vel_penalty,
-            #1e-2 * angular_vel_penalty
+            #1e-1 * angular_vel_penalty
         ]).pow(2).sum()
         loss_cov = 1.0 * polar_target_pos_uncertainty[0,0]
         #loss_cov += 0.0 * current_state_cov[3,3]

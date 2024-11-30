@@ -135,6 +135,11 @@ class AICON(ABC):
             self.render()
         input("Press Enter to continue...")
         for step in range(timesteps):
+
+            grad, val = self.compute_estimator_action_gradient("PolarTargetPos", self.last_action)
+            print("Value:", val["state_mean"])
+            print("Gradient:", grad["state_mean"])
+
             action_gradients = self.compute_action_gradients()
             action = self.compute_action(action_gradients)
             self.step(action)
