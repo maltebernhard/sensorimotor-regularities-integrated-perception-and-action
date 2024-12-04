@@ -25,16 +25,14 @@ class Vel_AI(ActiveInterconnection):
 class Angle_Meas_AI(ActiveInterconnection):
     def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
         self.object_name = object_name
-        required_estimators = ['RobotState', f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle', f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle']
+        required_estimators = [f'Polar{object_name}Pos', f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle', f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle']
         super().__init__(estimators, required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
         return torch.stack([
-            (meas_dict[f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'RobotState'][4] + torch.pi) % (2*torch.pi) - torch.pi,
-            meas_dict[f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'RobotState'][6],
+            (meas_dict[f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'Polar{self.object_name}Pos'][1] + torch.pi) % (2*torch.pi) - torch.pi,
+            meas_dict[f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'Polar{self.object_name}Pos'][3],
         ]).squeeze()
-
-
 
 class Triangulation_AI(ActiveInterconnection):
     def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
@@ -57,27 +55,16 @@ class Triangulation_AI(ActiveInterconnection):
         else:
             triangulated_distance = torch.abs(robot_target_frame_vel[1] / angular_vel)
 
-        print("Robot Target Frame Vel: ", robot_target_frame_vel[1])
-        print(f"Angular Vel: {angular_vel.item()} = {meas_dict[f'Polar{self.object_name}Pos'][3].item()} + {meas_dict['RobotState'][2].item()}")
-        print("Triangulated Distance: ", triangulated_distance.item())
-
         return torch.stack([
             torch.atleast_1d(triangulated_distance - meas_dict[f'Polar{self.object_name}Pos'][0]),
             torch.atleast_1d(- robot_target_frame_vel[0] - meas_dict[f'Polar{self.object_name}Pos'][2]),
         ]).squeeze()
     
-class DistanceUpdaterAcc(ActiveInterconnection):
+class Gaze_Fixation_AI(ActiveInterconnection):
     def __init__(self, estimators, device):
         required_estimators = ['PolarTargetPos', 'RobotState']
         super().__init__(estimators, required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict):
-        return torch.atleast_1d(meas_dict['PolarTargetPos'][0] - meas_dict['RobotState'][6])
-    
-class DistanceUpdaterVel(ActiveInterconnection):
-    def __init__(self, estimators, device):
-        required_estimators = ['PolarTargetPos', 'RobotState']
-        super().__init__(estimators, required_estimators, device)
-
-    def implicit_interconnection_model(self, meas_dict):
-        return torch.atleast_1d(meas_dict['PolarTargetPos'][0] - meas_dict['RobotState'][3])
+        # TODO: expand to more constrained values?
+        return torch.atleast_1d(meas_dict['RobotState'][2] - (- meas_dict['RobotState'][1] / meas_dict['PolarTargetPos'][0]))

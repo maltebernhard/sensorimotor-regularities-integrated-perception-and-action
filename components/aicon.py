@@ -52,7 +52,7 @@ class AICON(ABC):
         #print("========== Observations: ===========")
         for key, value in observations.items():
             # TODO: consider measurement noise (possibly on env level)
-            self.obs[key].set_state(torch.tensor([value], device=self.device, dtype=self.dtype), torch.zeros((1,1), device=self.device, dtype=self.dtype))
+            self.obs[key].set_state(torch.tensor([value], device=self.device, dtype=self.dtype), 1e-3 * torch.ones((1,1), device=self.device, dtype=self.dtype))
             #self.print_state(key)
 
     def step(self, action):
@@ -61,7 +61,7 @@ class AICON(ABC):
         if torch.abs(action[2]) > 1.0:
             action[2] = action[2]/torch.abs(action[2])
         self.last_action = action
-        print(f"-------- Action: ", end=""), self.print_vector(action, trail=" --------")
+        #print(f"-------- Action: ", end=""), self.print_vector(action, trail=" --------")
         self.env.step(np.array(action.cpu()))
         buffers = self.eval_step(action, new_step=True)
         for key, buffer_dict in buffers.items():
@@ -125,8 +125,7 @@ class AICON(ABC):
         assert self.REs is not None, "Estimators not set"
         assert self.AIs is not None, "Active Interconnections not set"
         assert self.goals is not None, "Goals not set"
-        self.reset()
-        self.env.reset(seed=env_seed, video_path="test_vid.mp4" if record_video else None)
+        self.reset(seed=env_seed, video_path="test_vid.mp4" if record_video else None)
         print(f"============================ Initial State ================================")
         self.print_states()
         if initial_action is not None:
@@ -135,24 +134,23 @@ class AICON(ABC):
             self.render()
         input("Press Enter to continue...")
         for step in range(timesteps):
-
-            grad, val = self.compute_estimator_action_gradient("PolarTargetPos", self.last_action)
-            print("Value:", val["state_mean"])
-            print("Gradient:", grad["state_mean"])
-
             action_gradients = self.compute_action_gradients()
             action = self.compute_action(action_gradients)
+
+            if step_by_step:
+                input("Press Enter to continue...")
+
+            if prints > 0 and step % prints == 0:
+                print(f"============================ Step {step+1} ================================")
+
             self.step(action)
             if render:
                 self.render()
             step += 1
             if prints > 0 and step % prints == 0:
-                print(f"============================ Step {step} ================================")
                 self.print_states()
-
-            if step_by_step:
-                input("Press Enter to continue...")
-        self.env.reset()
+        if record_video:
+            self.env.reset()
 
     def print_vector(self, vector: torch.Tensor, name = None, trail = "", use_scientific = False):
         if not use_scientific:
@@ -190,17 +188,24 @@ class AICON(ABC):
                     print(" ", end="")
             self.print_vector(matrix[i], trail="," if i < matrix.shape[0] - 1 else "]", use_scientific=use_scientific)
 
-    def print_state(self, id, print_cov: bool = False):
-        mean = self.REs[id].state_mean if id in self.REs.keys() else self.obs[id].state_mean
+    def print_state(self, id, print_cov: bool = False, buffer_dict=None):
+        if buffer_dict is None:
+            mean = self.REs[id].state_mean if id in self.REs.keys() else self.obs[id].state_mean
+        else:
+            mean = buffer_dict[id]["state_mean"]
         self.print_vector(mean, id + " Mean" if print_cov else id)
         if print_cov:
-            cov = self.REs[id].state_cov if id in self.REs.keys() else self.obs[id].state_cov
+            if buffer_dict is None:
+                cov = self.REs[id].state_cov if id in self.REs.keys() else self.obs[id].state_cov
+            else:
+                cov = buffer_dict[id]["state_cov"]
             self.print_matrix(cov, f"{id} Cov")
 
-    def reset(self) -> None:
+    def reset(self, seed=None, video_path=None) -> None:
         for estimator in self.REs.values():
             estimator.reset()
-        self.env.reset()
+        self.env.reset(seed, video_path)
+        self.custom_reset()
 
     @abstractmethod
     def define_env(self) -> BaseEnv:
@@ -236,12 +241,18 @@ class AICON(ABC):
         MUST be implemented by user. Evaluates one step of the environment and returns the buffer_dict
         """
         raise NotImplementedError
+    
+    def custom_reset(self):
+        """
+        CAN be implemented by user. Custom reset function
+        """
+        pass
 
     def compute_action(self, gradients):
         """
         CAN be implemented by user. Computes the action based on the gradients
         """
-        return - self.get_steepest_gradient(gradients)
+        return self.last_action - 1.0 * self.get_steepest_gradient(gradients)
 
     def print_states(self):
         """

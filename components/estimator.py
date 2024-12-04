@@ -131,6 +131,15 @@ class RecursiveEstimator(ABC, State):
         K_part_1 = torch.matmul(self.state_cov, H_t.t())
         K_part_1_2 = torch.matmul(H_t, K_part_1)
         K_part_2 = K_part_1_2 # K_part_2 will get additional terms below
+
+        # print(f"---------- F_t_dict: ----------")
+        # for key, value in F_t_dict.items():
+        #     print(f"{key}:\n{value}")
+        # print(f"H_t: {H_t}")
+        # print(f"State Cov: {self.state_cov}")
+        # print(f"K_part_1: {K_part_1}")
+        # print(f"K_part_1_2: {K_part_1_2}")
+
         for key in meas_dict.keys():
             if custom_measurement_noise is None:
                 # NOTE cannot also have (or custom_measurement_noise[key] is None) in the if because
@@ -179,12 +188,6 @@ class RecursiveEstimator(ABC, State):
             K_part_2 += 1e-6 * torch.eye(K_part_2.shape[0],
                                          dtype=self.dtype,
                                          device=self.state_mean.device)
-            
-        # if self.id == 'PolarTargetPos':
-        #     print(f"---------- F_t_dict: ----------")
-        #     for key, value in F_t_dict.items():
-        #         print(f"{key}:\n{value}")
-        #     #print(f"K_part_2: {K_part_2}")
 
         try:
             K_part_2_inv = torch.inverse(K_part_2)

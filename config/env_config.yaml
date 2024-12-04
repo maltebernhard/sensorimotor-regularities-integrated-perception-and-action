@@ -5,9 +5,10 @@ timestep:           0.05
 world_size:         50.0
 # max. sim time seconds per episonde
 episode_duration:   30.0
-# collisions with environment borders - DEPRECATED
+# collisions with environment borders
 wall_collision:     false
-
+# moving target
+moving_target:      true
 
 # number of obstacles in observation space
 num_obstacles:      0

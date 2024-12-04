@@ -53,7 +53,7 @@ class Obstacle:
 class Target:
     def __init__(self, x=0.0, y=0.0, distance=0.0):
         self.pos = np.array([x, y], dtype=np.float64)
-        self.vel = np.array([0.0, 0.0], dtype=np.float64)
+        self.movement_direction = 0.0
         self.distance = distance
 
 # =====================================================================================================
@@ -78,6 +78,7 @@ class GazeFixEnv(BaseEnv):
         self.wall_collision: bool = config["wall_collision"]
         self.num_obstacles: int = config["num_obstacles"]
         self.use_obstacles: bool = config["use_obstacles"]
+        self.moving_target: bool = config["moving_target"]
 
         # env dimensions
         self.world_size = config["world_size"]
@@ -99,7 +100,7 @@ class GazeFixEnv(BaseEnv):
         # rendering window
         self.viewer = None
         metadata = {'render_modes': ['human'], 'render_fps': 1/self.timestep}
-        self.render_relative_to_robot = 2
+        self.render_relative_to_robot = 3
         self.reward_render_mode = 1
         self.record_video = False
         self.video_path = ""
@@ -113,7 +114,8 @@ class GazeFixEnv(BaseEnv):
         self.action = self.limit_action(action) # make sure acceleration / velocity vector is within bounds
         self.set_robot_velocity()
         self.move_robot()
-        self.move_target()
+        if self.moving_target:
+            self.move_target()
         self.last_observation, rewards, done, trun, info = self._get_observation(), self.get_rewards(), self.get_terminated(), False, self.get_info()
 
         # add observation to history
@@ -317,8 +319,8 @@ class GazeFixEnv(BaseEnv):
             self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
-        #self.target.pos[0] += 1.0 * self.timestep
-        pass
+        direction = np.pi/3 * np.sin(self.time/4)
+        self.target.pos += np.array([np.cos(direction), np.sin(direction)]) * self.robot.max_vel / 2 * self.timestep
     
     def check_collision(self):
         if self.use_obstacles:
@@ -409,6 +411,7 @@ class GazeFixEnv(BaseEnv):
         x = distance * np.cos(angle)
         y = distance * np.sin(angle)
         self.target = Target(x, y, np.random.uniform(0.0, self.max_target_distance))
+        self.target.movement_direction = np.random.uniform(-np.pi, np.pi)
     
     def generate_obstacles(self):
         self.obstacles = []
@@ -464,7 +467,10 @@ class GazeFixEnv(BaseEnv):
         eigvals, eigvecs = np.linalg.eig(robot_frame_cov)
         eigvals = np.real(eigvals)
         eigvecs = np.real(eigvecs)
-        angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2
+        if self.render_relative_to_robot == 2:
+            angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2
+        else:
+            angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2 - self.robot.orientation
         width, height = 2*np.sqrt(eigvals)
         width = max(0.1, width)
         height = max(0.1, height)
@@ -597,6 +603,9 @@ class GazeFixEnv(BaseEnv):
         elif self.render_relative_to_robot == 2:
             x_pxl = int(self.screen_size/2 + (self.rotation_matrix(-self.robot.orientation + np.pi/2) @ (xy-self.robot.pos))[0] * self.scale)
             y_pxl = int(self.screen_size/2 - (self.rotation_matrix(-self.robot.orientation + np.pi/2) @ (xy-self.robot.pos))[1] * self.scale)
+        elif self.render_relative_to_robot == 3:
+            x_pxl = int(self.screen_size/2 + (self.rotation_matrix(np.pi/2) @ (xy-self.robot.pos))[0] * self.scale)
+            y_pxl = int(self.screen_size/2 - (self.rotation_matrix(np.pi/2) @ (xy-self.robot.pos))[1] * self.scale)
         return (x_pxl, y_pxl)
     
     def get_reward_color_map(self) -> np.ndarray:
