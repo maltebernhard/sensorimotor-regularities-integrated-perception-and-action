@@ -5,7 +5,7 @@ from typing import Dict
 
 from components.aicon import AICON
 from environment.gaze_fix_env import GazeFixEnv
-from experiment_contingent_goal.active_interconnections import Angle_Meas_AI, Gaze_Fixation_AI, Triangulation_AI, Triangulation_AI_Decoupled, Vel_AI
+from experiment_contingent_goal.active_interconnections import Angle_Meas_AI, Triangulation_AI, Vel_AI
 from experiment_contingent_goal.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_Estimator_Vel, Robot_Vel_Estimator_Acc, Robot_Vel_Estimator_Vel
 from experiment_contingent_goal.goals import GoToTargetGoal
 
@@ -16,7 +16,7 @@ class ContingentGoalAICON(AICON):
         super().__init__()
 
     def define_env(self):
-        config = 'config/env_config.yaml'
+        config = 'environment/env_config.yaml'
         with open(config) as file:
             env_config = yaml.load(file, Loader=yaml.FullLoader)
             # vel control:
@@ -94,11 +94,10 @@ class ContingentGoalAICON(AICON):
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
+        print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['del_robot_target_distance']:.3f}, {obs['del_target_offset_angle']:.3f}]")
         print("--------------------------------------------------------------------")
-        self.print_state("RobotVel", buffer_dict=buffer_dict)
-        actual_vel = [self.env.robot.vel[0], self.env.robot.vel[1], self.env.robot.vel_rot] 
-        print(actual_vel)
+        self.print_state("RobotVel", buffer_dict=buffer_dict) 
+        print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):

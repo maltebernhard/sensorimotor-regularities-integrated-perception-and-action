@@ -32,7 +32,7 @@ class Robot:
         self.orientation: float = 0.0
         self.vel: np.ndarray = np.array([0.0, 0.0], dtype=np.float64)
         self.vel_rot: float = 0.0
-        self.sensor_angle: float = sensor_angle
+        self.sensor_angle: float = min(sensor_angle, 2*np.pi)
         self.size: float = 0.5
         self.max_vel: float = max_vel
         self.max_vel_rot: float = max_vel_rot
@@ -51,10 +51,12 @@ class Obstacle:
         self.pos: np.ndarray = pos
 
 class Target:
-    def __init__(self, x=0.0, y=0.0, distance=0.0):
+    def __init__(self, x=0.0, y=0.0, distance=0.0, vel=0.0, base_movement_direction=0.0):
         self.pos = np.array([x, y], dtype=np.float64)
-        self.movement_direction = 0.0
+        self.base_movement_direction = base_movement_direction
+        self.current_movement_direction = base_movement_direction
         self.distance = distance
+        self.vel = vel
 
 # =====================================================================================================
 
@@ -319,8 +321,8 @@ class GazeFixEnv(BaseEnv):
             self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
-        direction = np.pi/3 * np.sin(self.time/4)
-        self.target.pos += np.array([np.cos(direction), np.sin(direction)]) * self.robot.max_vel / 2 * self.timestep
+        self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
+        self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
     
     def check_collision(self):
         if self.use_obstacles:
@@ -407,11 +409,11 @@ class GazeFixEnv(BaseEnv):
     
     def generate_target(self):
         distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
-        angle = np.random.uniform(-np.pi/2, np.pi/2)
+        #angle = np.random.uniform(-np.pi/2, np.pi/2)
+        angle = np.random.uniform(-np.pi, np.pi)
         x = distance * np.cos(angle)
         y = distance * np.sin(angle)
-        self.target = Target(x, y, np.random.uniform(0.0, self.max_target_distance))
-        self.target.movement_direction = np.random.uniform(-np.pi, np.pi)
+        self.target = Target(x, y, np.random.uniform(0.0, self.max_target_distance), 0.5 * self.robot.max_vel, np.random.uniform(-np.pi, np.pi))
     
     def generate_obstacles(self):
         self.obstacles = []
@@ -443,17 +445,19 @@ class GazeFixEnv(BaseEnv):
         self.draw_env()
 
         # draw an arrow for the robot's action
-        self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])), self.robot.size*2, RED)
+        self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.action[1],self.action[0]), self.robot.size*10*(np.linalg.norm(self.action[:2])), self.robot.size*2, RED if self.action_mode in [1,2] else BLUE)
         if self.action_mode in [1,2]:
             # draw an arrow for the robot's velocity
-            self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.robot.vel[1],self.robot.vel[0]), self.robot.size*10*(np.linalg.norm(self.robot.vel)/self.robot.max_vel), self.robot.size*2, BLUE)
+            self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.robot.vel[1],self.robot.vel[0]), self.robot.size*10*(np.linalg.norm(self.robot.vel)/self.robot.max_vel), self.robot.size*1.5, BLUE)
+        if self.moving_target:
+            # draw an arrow for the target's movement
+            self.draw_arrow(self.target.pos, self.target.current_movement_direction, self.robot.size*10*self.target.vel/self.robot.max_vel, self.robot.size*1.5, DARK_GREEN)
 
         if robot_frame_means is not None and robot_frame_covs is not None:
             assert len(robot_frame_means) == len(robot_frame_covs), "Number of means and covariances must be equal"
             assert len(robot_frame_means) <= 6, "Only up to 6 estimator states can be visualized"
             for i, key in enumerate(robot_frame_means.keys()):
                 mean = self.rotation_matrix(self.robot.orientation) @ robot_frame_means[key][:2] + self.robot.pos
-                #cov = self.rotation_matrix(self.robot.orientation) @ robot_frame_covs[key][:2,:2] @ self.rotation_matrix(self.robot.orientation).T
                 self.draw_gaussian(mean, robot_frame_covs[key][:2,:2], COLORS[i])
                 pygame.draw.circle(self.viewer, COLORS[i], self.pxl_coordinates(mean), 5)
 
@@ -495,14 +499,14 @@ class GazeFixEnv(BaseEnv):
             # draw target reward margin
             self.transparent_circle(self.target.pos, self.target.distance+self.reward_margin, GREEN)
         # draw target distance
-        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=1)
+        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=2)
         # draw target
-        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size/2*self.scale)
+        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size*self.scale)
         # draw vision axis
         pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)))
         # draw Agent
-        pygame.draw.circle(self.viewer, BLUE, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.robot.size/2*self.scale)
-        pygame.draw.polygon(self.viewer, BLUE, [self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/2, self.robot.size/2.5)), self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/2, self.robot.size/2.5)), self.pxl_coordinates(self.polar_point(self.robot.orientation, self.robot.size*0.7))])
+        pygame.draw.circle(self.viewer, BLUE, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.robot.size*self.scale)
+        pygame.draw.polygon(self.viewer, BLUE, [self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/2, self.robot.size/1.25)), self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/2, self.robot.size/1.25)), self.pxl_coordinates(self.polar_point(self.robot.orientation, self.robot.size*2.0))])
         # draw obstacles
         if self.use_obstacles:
             for o in self.obstacles:
@@ -531,9 +535,9 @@ class GazeFixEnv(BaseEnv):
         end_point = self.polar_point(angle, length, pos)
         tip_point_1 = self.polar_point(self.normalize_angle(angle+3*np.pi/4), side_length, end_point)
         tip_point_2 = self.polar_point(self.normalize_angle(angle-3*np.pi/4), side_length, end_point)
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(pos), self.pxl_coordinates(end_point))
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_1))
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_2))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(pos), self.pxl_coordinates(end_point), width=1)
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_1), width=1)
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_2), width=1)
 
     def transparent_circle(self, pos, radius, color):
         target_rect = pygame.Rect(self.pxl_coordinates(pos), (0, 0)).inflate((radius*2*self.scale, radius*2*self.scale))
@@ -567,23 +571,19 @@ class GazeFixEnv(BaseEnv):
     
     def display_info(self):
         font = pygame.font.Font(None, 24)
-        clock_surface = font.render('Step:', True, BLACK)
-        time_surface = font.render('Time:', True, BLACK)
-        step_reward = font.render('Step reward:', True, BLACK)
-        episode_reward = font.render('Total reward:', True, BLACK)
-        clock_surface_val = font.render(f'{self.num_steps}', True, BLACK)
-        time_surface_val = font.render('{0:.2f}'.format(self.time), True, BLACK)
-        step_reward_val = font.render('{0:.4f}'.format(np.sum(self.get_rewards())), True, BLACK)
-        episode_reward_val = font.render('{0:.4f}'.format(self.total_reward), True, BLACK)
-
-        self.viewer.blit(clock_surface, (10, 5))
-        self.viewer.blit(time_surface, (10, 30))
-        self.viewer.blit(step_reward, (10, 55))
-        self.viewer.blit(episode_reward, (10, 80))
-        self.viewer.blit(clock_surface_val, (150, 5))
-        self.viewer.blit(time_surface_val, (150, 30))
-        self.viewer.blit(step_reward_val, (150, 55))
-        self.viewer.blit(episode_reward_val, (150, 80))
+        legend = [
+            (f'Step:', f'{self.num_steps}'),                                # clock
+            (f'Time:', f'{self.time:.2f}'),                                 # time
+            # (f'Step reward:', f'{np.sum(self.get_rewards()):.4f}'),         # step reward
+            # (f'Total reward:', f'{self.total_reward:.4f}'),                 # episode reward
+            (f'Target Distance:', f'{self.robot_target_distance():.2f}'),   # target distance
+            (f'Desired Distance:', f'{self.target.distance:.2f}'),          # desired target distance
+        ]
+        for i, (text, value) in enumerate(legend):
+            self.viewer.blit(font.render(text, True, BLACK), (10, 5+25*i))
+            self.viewer.blit(font.render(value, True, BLACK), (160, 5+25*i))
+        self.viewer.blit(font.render("Robot", True, BLACK), (self.pxl_coordinates(self.robot.pos)) + np.array([10,-20]))
+        self.viewer.blit(font.render("Target", True, BLACK), (self.pxl_coordinates(self.target.pos)) + np.array([10,-20]))
 
     def render_grid(self):
         lines = []

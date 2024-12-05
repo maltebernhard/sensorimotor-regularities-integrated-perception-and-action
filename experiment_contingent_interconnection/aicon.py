@@ -17,7 +17,7 @@ class ContingentInterconnectionAICON(AICON):
         super().__init__()
 
     def define_env(self):
-        config = 'config/env_config.yaml'
+        config = 'environment/env_config.yaml'
         with open(config) as file:
             env_config = yaml.load(file, Loader=yaml.FullLoader)
             if self.vel_control:
@@ -62,8 +62,8 @@ class ContingentInterconnectionAICON(AICON):
         else:
             self.REs["RobotState"].call_predict(u, buffer_dict)
             self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-            #self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["GazeFixation"], buffer_dict)
-            #self.REs["RobotState"].call_update_with_specific_meas(self.AIs["GazeFixation"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["GazeFixation"], buffer_dict)
+            self.REs["RobotState"].call_update_with_specific_meas(self.AIs["GazeFixation"], buffer_dict)
             self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["TriangulationAI"], buffer_dict)
 
         return buffer_dict
@@ -95,8 +95,8 @@ class ContingentInterconnectionAICON(AICON):
         else:
             action = decay * self.last_action - 5e-2 * gradients["GoToTarget"]
         # manual gaze fixation
-        if self.vel_control:
-            action[2] = 0.8 * self.REs["PolarTargetPos"].state_mean[1] - 0.05 * self.REs["PolarTargetPos"].state_mean[3]
+        # if self.vel_control:
+        #     action[2] = 0.8 * self.REs["PolarTargetPos"].state_mean[1] - 0.05 * self.REs["PolarTargetPos"].state_mean[3]
         return action
     
     def print_states(self, buffer_dict=None):

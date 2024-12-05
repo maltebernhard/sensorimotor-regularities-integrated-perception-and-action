@@ -44,6 +44,17 @@ class State(Module):
 
 # =========================================================================================
 
+class Observation(State):
+    def __init__(self, id, state_dim, device, dtype=torch.float64):
+        super().__init__(id, state_dim, device, dtype)
+        self.updated = False
+
+    def set_observation(self, obs: torch.Tensor, obs_cov: torch.Tensor=None):
+        self.set_state(obs, obs_cov)
+        self.updated = True
+
+# =========================================================================================
+
 class RecursiveEstimator(ABC, State):
     def __init__(self, id, state_dim, device, dtype=torch.float64):
         super().__init__(id, state_dim, device, dtype)

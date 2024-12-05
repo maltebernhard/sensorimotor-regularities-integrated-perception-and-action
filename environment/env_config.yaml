@@ -30,6 +30,7 @@ robot_max_acc_rot:  10.0
 robot_max_vel:      8.0
 robot_max_vel_rot:  3.0
 robot_sensor_angle: 6.28318530718
+#robot_sensor_angle: 2.0
 
 # =============================== AGENT CONFIG ========================================
 

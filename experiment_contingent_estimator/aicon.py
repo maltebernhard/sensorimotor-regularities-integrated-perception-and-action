@@ -17,7 +17,7 @@ class ContingentEstimatorAICON(AICON):
         super().__init__()
 
     def define_env(self):
-        config = 'config/env_config.yaml'
+        config = 'environment/env_config.yaml'
         with open(config) as file:
             env_config = yaml.load(file, Loader=yaml.FullLoader)
             if self.vel_control:
