@@ -31,6 +31,9 @@ class ContingentEstimatorAICON(AICON):
         estimators["RobotState"] = Robot_State_Estimator_Acc(self.device) if not self.vel_control else Robot_State_Estimator_Vel(self.device)
         #estimators["PolarTargetPos"] = Polar_Pos_Estimator_Acc(self.device, "PolarTargetPos") if not self.vel_control else Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos")
         return estimators
+    
+    def define_measurement_models(self):
+        return {}
 
     def define_active_interconnections(self):
         active_interconnections = {
@@ -55,8 +58,8 @@ class ContingentEstimatorAICON(AICON):
 
         if new_step:
             self.REs["RobotState"].call_predict(u, buffer_dict)
-            self.REs["RobotState"].call_update_with_specific_meas(self.AIs["VelAI"], buffer_dict)
-            self.REs["RobotState"].call_update_with_specific_meas(self.AIs["AngleMeasAI"], buffer_dict)
+            self.REs["RobotState"].call_update_with_active_interconnection(self.AIs["VelAI"], buffer_dict)
+            self.REs["RobotState"].call_update_with_active_interconnection(self.AIs["AngleMeasAI"], buffer_dict)
         else:
             self.REs["RobotState"].call_predict(u, buffer_dict)
 
@@ -94,12 +97,16 @@ class ContingentEstimatorAICON(AICON):
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
+        # TODO: observations can be None now
+        #print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
+        print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle]]}")
         actual_state = [self.env.robot.vel[0], self.env.robot.vel[1], self.env.robot.vel_rot]
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        actual_state += [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]
+        # TODO: observations can be None now
+        #actual_state += [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]
+        actual_state += [dist, angle]
         print(f"True State: {actual_state}")
         print("--------------------------------------------------------------------")
 

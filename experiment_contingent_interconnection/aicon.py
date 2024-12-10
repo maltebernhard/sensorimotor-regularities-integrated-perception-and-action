@@ -32,6 +32,9 @@ class ContingentInterconnectionAICON(AICON):
         estimators["PolarTargetPos"] = Polar_Pos_Estimator_Acc(self.device, "PolarTargetPos") if not self.vel_control else Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos")
         return estimators
 
+    def define_measurement_models(self):
+        return {}
+
     def define_active_interconnections(self):
         active_interconnections = {
             "VelAI": Vel_AI([self.REs["RobotState"], self.obs["vel_frontal"], self.obs["vel_lateral"], self.obs["vel_rot"]], self.device),
@@ -55,16 +58,16 @@ class ContingentInterconnectionAICON(AICON):
 
         if new_step:
             self.REs["RobotState"].call_predict(u, buffer_dict)
-            self.REs["RobotState"].call_update_with_specific_meas(self.AIs["VelAI"], buffer_dict)
+            self.REs["RobotState"].call_update_with_active_interconnection(self.AIs["VelAI"], buffer_dict)
             self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["AngleMeasAI"], buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["TriangulationAI"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["AngleMeasAI"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         else:
             self.REs["RobotState"].call_predict(u, buffer_dict)
             self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["GazeFixation"], buffer_dict)
-            self.REs["RobotState"].call_update_with_specific_meas(self.AIs["GazeFixation"], buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["TriangulationAI"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+            self.REs["RobotState"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
 
         return buffer_dict
 
@@ -106,12 +109,16 @@ class ContingentInterconnectionAICON(AICON):
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
+        #TODO: Consider observations that are None
+        #print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
+        print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle]]}")
         actual_state = [self.env.robot.vel[0], self.env.robot.vel[1], self.env.robot.vel_rot]
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        actual_state += [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]
+        #TODO: Consider observations that are None
+        #actual_state += [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]
+        actual_state += [dist, angle]
         print(f"True State: ", end="")
         [print(f'{x:.3f} ', end="") for x in actual_state]
         print()

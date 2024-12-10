@@ -114,7 +114,7 @@ class GazeFixEnv(BaseEnv):
         if self.action_mode == 2:
             action = np.array([float(action[0]-1), float(action[1]-1), float(action[2]-1)])
         self.action = self.limit_action(action) # make sure acceleration / velocity vector is within bounds
-        self.set_robot_velocity()
+        self.update_robot_velocity()
         self.move_robot()
         if self.moving_target:
             self.move_target()
@@ -164,9 +164,11 @@ class GazeFixEnv(BaseEnv):
         self.screen = None
         
     def _get_observation(self):
+        """Computes a new observation."""
         return {key: obs.calculate_value() for key, obs in self.observations.items()}
         
     def get_observation(self):
+        """Return the current, unnormalized observation."""
         try:
             obs = self.history[0].copy()
         except:
@@ -219,7 +221,7 @@ class GazeFixEnv(BaseEnv):
     def get_info(self):
         return {}
     
-    # ------------------------------------------------------------------------------------------
+    # ----------------------------------------- init functions -------------------------------------------------
 
     def generate_observation_space(self):
         self.observations: Dict[str, Observation] = {
@@ -263,6 +265,28 @@ class GazeFixEnv(BaseEnv):
                 np.array([3, 3, 3])
             )
         else: raise NotImplementedError
+
+    def generate_target(self):
+        distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
+        #angle = np.random.uniform(-np.pi/2, np.pi/2)
+        angle = np.random.uniform(-np.pi, np.pi)
+        x = distance * np.cos(angle)
+        y = distance * np.sin(angle)
+        self.target = Target(x, y, np.random.uniform(0.0, self.max_target_distance), 0.5 * self.robot.max_vel, np.random.uniform(-np.pi, np.pi))
+    
+    def generate_obstacles(self):
+        self.obstacles = []
+        target_distance = np.linalg.norm(self.target.pos)
+        std_dev = target_distance / 8
+        midpoint = (self.target.pos + self.robot.pos) / 2
+        for _ in range(self.num_obstacles):
+            while True:
+                radius = self.world_size / 10
+                pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
+                # Ensure the obstacle doesn't spawn too close to robot
+                if np.linalg.norm(pos-self.robot.pos) > radius + 5 * self.robot.size:
+                    self.obstacles.append(Obstacle(radius, pos))
+                    break
     
     # -------------------------------------- helpers -------------------------------------------
 
@@ -290,7 +314,7 @@ class GazeFixEnv(BaseEnv):
             rotation = rotation / rotation_abs
         return np.concatenate([translation, rotation])
     
-    def set_robot_velocity(self):
+    def update_robot_velocity(self):
         # set xy and angular accelerations
         if self.action_mode == 1 or self.action_mode == 2:
             acc = self.action[:2] * self.robot.max_acc
@@ -363,18 +387,33 @@ class GazeFixEnv(BaseEnv):
         else:
             obs = [np.pi, 0.0, -1.0]
             obstacles = self.num_obstacles * obs
-        return np.array(obstacles)  
+        return np.array(obstacles)
+    
+    def normalize_angle(self, angle):
+        """Normalize an angle to the range [-pi, pi]."""
+        return np.arctan2(np.sin(angle), np.cos(angle))
+
+    def rotation_matrix(self, angle):
+        return np.array(
+            [[np.cos(angle), -np.sin(angle)],
+             [np.sin(angle), np.cos(angle)]]
+        )
+
+    # -------------------------------------- observation functions -------------------------------------------
 
     def compute_offset_angle(self, pos):
         angle = self.normalize_angle(np.arctan2(pos[1]-self.robot.pos[1], pos[0]-self.robot.pos[0]) - self.robot.orientation)
         if not (angle>-self.robot.sensor_angle/2 and angle<self.robot.sensor_angle/2):
-            angle = np.pi
+            #angle = np.pi
+            angle = None
         return angle
     
     def compute_del_offset_angle(self, angle):
-        if len(self.history) > 0:
+        #if len(self.history) > 0:
+        if (len(self.history) > 0) and (angle is not None) and (self.history[0]["target_offset_angle"] is not None):
             return ((angle-self.history[0]["target_offset_angle"] + np.pi) % (2*np.pi) - np.pi)/self.timestep
-        return 0.0
+        #return 0.0
+        return None
     
     def compute_del_target_distance(self):
         if len(self.history) > 0:
@@ -391,43 +430,11 @@ class GazeFixEnv(BaseEnv):
 
     def robot_target_distance(self):
         return np.linalg.norm(self.target.pos-self.robot.pos)
-    
-    def normalize_angle(self, angle):
-        """Normalize an angle to the range [-pi, pi]."""
-        return np.arctan2(np.sin(angle), np.cos(angle))
-
-    def rotation_matrix(self, angle):
-        return np.array(
-            [[np.cos(angle), -np.sin(angle)],
-             [np.sin(angle), np.cos(angle)]]
-        )
 
     def calculate_circle_coverage(self, obstacle: Obstacle):
         angular_size = 2 * math.asin(min(1.0, obstacle.radius / np.linalg.norm(obstacle.pos-self.robot.pos)))
         coverage = angular_size / self.robot.sensor_angle
         return min(coverage, 1.0)
-    
-    def generate_target(self):
-        distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
-        #angle = np.random.uniform(-np.pi/2, np.pi/2)
-        angle = np.random.uniform(-np.pi, np.pi)
-        x = distance * np.cos(angle)
-        y = distance * np.sin(angle)
-        self.target = Target(x, y, np.random.uniform(0.0, self.max_target_distance), 0.5 * self.robot.max_vel, np.random.uniform(-np.pi, np.pi))
-    
-    def generate_obstacles(self):
-        self.obstacles = []
-        target_distance = np.linalg.norm(self.target.pos)
-        std_dev = target_distance / 8
-        midpoint = (self.target.pos + self.robot.pos) / 2
-        for _ in range(self.num_obstacles):
-            while True:
-                radius = self.world_size / 10
-                pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
-                # Ensure the obstacle doesn't spawn too close to robot
-                if np.linalg.norm(pos-self.robot.pos) > radius + 5 * self.robot.size:
-                    self.obstacles.append(Obstacle(radius, pos))
-                    break
 
     # ----------------------------------- render stuff -----------------------------------------
 

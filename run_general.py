@@ -5,7 +5,7 @@ from experiment_general.aicon import GeneralTestAICON
 
 seed = 10
 # Great seed for 90 degree config failing without gaze fixation | good 2-obstacle seed
-#seed = 50
+seed = 50
 
 # TODO: acceleration control with active interconnection becomes unstable
 

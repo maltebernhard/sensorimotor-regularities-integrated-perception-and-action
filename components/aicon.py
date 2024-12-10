@@ -4,8 +4,8 @@ from torch.func import jacrev
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
-from components.active_interconnection import ActiveInterconnection
-from components.estimator import RecursiveEstimator, State
+from components.active_interconnection import ActiveInterconnection, MeasurementModel
+from components.estimator import Observation, RecursiveEstimator
 from components.goal import Goal
 from environment.base_env import BaseEnv
 from environment.gaze_fix_env import GazeFixEnv
@@ -14,7 +14,7 @@ from environment.gaze_fix_env import GazeFixEnv
 
 class AICON(ABC):
     def __init__(self, propagate_meas_uncertainty: bool = True):
-        self.device = device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype = torch.float64
         torch.set_default_device(self.device)
         torch.set_default_dtype(self.dtype)
@@ -22,6 +22,8 @@ class AICON(ABC):
         self.set_env(self.define_env())
         self.REs: Dict[str, RecursiveEstimator] = None
         self.set_estimators(self.define_estimators())
+        self.MMs: Dict[str, MeasurementModel] = None
+        self.set_measurement_models(self.define_measurement_models())
         self.AIs: Dict[str, ActiveInterconnection] = None
         self.set_active_interconnections(self.define_active_interconnections())
         self.goals: Dict[str, Goal] = None
@@ -32,14 +34,22 @@ class AICON(ABC):
 
     def set_env(self, env):
         self.env = env
-        self.obs: Dict[str, State] = {}
+        self.obs: Dict[str, Observation] = {} 
         observations: dict = self.env.get_observation()
         for key, value in observations.items():
-            self.obs[key] = State(key, 1, self.device)
-            self.obs[key].set_state(torch.tensor([value]), torch.zeros((1,1)))
+            self.obs[key] = Observation(key, 1, self.device)
+            if value is not None:
+                self.obs[key].set_observation(
+                    obs = torch.tensor([value]),
+                    obs_cov = 1e-3 * torch.ones((1,1)),
+                    time = 0.0
+                )
 
     def set_estimators(self, REs: Dict[str, RecursiveEstimator]):
         self.REs = REs
+
+    def set_measurement_models(self, MMs: Dict[str, MeasurementModel]):
+        self.MMs = MMs
 
     def set_active_interconnections(self, AIs: Dict[str, ActiveInterconnection]):
         self.AIs = AIs
@@ -49,11 +59,15 @@ class AICON(ABC):
 
     def update_observations(self):
         observations: dict = self.env.get_observation()
-        #print("========== Observations: ===========")
         for key, value in observations.items():
             # TODO: consider measurement noise (possibly on env level)
-            self.obs[key].set_state(torch.tensor([value], device=self.device, dtype=self.dtype), 1e-3 * torch.ones((1,1), device=self.device, dtype=self.dtype))
-            #self.print_state(key)
+            if value is not None:
+                self.obs[key].set_observation(
+                    obs = torch.tensor([value], device=self.device, dtype=self.dtype),
+                    # TODO: what if there is covariance?
+                    obs_cov = 0.0 * torch.ones((1,1), device=self.device, dtype=self.dtype),
+                    time = self.env.time
+                )
 
     def step(self, action):
         if action[:2].norm() > 1.0:
@@ -63,9 +77,11 @@ class AICON(ABC):
         self.last_action = action
         #print(f"-------- Action: ", end=""), self.print_vector(action, trail=" --------")
         self.env.step(np.array(action.cpu()))
+        for obs in self.obs.values():
+            obs.updated = False
         buffers = self.eval_step(action, new_step=True)
         for key, buffer_dict in buffers.items():
-            self.REs[key].load_state_dict(buffer_dict) if key in self.REs.keys() else self.obs[key].load_state_dict(buffer_dict)
+            self.REs[key].load_state_dict(buffer_dict) if key in self.REs.keys() else None
 
     def _eval_goal_with_aux(self, action, goal):
         buffer_dict = self.eval_step(action, new_step=False)

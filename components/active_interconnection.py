@@ -1,10 +1,23 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
-from components.estimator import RecursiveEstimator
+from components.estimator import Observation, RecursiveEstimator
 from components.measurement_model import ImplicitMeasurementModel
     
-# ==================================================================================================================================================
+# ====================================================================================================================================
+
+class MeasurementModel(ABC, ImplicitMeasurementModel):
+    def __init__(self, estimator: str, required_observations: List[str], device):
+        meas_config = {obs: 1 for obs in required_observations}
+        super().__init__(meas_config=meas_config, device=device)
+        self.estimator = estimator
+        self.observations = required_observations
+
+    @abstractmethod
+    def implicit_measurement_model(self, x, meas_dict):
+        raise NotImplementedError
+    
+# ====================================================================================================================================
 
 class ActiveInterconnection(ABC, ImplicitMeasurementModel):
     def __init__(self, estimators: List[RecursiveEstimator], required_estimators, device, propagate_meas_uncertainty=True):
@@ -13,9 +26,6 @@ class ActiveInterconnection(ABC, ImplicitMeasurementModel):
         super().__init__(meas_config=meas_config, device=device)
         self.connected_estimators: Dict[str, RecursiveEstimator] = {est.id: est for est in estimators}
         self.propagate_meas_uncertainty = propagate_meas_uncertainty
-
-    def add_estimator(self, estimator: RecursiveEstimator):
-        self.connected_estimators[estimator.id] = estimator
 
     def get_state_dict(self, buffer_dict, estimator_id):
         return {id: buffer_dict[id]['state_mean'] for id in self.connected_estimators.keys() if id != estimator_id}

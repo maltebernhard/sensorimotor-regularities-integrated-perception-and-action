@@ -6,7 +6,7 @@ from typing import Dict
 from components.aicon import AICON
 from environment.gaze_fix_env import GazeFixEnv
 from experiment_general.estimators import Obstacle_Rad_Estimator, Polar_Pos_Estimator_Vel, Cartesian_Pos_Estimator, RecursiveEstimator, Robot_Vel_Estimator_Vel, Robot_Vel_Estimator_Acc
-from experiment_general.active_interconnections import Angle_Meas_AI, Cartesian_Polar_AI, Pos_Angle_AI, Radius_Pos_VisAngle_AI, Triangulation_AI, Vel_AI
+from experiment_general.active_interconnections import Angle_Meas_MM, Cartesian_Polar_AI, Pos_Angle_MM, Radius_Pos_VisAngle_AI, Triangulation_AI, Vel_MM
 from experiment_general.goals import AvoidObstacleGoal, GazeFixationGoal, GoToTargetGoal, PolarGoToTargetGoal
 
 # =============================================================================================================================================================
@@ -38,16 +38,24 @@ class GeneralTestAICON(AICON):
             REs[f"Obstacle{i}Rad"] = Obstacle_Rad_Estimator(self.device, f"Obstacle{i}Rad")
         return REs
 
+    def define_measurement_models(self):
+        MMs = {
+            "RobotVel": Vel_MM(self.device),
+            "PolarAngle": Angle_Meas_MM(self.device, "Target"),
+            "CartesianTargetPos-Angle": Pos_Angle_MM(self.device, "Target"),
+        }
+        for i in range(1, self.num_obstacles + 1):
+            MMs[f"CartesianObstacle{i}Pos-Angle"] = Pos_Angle_MM(self.device, f"Obstacle{i}")
+        return MMs
+
     def define_active_interconnections(self):
         AIs = {
-            "RobotVel": Vel_AI([self.REs["RobotVel"], self.obs["vel_frontal"], self.obs["vel_lateral"], self.obs["vel_rot"]], self.device),
             #"CartPolarPos": Cartesian_Polar_AI([REs["CartesianTargetPos"], REs["PolarTargetPos"]], device),
         }
-        AIs["PolarAngle"] = Angle_Meas_AI([self.REs["PolarTargetPos"], self.obs["target_offset_angle"], self.obs["del_target_offset_angle"]], self.device)
         AIs["PolarDistance"] = Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device)
-        AIs["CartesianTargetPos-Angle"] = Pos_Angle_AI([self.REs["CartesianTargetPos"], self.REs["RobotVel"], self.obs["target_offset_angle"]], self.device)
+        # AIs["CartesianTargetPos-Angle"] = Pos_Angle_AI([self.REs["CartesianTargetPos"], self.REs["RobotVel"], self.obs["target_offset_angle"]], self.device)
         for i in range(1, self.num_obstacles + 1):
-            AIs[f"CartesianObstacle{i}Pos-Angle"] = Pos_Angle_AI([self.REs[f"CartesianObstacle{i}Pos"], self.REs["RobotVel"], self.obs[f"obstacle{i}_offset_angle"]], self.device, object_name=f"Obstacle{i}")
+            #AIs[f"CartesianObstacle{i}Pos-Angle"] = Pos_Angle_AI([self.REs[f"CartesianObstacle{i}Pos"], self.REs["RobotVel"], self.obs[f"obstacle{i}_offset_angle"]], self.device, object_name=f"Obstacle{i}")
             AIs[f"Obstacle{i}Rad"] = Radius_Pos_VisAngle_AI([self.REs[f"CartesianObstacle{i}Pos"], self.REs[f"Obstacle{i}Rad"], self.obs[f"obstacle{i}_visual_angle"]], self.device, object_name=f"Obstacle{i}")
         return AIs
 
@@ -71,37 +79,84 @@ class GeneralTestAICON(AICON):
             estimator_covs[f"CartesianObstacle{i}Pos"] = torch.tensor([[rad**2, 0], [0, rad**2]], device=self.device)
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
+    # def eval_step(self, action: torch.Tensor, new_step = False):
+    #     self.update_observations()
+    #     buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
+
+    #     u = self.get_control_input(action)
+
+    #     # ----------------------------- update vel -------------------------------------
+    #     self.REs["RobotVel"].call_predict(u, buffer_dict)
+    #     if new_step:
+    #         self.REs["RobotVel"].call_update_with_specific_meas(self.AIs["RobotVel"], buffer_dict)
+
+    #     # ----------------------------- update and predict -------------------------------------
+
+    #     #self.REs["CartesianTargetPos"].call_predict(u, buffer_dict)
+    #     self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
+
+    #     if new_step:
+    #         self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarAngle"], buffer_dict)
+    #         self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
+    #         self.REs["CartesianTargetPos"].call_update_with_specific_meas(self.AIs["CartesianTargetPos-Angle"], buffer_dict)
+
+    #     else:
+    #         # TODO: instable with acc control
+    #         if self.vel_control:
+    #             self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
+        
+    #     return buffer_dict
+
     def eval_step(self, action: torch.Tensor, new_step = False):
         self.update_observations()
         buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
 
         u = self.get_control_input(action)
 
-        # ----------------------------- update vel -------------------------------------
+        # print("------------------- Pre Predict -------------------")
+        # print(buffer_dict['PolarTargetPos']['state_mean'])
+
+        # ----------------------------- predicts -------------------------------------
         self.REs["RobotVel"].call_predict(u, buffer_dict)
-        if new_step:
-            self.REs["RobotVel"].call_update_with_specific_meas(self.AIs["RobotVel"], buffer_dict)
-
-        # ----------------------------- update and predict -------------------------------------
-
-        #self.REs["CartesianTargetPos"].call_predict(u, buffer_dict)
+        self.REs["CartesianTargetPos"].call_predict(u, buffer_dict)
         self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
         for i in range(1, self.num_obstacles + 1):
             self.REs[f"CartesianObstacle{i}Pos"].call_predict(u, buffer_dict)
             self.REs[f"Obstacle{i}Rad"].call_predict(u, buffer_dict)
 
+        # print("------------------- Post Predict -------------------")
+        # print(buffer_dict['PolarTargetPos']['state_mean'])
+
+        # ----------------------------- active interconnections -------------------------------------
+
         if new_step:
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarAngle"], buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
-            self.REs["CartesianTargetPos"].call_update_with_specific_meas(self.AIs["CartesianTargetPos-Angle"], buffer_dict)
+            #self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarAngle"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
+            #self.REs["CartesianTargetPos"].call_update_with_specific_meas(self.AIs["CartesianTargetPos-Angle"], buffer_dict)
             for i in range(1, self.num_obstacles + 1):
-                self.REs[f"CartesianObstacle{i}Pos"].call_update_with_specific_meas(self.AIs[f"CartesianObstacle{i}Pos-Angle"], buffer_dict)
-                self.REs[f"Obstacle{i}Rad"].call_update_with_specific_meas(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
+                #self.REs[f"CartesianObstacle{i}Pos"].call_update_with_specific_meas(self.AIs[f"CartesianObstacle{i}Pos-Angle"], buffer_dict)
+                self.REs[f"Obstacle{i}Rad"].call_update_with_active_interconnection(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
         else:
-            # TODO: instable with acc control
+            # TODO: unstable with acc control
             if self.vel_control:
-                self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["PolarDistance"], buffer_dict)
+                self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
         
+        # print("------------------- Post Update -------------------")
+        # print(buffer_dict['PolarTargetPos']['state_mean'])
+
+        # ----------------------------- measurement updates -------------------------------------
+
+        if new_step:
+            for model_key, meas_model in self.MMs.items():
+                meas_dict = {
+                    "means": {key: obs.state_mean for key, obs in self.obs.items() if key in meas_model.observations and obs.updated},
+                    "covs": {key: obs.state_cov for key, obs in self.obs.items() if key in meas_model.observations and obs.updated}
+                }
+                if len(meas_dict["means"]) == len(meas_model.observations):
+                    self.REs[meas_model.estimator].call_update_with_meas_model(meas_model, buffer_dict, meas_dict)
+                else:
+                    print(f"Missing measurements for {model_key}")
+
         return buffer_dict
     
     def get_control_input(self, action: torch.Tensor):
@@ -138,7 +193,7 @@ class GeneralTestAICON(AICON):
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        print(f"True PolarTargetPos: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
+        print(f"True PolarTargetPos: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle'] if obs['del_target_offset_angle'] else 0.0]]}")
         print("--------------------------------------------------------------------")
         if self.num_obstacles > 0:
             [self.print_state(f"CartesianObstacle{i}Pos", print_cov=print_cov) for i in range(1, self.num_obstacles + 1)]

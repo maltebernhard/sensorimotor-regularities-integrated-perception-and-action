@@ -48,10 +48,12 @@ class Observation(State):
     def __init__(self, id, state_dim, device, dtype=torch.float64):
         super().__init__(id, state_dim, device, dtype)
         self.updated = False
+        self.last_updated = -1.0
 
-    def set_observation(self, obs: torch.Tensor, obs_cov: torch.Tensor=None):
+    def set_observation(self, obs: torch.Tensor, obs_cov: torch.Tensor=None, time=None):
         self.set_state(obs, obs_cov)
         self.updated = True
+        self.last_updated = time
 
 # =========================================================================================
 
@@ -143,9 +145,10 @@ class RecursiveEstimator(ABC, State):
         K_part_1_2 = torch.matmul(H_t, K_part_1)
         K_part_2 = K_part_1_2 # K_part_2 will get additional terms below
 
-        # print(f"---------- F_t_dict: ----------")
-        # for key, value in F_t_dict.items():
-        #     print(f"{key}:\n{value}")
+        if self.id == "PolarTargetPos":
+            print(f"---------- F_t_dict: ----------")
+            for key, value in F_t_dict.items():
+                print(f"{key}:\n{value}")
         # print(f"H_t: {H_t}")
         # print(f"State Cov: {self.state_cov}")
         # print(f"K_part_1: {K_part_1}")
@@ -297,7 +300,12 @@ class RecursiveEstimator(ABC, State):
         kwargs = {'u': u}
         return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
 
-    def call_update_with_specific_meas(self, active_interconnection, buffer_dict: Dict[str, torch.Tensor]):
+    def call_update_with_active_interconnection(self, active_interconnection, buffer_dict: Dict[str, torch.Tensor]):
         args_to_be_passed = ('update_with_specific_meas', active_interconnection)
         kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id), 'custom_measurement_noise': active_interconnection.get_cov_dict(buffer_dict, self.id)}
+        return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
+    
+    def call_update_with_meas_model(self, meas_model, buffer_dict, meas_dict: Dict[str, torch.Tensor]):
+        args_to_be_passed = ('update_with_specific_meas', meas_model)
+        kwargs = {'meas_dict': meas_dict["means"], 'custom_measurement_noise': meas_dict["covs"]}
         return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)

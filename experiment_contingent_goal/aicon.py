@@ -29,6 +29,9 @@ class ContingentGoalAICON(AICON):
         estimators["PolarTargetPos"] = Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos")
         return estimators
 
+    def define_measurement_models(self):
+        return {}
+
     def define_active_interconnections(self):
         active_interconnections = {
             "VelAI": Vel_AI([self.REs["RobotVel"], self.obs["vel_frontal"], self.obs["vel_lateral"], self.obs["vel_rot"]], self.device),
@@ -51,16 +54,16 @@ class ContingentGoalAICON(AICON):
 
         if new_step:
             self.REs["RobotVel"].call_predict(u, buffer_dict)
-            self.REs["RobotVel"].call_update_with_specific_meas(self.AIs["VelAI"], buffer_dict)
+            self.REs["RobotVel"].call_update_with_active_interconnection(self.AIs["VelAI"], buffer_dict)
 
             self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["AngleMeasAI"], buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["TriangulationAI"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["AngleMeasAI"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
 
         else:
             self.REs["RobotVel"].call_predict(u, buffer_dict)
             self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_specific_meas(self.AIs["TriangulationAI"], buffer_dict)
+            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
 
         return buffer_dict
 
@@ -94,7 +97,9 @@ class ContingentGoalAICON(AICON):
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['del_robot_target_distance']:.3f}, {obs['del_target_offset_angle']:.3f}]")
+        # TODO: observations can be None now
+        #print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['del_robot_target_distance']:.3f}, {obs['del_target_offset_angle']:.3f}]")
+        print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_state("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")
