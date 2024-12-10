@@ -158,3 +158,7 @@ class GeneralTestAICON(AICON):
         cov[0, 1] = (polar_cov[0, 0] - polar_cov[1, 1]) * torch.cos(polar_mean[1]) * torch.sin(polar_mean[1])
         cov[1, 0] = cov[0, 1]
         return mean, cov
+    
+    def custom_reset(self):
+        self.update_observations()
+        self.goals["PolarGo-To-Target"].desired_distance = self.obs["target_distance"].state_mean.item()
