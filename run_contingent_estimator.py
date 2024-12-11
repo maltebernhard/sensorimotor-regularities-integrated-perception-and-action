@@ -56,11 +56,11 @@ seed = 10
 
 if __name__ == "__main__":
     print("Running General AICON Test")
-    aicon = ContingentEstimatorAICON(vel_control=True)
+    aicon = ContingentEstimatorAICON()
 
     #test_acc_control_pos_estimate_forward(aicon)
 
-    aicon.run(200, seed, render=True, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), prints=1, step_by_step=False, record_video=True)
+    aicon.run(200, seed, render=True, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), prints=1, step_by_step=False, record_video=False)
 
     # print("Goal Grad: ", aicon.compute_goal_action_gradient(aicon.goals["GoToTarget"]))
     # print("Estimator Grad: ", aicon.compute_estimator_action_gradient("PolarTargetPos", aicon.last_action)[0]["state_mean"])

@@ -4,7 +4,7 @@ from typing import Dict
 
 # ==================================================================================
 
-class GoToTargetGoal(Goal):
+class SpecificGoToTargetGoal(Goal):
     def __init__(self, device):
         super().__init__(device)
         self.desired_distance = 0.0

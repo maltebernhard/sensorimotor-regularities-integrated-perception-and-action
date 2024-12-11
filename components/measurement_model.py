@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, List
 import torch
 from torch.nn import Module
 from torch.func import jacrev
@@ -127,4 +127,17 @@ class ImplicitMeasurementModel(Module):
         # KF goes through normal iteration. So predict
         # and multiple updates maybe asynchronous.
         # So, don't allow forward calls!
+        raise NotImplementedError
+    
+# ====================================================================================================================================
+
+class MeasurementModel(ABC, ImplicitMeasurementModel):
+    def __init__(self, estimator: str, required_observations: List[str], device):
+        meas_config = {obs: 1 for obs in required_observations}
+        super().__init__(meas_config=meas_config, device=device)
+        self.estimator = estimator
+        self.observations = required_observations
+
+    @abstractmethod
+    def implicit_measurement_model(self, x, meas_dict):
         raise NotImplementedError

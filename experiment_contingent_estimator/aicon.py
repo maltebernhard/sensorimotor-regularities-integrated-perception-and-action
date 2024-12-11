@@ -1,30 +1,18 @@
 import numpy as np
-import yaml
 import torch
-from typing import Dict
 
-from components.aicon import AICON
-from environment.gaze_fix_env import GazeFixEnv
-from experiment_contingent_estimator.active_interconnections import Angle_Meas_AI, DistanceUpdaterAcc, DistanceUpdaterVel, Triangulation_AI, Vel_AI
-from experiment_contingent_estimator.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_Estimator_Vel, Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
-from experiment_contingent_estimator.goals import GoToTargetGoal
+from components.aicon import DroneEnvAICON as AICON
+from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
+
+from experiment_contingent_estimator.active_interconnections import DistanceUpdaterAcc, DistanceUpdaterVel
+from experiment_contingent_estimator.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
+from experiment_contingent_estimator.goals import SpecificGoToTargetGoal
 
 # ========================================================================================================
 
 class ContingentEstimatorAICON(AICON):
-    def __init__(self, vel_control=False):
-        self.vel_control = vel_control
-        super().__init__()
-
-    def define_env(self):
-        config = 'environment/env_config.yaml'
-        with open(config) as file:
-            env_config = yaml.load(file, Loader=yaml.FullLoader)
-            if self.vel_control:
-                env_config["action_mode"] = 3
-            else:
-                env_config["action_mode"] = 1
-        return GazeFixEnv(env_config)
+    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0):
+        super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles)
 
     def define_estimators(self):
         estimators = {}
@@ -33,12 +21,13 @@ class ContingentEstimatorAICON(AICON):
         return estimators
     
     def define_measurement_models(self):
-        return {}
+        return {
+            "VelMM": Vel_MM(self.device),
+            "AngleMeasMM": Angle_Meas_MM(self.device, "Target"),
+        }
 
     def define_active_interconnections(self):
         active_interconnections = {
-            "VelAI": Vel_AI([self.REs["RobotState"], self.obs["vel_frontal"], self.obs["vel_lateral"], self.obs["vel_rot"]], self.device),
-            "AngleMeasAI": Angle_Meas_AI([self.REs["RobotState"], self.obs["target_offset_angle"], self.obs["del_target_offset_angle"]], self.device),
             #"TriangulationAI": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotState"]], self.device),
             #"DistanceUpdater": DistanceUpdaterAcc([self.REs["PolarTargetPos"], self.REs["RobotState"]], self.device) if not self.vel_control else DistanceUpdaterVel([self.REs["PolarTargetPos"], self.REs["RobotState"]], self.device),
         }
@@ -46,23 +35,20 @@ class ContingentEstimatorAICON(AICON):
 
     def define_goals(self):
         goals = {
-            "GoToTarget": GoToTargetGoal(self.device),
+            "GoToTarget": SpecificGoToTargetGoal(self.device),
         }
         return goals
 
     def eval_step(self, action, new_step = False):
         self.update_observations()
         buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
-
         u = self.get_control_input(action)
-
+        self.REs["RobotState"].call_predict(u, buffer_dict)
         if new_step:
-            self.REs["RobotState"].call_predict(u, buffer_dict)
-            self.REs["RobotState"].call_update_with_active_interconnection(self.AIs["VelAI"], buffer_dict)
-            self.REs["RobotState"].call_update_with_active_interconnection(self.AIs["AngleMeasAI"], buffer_dict)
+            self.REs["RobotState"].call_update_with_meas_model(self.MMs["VelMM"], buffer_dict, self.get_meas_dict(self.MMs["VelMM"]))
+            self.REs["RobotState"].call_update_with_meas_model(self.MMs["AngleMeasMM"], buffer_dict, self.get_meas_dict(self.MMs["AngleMeasMM"]))
         else:
-            self.REs["RobotState"].call_predict(u, buffer_dict)
-
+            pass
         return buffer_dict
 
     def get_control_input(self, action: torch.Tensor):

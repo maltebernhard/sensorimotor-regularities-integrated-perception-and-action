@@ -4,67 +4,26 @@ from components.active_interconnection import ActiveInterconnection
 from components.estimator import RecursiveEstimator
 
 # ========================================================================================================
-
-class Vel_AI(ActiveInterconnection):
-    """
-    Measurement Model:
-    vel state:          robot vel
-    vel obs:            robot vel observation
-    """
-    def __init__(self, estimators, device) -> None:
-        required_estimators = ['RobotState', 'vel_frontal', 'vel_lateral', 'vel_rot']
-        super().__init__(estimators, required_estimators, device)
-
-    def implicit_interconnection_model(self, meas_dict):
-        return torch.stack([
-            meas_dict['vel_frontal'] - meas_dict['RobotState'][0],
-            meas_dict['vel_lateral'] - meas_dict['RobotState'][1],
-            meas_dict['vel_rot'] - meas_dict['RobotState'][2]
-        ]).squeeze()
-
-class Angle_Meas_AI(ActiveInterconnection):
-    def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
-        self.object_name = object_name
-        required_estimators = [f'Polar{object_name}Pos', f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle', f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle']
-        super().__init__(estimators, required_estimators, device)
-
-    def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
-        return torch.stack([
-            (meas_dict[f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'Polar{self.object_name}Pos'][1] + torch.pi) % (2*torch.pi) - torch.pi,
-            meas_dict[f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'Polar{self.object_name}Pos'][3],
-        ]).squeeze()
-
-class Triangulation_AI(ActiveInterconnection):
-    def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
-        self.object_name = object_name
-        required_estimators = [f'Polar{object_name}Pos', 'RobotState']
-        super().__init__(estimators, required_estimators, device)
-
-    def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
-        offset_angle = meas_dict[f'Polar{self.object_name}Pos'][1]
-        robot_target_frame_rotation_matrix = torch.stack([
-            torch.stack([torch.cos(-offset_angle), -torch.sin(-offset_angle)]),
-            torch.stack([torch.sin(-offset_angle), torch.cos(-offset_angle)]),
-        ]).squeeze()
-        robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, meas_dict['RobotState'][:2])
-        angular_vel = meas_dict[f'Polar{self.object_name}Pos'][3] + meas_dict['RobotState'][2]
-        # TODO: tan or plain?
-        #triangulated_distance = torch.abs(robot_target_frame_vel[1] / torch.tan(angular_vel))
-        if torch.abs(robot_target_frame_vel[1]) == 0.0 or torch.abs(angular_vel) == 0.0:
-            triangulated_distance = meas_dict[f'Polar{self.object_name}Pos'][0]
-        else:
-            triangulated_distance = torch.abs(robot_target_frame_vel[1] / angular_vel)
-
-        return torch.stack([
-            torch.atleast_1d(triangulated_distance - meas_dict[f'Polar{self.object_name}Pos'][0]),
-            torch.atleast_1d(- robot_target_frame_vel[0] - meas_dict[f'Polar{self.object_name}Pos'][2]),
-        ]).squeeze()
     
 class Gaze_Fixation_AI(ActiveInterconnection):
     def __init__(self, estimators, device):
-        required_estimators = ['PolarTargetPos', 'RobotState']
+        required_estimators = ['PolarTargetPos', 'RobotVel']
         super().__init__(estimators, required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict):
         # TODO: expand to more constrained values?
-        return torch.atleast_1d(meas_dict['RobotState'][2] - (- meas_dict['RobotState'][1] / meas_dict['PolarTargetPos'][0]))
+        return torch.atleast_1d(meas_dict['RobotVel'][2] - (- meas_dict['RobotVel'][1] / meas_dict['PolarTargetPos'][0]))
+
+class Gaze_Fixation_AI2(ActiveInterconnection):
+    def __init__(self, estimators, device):
+        required_estimators = ['PolarTargetPos', 'RobotVel']
+        super().__init__(estimators, required_estimators, device)
+
+    def implicit_interconnection_model(self, meas_dict):
+        offset_angle = meas_dict[f'PolarTargetPos'][1]
+        robot_target_frame_rotation_matrix = torch.stack([
+            torch.stack([torch.cos(-offset_angle), -torch.sin(-offset_angle)]),
+            torch.stack([torch.sin(-offset_angle), torch.cos(-offset_angle)]),
+        ]).squeeze()
+        robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, meas_dict['RobotVel'][:2])
+        return torch.atleast_1d(robot_target_frame_vel[1] / meas_dict['PolarTargetPos'][0] + meas_dict['RobotVel'][2])

@@ -5,35 +5,6 @@ from components.estimator import RecursiveEstimator
 
 # ========================================================================================================
 
-class Vel_AI(ActiveInterconnection):
-    """
-    Measurement Model:
-    vel state:          robot vel
-    vel obs:            robot vel observation
-    """
-    def __init__(self, estimators, device) -> None:
-        required_estimators = ['RobotVel', 'vel_frontal', 'vel_lateral', 'vel_rot']
-        super().__init__(estimators, required_estimators, device)
-
-    def implicit_interconnection_model(self, meas_dict):
-        return torch.stack([
-            meas_dict['vel_frontal'] - meas_dict['RobotVel'][0],
-            meas_dict['vel_lateral'] - meas_dict['RobotVel'][1],
-            meas_dict['vel_rot'] - meas_dict['RobotVel'][2]
-        ]).squeeze()
-
-class Angle_Meas_AI(ActiveInterconnection):
-    def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
-        self.object_name = object_name
-        required_estimators = [f'Polar{object_name}Pos', f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle', f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle']
-        super().__init__(estimators, required_estimators, device)
-
-    def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
-        return torch.stack([
-            (meas_dict[f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'Polar{self.object_name}Pos'][1] + torch.pi) % (2*torch.pi) - torch.pi,
-            meas_dict[f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'Polar{self.object_name}Pos'][3],
-        ]).squeeze()
-
 class Triangulation_AI(ActiveInterconnection):
     def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
         self.object_name = object_name
@@ -41,6 +12,11 @@ class Triangulation_AI(ActiveInterconnection):
         super().__init__(estimators, required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
+        # TODO: suppresses gradient propagation of changes in offset angle in this AI
+            # BAD because it suppresses an action component
+            # GOOD because we don't want rotation to influence triangulation
+            # NOTE: not sure whether this suppression will have additional effects other than the desired one
+        #offset_angle = torch.tensor([meas_dict[f'Polar{self.object_name}Pos'][1].item()])
         offset_angle = meas_dict[f'Polar{self.object_name}Pos'][1]
         robot_target_frame_rotation_matrix = torch.stack([
             torch.stack([torch.cos(-offset_angle), -torch.sin(-offset_angle)]),

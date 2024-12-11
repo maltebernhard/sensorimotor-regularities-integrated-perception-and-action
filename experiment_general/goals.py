@@ -23,37 +23,8 @@ class PolarGoToTargetGoal(Goal):
             #1e1 * trans_vel_penalty,
             #1e1 * angular_vel_penalty,
         ]).pow(2).sum()
-        loss_cov = 1e-1 * torch.trace(polar_target_pos_uncertainty).pow(2)
+        loss_cov = 1e0 * torch.trace(polar_target_pos_uncertainty).pow(2)
         #print(f"Loss Mean: {loss_mean} | Loss Cov: {loss_cov}")
-        return loss_mean + loss_cov
-
-class GoToTargetGoal(Goal):
-    def __init__(self, device):
-        super().__init__(device)
-
-    def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        current_state_mean = buffer_dict['CartesianTargetPos']['state_mean']
-        current_state_cov = buffer_dict['CartesianTargetPos']['state_cov']
-        loss_mean = torch.concat([
-            3.0 * current_state_mean[:2],
-            #torch.atleast_1d(1.0 * torch.abs(torch.atan2(current_state_mean[1], current_state_mean[0])))
-        ]).pow(2).sum()
-        loss_cov = 10.0 * torch.trace(current_state_cov[:2,:2]).pow(2)
-        return loss_mean + loss_cov
-    
-class GazeFixationGoal(Goal):
-    def __init__(self, device):
-        super().__init__(device)
-
-    def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        current_state_mean = buffer_dict['PolarTargetPos']['state_mean']
-        current_state_cov = buffer_dict['PolarTargetPos']['state_cov']
-        loss_mean = torch.concat([
-            torch.atleast_1d(current_state_mean[1]),
-            #torch.atleast_1d(current_state_mean[3])
-        ]).pow(2).sum()
-        loss_cov = 0.5 * current_state_cov[1,1]
-        #loss_cov += 0.5 * current_state_cov[3,3]
         return loss_mean + loss_cov
     
 class AvoidObstacleGoal(Goal):

@@ -6,19 +6,6 @@ from components.measurement_model import ImplicitMeasurementModel
     
 # ====================================================================================================================================
 
-class MeasurementModel(ABC, ImplicitMeasurementModel):
-    def __init__(self, estimator: str, required_observations: List[str], device):
-        meas_config = {obs: 1 for obs in required_observations}
-        super().__init__(meas_config=meas_config, device=device)
-        self.estimator = estimator
-        self.observations = required_observations
-
-    @abstractmethod
-    def implicit_measurement_model(self, x, meas_dict):
-        raise NotImplementedError
-    
-# ====================================================================================================================================
-
 class ActiveInterconnection(ABC, ImplicitMeasurementModel):
     def __init__(self, estimators: List[RecursiveEstimator], required_estimators, device, propagate_meas_uncertainty=True):
         assert set(estimator.id for estimator in estimators) == set(required_estimators), f"Estimators should be {required_estimators}"

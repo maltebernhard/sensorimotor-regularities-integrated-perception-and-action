@@ -4,8 +4,11 @@ from torch.func import jacrev
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
-from components.active_interconnection import ActiveInterconnection, MeasurementModel
+import yaml
+
 from components.estimator import Observation, RecursiveEstimator
+from components.measurement_model import MeasurementModel
+from components.active_interconnection import ActiveInterconnection
 from components.goal import Goal
 from environment.base_env import BaseEnv
 from environment.gaze_fix_env import GazeFixEnv
@@ -282,3 +285,27 @@ class AICON(ABC):
         CAN be implemented by user, overwrite to include custom estimator means and covariances into rendering
         """
         return self.env.render()
+    
+    def get_meas_dict(self, meas_model: MeasurementModel):
+        return {
+            "means": {key: obs.state_mean for key, obs in self.obs.items() if key in meas_model.observations and obs.updated},
+            "covs": {key: obs.state_cov for key, obs in self.obs.items() if key in meas_model.observations and obs.updated}
+        }
+    
+class DroneEnvAICON(AICON):
+    def __init__(self, vel_control, moving_target, sensor_angle_deg, num_obstacles):
+        self.moving_target = moving_target
+        self.vel_control = vel_control
+        self.sensor_angle_deg = sensor_angle_deg
+        self.num_obstacles = num_obstacles
+        super().__init__()
+
+    def define_env(self):
+        config = 'environment/env_config.yaml'
+        with open(config) as file:
+            env_config = yaml.load(file, Loader=yaml.FullLoader)
+            env_config["num_obstacles"] = self.num_obstacles
+            env_config["action_mode"] = 3 if self.vel_control else 1
+            env_config["moving_target"] = self.moving_target
+            env_config["robot_sensor_angle"] = self.sensor_angle_deg / 180 * np.pi
+        return GazeFixEnv(env_config)

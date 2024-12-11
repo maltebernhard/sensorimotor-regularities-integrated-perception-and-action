@@ -5,37 +5,6 @@ from components.estimator import RecursiveEstimator
 
 # ========================================================================================================
 
-class Vel_AI(ActiveInterconnection):
-    """
-    Measurement Model:
-    vel state:          robot vel
-    vel obs:            robot vel observation
-    """
-    def __init__(self, estimators, device) -> None:
-        required_estimators = ['RobotState', 'vel_frontal', 'vel_lateral', 'vel_rot']
-        super().__init__(estimators, required_estimators, device)
-
-    def implicit_interconnection_model(self, meas_dict):
-        return torch.stack([
-            meas_dict['vel_frontal'] - meas_dict['RobotState'][0],
-            meas_dict['vel_lateral'] - meas_dict['RobotState'][1],
-            meas_dict['vel_rot'] - meas_dict['RobotState'][2]
-        ]).squeeze()
-
-class Angle_Meas_AI(ActiveInterconnection):
-    def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
-        self.object_name = object_name
-        required_estimators = ['RobotState', f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle', f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle']
-        super().__init__(estimators, required_estimators, device)
-
-    def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
-        return torch.stack([
-            (meas_dict[f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'RobotState'][4] + torch.pi) % (2*torch.pi) - torch.pi,
-            meas_dict[f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - meas_dict[f'RobotState'][6],
-        ]).squeeze()
-
-
-
 class Triangulation_AI(ActiveInterconnection):
     def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
         self.object_name = object_name
