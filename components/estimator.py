@@ -145,10 +145,11 @@ class RecursiveEstimator(ABC, State):
         K_part_1_2 = torch.matmul(H_t, K_part_1)
         K_part_2 = K_part_1_2 # K_part_2 will get additional terms below
 
-        if self.id == "PolarTargetPos":
-            print(f"---------- F_t_dict: ----------")
-            for key, value in F_t_dict.items():
-                print(f"{key}:\n{value}")
+        # TODO: These are for debugging. Remove later
+        # if self.id == "PolarTargetPos":
+        #     print(f"---------- F_t_dict: ----------")
+        #     for key, value in F_t_dict.items():
+        #         print(f"{key}:\n{value}")
         # print(f"H_t: {H_t}")
         # print(f"State Cov: {self.state_cov}")
         # print(f"K_part_1: {K_part_1}")
