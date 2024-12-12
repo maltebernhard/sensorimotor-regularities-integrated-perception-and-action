@@ -68,7 +68,7 @@ class AICON(ABC):
                 self.obs[key].set_observation(
                     obs = torch.tensor([value], device=self.device, dtype=self.dtype),
                     # TODO: what if there is covariance?
-                    obs_cov = 0.0 * torch.ones((1,1), device=self.device, dtype=self.dtype),
+                    obs_cov = 0.1 * torch.ones((1,1), device=self.device, dtype=self.dtype),
                     time = self.env.time
                 )
 

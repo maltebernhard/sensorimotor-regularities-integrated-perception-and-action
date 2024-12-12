@@ -208,7 +208,7 @@ class RecursiveEstimator(ABC, State):
             K_part_2_inv = torch.inverse(K_part_2)
         except RuntimeError as e:
             # TODO convert this to log() instead of print()            
-            print(f"WARN: {self.id} - Kalman update was not possible as {e}. Filter should (normally) recover soon.")
+            print(f"WARN: {self.id} - Kalman update was not possible.")# as {e}. Filter should (normally) recover soon.")
             # HACK resetting covariances. Maybe a more systematic approach is warranted
             # TODO: No update on current state - does this make sense?
             #self.set_state(torch.zeros_like(self.state[0]))

@@ -106,7 +106,7 @@ class Polar_Pos_Estimator_Vel(RecursiveEstimator):
     """
     def __init__(self, device, id: str):
         super().__init__(id, 4, device)
-        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0], device=device)
+        self.default_state = torch.tensor([10.0, 0.1, 0.0, 0.0], device=device)
         self.default_cov = 1e3 * torch.eye(4, device=device)
         self.default_motion_noise = 1e-6 * torch.tensor([0.1, 0.0001, 0.1, 0.0001], device=device)
 
