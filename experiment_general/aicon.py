@@ -10,9 +10,9 @@ from components.instances.active_interconnections import Triangulation_AI
 from components.instances.goals import GazeFixationGoal, CartesianGoToTargetGoal
 
 from experiment_general.estimators import Obstacle_Rad_Estimator, Target_Visibility_Estimator
-from experiment_general.active_interconnections import Radius_Pos_VisAngle_AI, Visibility_Triangulation_AI
+from experiment_general.active_interconnections import Radius_Pos_VisAngle_AI, Visibility_Angle_AI, Scaled_Triangulation_AI
 from experiment_general.measurement_models import Visibility_MM
-from experiment_general.goals import AvoidObstacleGoal, PolarGoToTargetGoal
+from experiment_general.goals import AvoidObstacleGoal, PolarGoToTargetGazeFixationGoal, PolarGoToTargetGoal
 
 # =============================================================================================================================================================
 
@@ -23,6 +23,7 @@ class GeneralTestAICON(AICON):
     def define_estimators(self):
         REs: Dict[str, RecursiveEstimator] = {
             "RobotVel": Robot_Vel_Estimator_Vel(self.device) if self.vel_control else Robot_Vel_Estimator_Acc(self.device),
+            # TODO: use this or nah?
             "CartesianTargetPos": Cartesian_Pos_Estimator(self.device, "CartesianTargetPos"),
             "PolarTargetPos": Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos") if self.vel_control else Polar_Pos_Estimator_Acc(self.device, "PolarTargetPos"),
             "TargetVisibility": Target_Visibility_Estimator(self.device, "TargetVisibility"),
@@ -46,7 +47,8 @@ class GeneralTestAICON(AICON):
     def define_active_interconnections(self):
         AIs = {
             "PolarDistance": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
-            #"PolarDistance": Visibility_Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"], self.REs["TargetVisibility"]], self.device),
+            #"PolarDistance": Scaled_Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device, max_vel=self.env.robot.max_vel),
+            "TargetVisibility": Visibility_Angle_AI([self.REs["PolarTargetPos"], self.REs["TargetVisibility"]], self.device, object_name="Target", sensor_angle_rad=self.env.robot.sensor_angle),
         }
         for i in range(1, self.num_obstacles + 1):
             AIs[f"Obstacle{i}Rad"] = Radius_Pos_VisAngle_AI([self.REs[f"CartesianObstacle{i}Pos"], self.REs[f"Obstacle{i}Rad"], self.obs[f"obstacle{i}_visual_angle"]], self.device, object_name=f"Obstacle{i}")
@@ -54,9 +56,8 @@ class GeneralTestAICON(AICON):
 
     def define_goals(self):
         goals = {
-            "Go-To-Target" : CartesianGoToTargetGoal(self.device),
-            "PolarGo-To-Target" : PolarGoToTargetGoal(self.device),
-            "GazeFixation" : GazeFixationGoal(self.device),
+            "GazeFixation" : PolarGoToTargetGazeFixationGoal(self.device),
+            "PolarGoToTarget" : PolarGoToTargetGoal(self.device),
         }
         for i in range(1, self.num_obstacles + 1):
             goals[f"AvoidObstacle{i}"] = AvoidObstacleGoal(self.device, i)
@@ -78,14 +79,12 @@ class GeneralTestAICON(AICON):
 
         u = self.get_control_input(action)
 
-        # print("------------------- Pre Predict -------------------")
-        # print(buffer_dict['PolarTargetPos']['state_mean'])
-
         # ----------------------------- predicts -------------------------------------
+
         self.REs["RobotVel"].call_predict(u, buffer_dict)
-        #self.REs["CartesianTargetPos"].call_predict(u, buffer_dict)
         self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
         self.REs["TargetVisibility"].call_predict(u, buffer_dict)
+        
         for i in range(1, self.num_obstacles + 1):
             self.REs[f"CartesianObstacle{i}Pos"].call_predict(u, buffer_dict)
             self.REs[f"Obstacle{i}Rad"].call_predict(u, buffer_dict)
@@ -94,19 +93,22 @@ class GeneralTestAICON(AICON):
         # print(buffer_dict['PolarTargetPos']['state_mean'])
 
         # ----------------------------- active interconnections -------------------------------------
+        
+        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
+
+        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
+        #self.REs["TargetVisibility"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
+        
+        for i in range(1, self.num_obstacles + 1):
+            self.REs[f"Obstacle{i}Rad"].call_update_with_active_interconnection(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
+
+        # print("------------------- Post Update -------------------")
+        # print(buffer_dict['PolarTargetPos']['state_mean'])
+
+        # ----------------------------- measurements -------------------------------------
 
         if new_step:
             self.meas_updates(buffer_dict)
-            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
-            for i in range(1, self.num_obstacles + 1):
-                self.REs[f"Obstacle{i}Rad"].call_update_with_active_interconnection(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
-        else:
-            # TODO: unstable with acc control
-            if self.vel_control:
-                self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
-        
-        # print("------------------- Post Update -------------------")
-        # print(buffer_dict['PolarTargetPos']['state_mean'])
 
         return buffer_dict
     
@@ -125,12 +127,14 @@ class GeneralTestAICON(AICON):
         return torch.concat([torch.tensor([0.05], device=self.device), env_action])
 
     def compute_action(self, gradients):
+        goal = "PolarGoToTarget"
+        #goal = "GazeFixation"
         if self.vel_control:
-            action = 0.9 * self.last_action - 1e-2 * gradients["PolarGo-To-Target"]
+            action = 0.9 * self.last_action - 5e-3 * gradients[goal]
             for i in range(self.num_obstacles):
                 action -= 1e-1 * gradients[f"AvoidObstacle{i+1}"] / self.num_obstacles
         else:
-            action = 0.7 * self.last_action - 5e-3 * gradients["PolarGo-To-Target"]
+            action = 0.7 * self.last_action - 5e-2 * gradients[goal]
             for i in range(self.num_obstacles):
                 action -= 1e0 * gradients[f"AvoidObstacle{i+1}"] / self.num_obstacles
         # manual gaze fixation
@@ -180,4 +184,4 @@ class GeneralTestAICON(AICON):
     
     def custom_reset(self):
         self.update_observations()
-        self.goals["PolarGo-To-Target"].desired_distance = self.obs["target_distance"].state_mean.item()
+        self.goals["PolarGoToTarget"].desired_distance = self.obs["target_distance"].state_mean.item()
