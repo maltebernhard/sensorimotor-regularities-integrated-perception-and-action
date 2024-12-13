@@ -1,3 +1,4 @@
+from typing import Dict
 import numpy as np
 import torch
 
@@ -41,10 +42,7 @@ class ContingentInterconnectionAICON(AICON):
         }
         return goals
 
-    def eval_step(self, action, new_step = False):
-        self.update_observations()
-        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
-
+    def eval_update(self, action: torch.Tensor, new_step: bool, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         u = self.get_control_input(action)
 
         self.REs["RobotVel"].call_predict(u, buffer_dict)
@@ -93,7 +91,7 @@ class ContingentInterconnectionAICON(AICON):
         return action
     
     def print_states(self, buffer_dict=None):
-        obs = self.env.get_observation()
+        obs = self.env.get_reality()
         print("--------------------------------------------------------------------")
         self.print_state("RobotVel", buffer_dict=buffer_dict)
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
@@ -115,5 +113,4 @@ class ContingentInterconnectionAICON(AICON):
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):
-        self.update_observations()
-        self.goals["GoToTarget"].desired_distance = self.obs["desired_target_distance"].state_mean.item()
+        self.goals["GoToTarget"].desired_distance = self.env.target.distance

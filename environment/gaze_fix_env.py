@@ -69,7 +69,7 @@ class GazeFixEnv(BaseEnv):
 
         self.episode_duration = config["episode_duration"]
         self.timestep: float = config["timestep"]
-        self.num_steps: int = 0
+        self.current_step: int = 0
         self.time = 0.0
         self.total_reward = 0.0
 
@@ -96,7 +96,7 @@ class GazeFixEnv(BaseEnv):
         self.generate_target()
         self.generate_obstacles()
 
-        self.history: List[Dict[str,float]] = []
+        self.history: Dict[int,Dict[str,float]] = {}
 
         self.generate_observation_space()
         self.generate_action_space()
@@ -113,7 +113,7 @@ class GazeFixEnv(BaseEnv):
         self.video = None
     
     def step(self, action):
-        self.num_steps += 1
+        self.current_step += 1
         self.time += self.timestep
         if self.action_mode == 2:
             action = np.array([float(action[0]-1), float(action[1]-1), float(action[2]-1)])
@@ -127,20 +127,14 @@ class GazeFixEnv(BaseEnv):
         self.last_observation, rewards, done, trun, info = self._get_observation(), self.get_rewards(), self.get_terminated(), False, self.get_info()
 
         # add observation to history
-        self.history.insert(0, self.last_observation.copy())
-        if len(self.history) > 2:
-            self.history.pop()
+        self.history[self.current_step] = self.last_observation.copy()
+        if self.current_step - 2 in self.history:
+            del self.history[self.current_step - 2]
 
         rew = np.sum(rewards)
         self.total_reward += rew
 
-        for key, val in self.apply_observability(self.last_observation).items():
-            if val is not None:
-                print(f"{key}: {val:.2f}")
-            else:
-                print(f"{key}: None")
-
-        return np.array(list(self.apply_observability(self.last_observation).values())), rewards, done, trun, info
+        return np.array(list(self.apply_noise(self.last_observation).values())), rewards, done, trun, info
     
     def reset(self, seed=None, video_path = None, **kwargs):
         if seed is not None:
@@ -158,19 +152,19 @@ class GazeFixEnv(BaseEnv):
             self.record_video = False
         self.viewer = None
         self.time = 0.0
-        self.num_steps = 0
+        self.current_step = 0
         self.total_reward = 0.0
         self.action = np.array([0.0, 0.0, 0.0])
-        self.history = []
+        self.history = {}
         self.robot.reset()
         self.collision = False
         self.generate_target()
         self.generate_obstacles()
 
         self.last_observation, info = self._get_observation(), self.get_info()
-        self.history.append(self.last_observation.copy())
+        self.history[self.current_step] = self.last_observation.copy()
 
-        return np.array(list(self.last_observation.values())), info
+        return np.array(list(self.apply_noise(self.last_observation).values())), info
     
     def close(self):
         pygame.quit()
@@ -182,11 +176,17 @@ class GazeFixEnv(BaseEnv):
         
     def get_observation(self):
         """Return the current, unnormalized observation."""
+        obs = self.get_reality()
+        return self.apply_noise(obs)
+
+    def get_reality(self):
+        """Return the current environment state."""
         try:
-            obs = self.history[0].copy()
+            obs = self.history[self.current_step].copy()
         except:
+            raise Exception("I think this should never happen.")
             obs = self._get_observation()
-        return self.apply_observability(obs)
+        return obs
 
     def get_rewards(self):
         time_left = 1.0 - self.time / self.episode_duration
@@ -254,6 +254,8 @@ class GazeFixEnv(BaseEnv):
 
         self.observation_indices = np.array([i for i in range(len(self.observations))])
         self.last_observation = None
+
+        self.required_observations = [key for key in self.observations.keys()]
 
         self.observation_space = gym.spaces.Box(
             low=np.array([obs.low for obs in self.observations.values()]),
@@ -355,7 +357,8 @@ class GazeFixEnv(BaseEnv):
             self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
-        self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
+        #self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
+        self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
         self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
     
     def move_obstacles(self):
@@ -416,13 +419,21 @@ class GazeFixEnv(BaseEnv):
 
     # -------------------------------------- observation functions -------------------------------------------
 
-    def apply_observability(self, observation: Dict[str, float]) -> Dict[str, float]:
+    def apply_noise(self, observation: Dict[str, float]) -> Dict[str, float]:
+        """Applies gaussion noise and occlusions to real state."""
         real_observation = observation.copy()
-        for key in real_observation.keys():
+        keys_to_delete = [key for key in real_observation if key not in self.required_observations]
+        for key in keys_to_delete:
+            del real_observation[key]
+        for key, value in real_observation.items():
             if key[0] != "d" and key[-12:] == "offset_angle":
                 if abs(real_observation[key]) > self.robot.sensor_angle / 2:
                     real_observation[key] = None
-                    real_observation["del_"+key] = None
+                    if "del_"+key in real_observation.keys():
+                        real_observation["del_"+key] = None
+            if real_observation[key] is not None:
+                if key in self.observation_noise.keys():
+                    real_observation[key] = value + self.observation_noise[key] * np.random.randn()
         return real_observation
     
     def compute_offset_angle(self, obj: Target|Obstacle) -> float:
@@ -448,7 +459,7 @@ class GazeFixEnv(BaseEnv):
         if (type(obj) == Target and self.moving_target) or (type(obj) == Obstacle and self.moving_obstacles):
             del_object_distance += obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
         return del_object_distance
-
+    
     def compute_circle_coverage(self, obstacle: Obstacle):
         angular_size = 2 * math.asin(min(1.0, obstacle.radius / self.compute_distance(obstacle)))
         coverage = angular_size / self.robot.sensor_angle
@@ -597,7 +608,7 @@ class GazeFixEnv(BaseEnv):
     def display_info(self):
         font = pygame.font.Font(None, 24)
         legend = [
-            (f'Step:', f'{self.num_steps}'),                                # clock
+            (f'Step:', f'{self.current_step}'),                                # clock
             (f'Time:', f'{self.time:.2f}'),                                 # time
             # (f'Step reward:', f'{np.sum(self.get_rewards()):.4f}'),         # step reward
             # (f'Total reward:', f'{self.total_reward:.4f}'),                 # episode reward

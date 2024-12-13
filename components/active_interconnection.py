@@ -7,12 +7,13 @@ from components.measurement_model import ImplicitMeasurementModel
 # ====================================================================================================================================
 
 class ActiveInterconnection(ABC, ImplicitMeasurementModel):
-    def __init__(self, estimators: List[RecursiveEstimator], required_estimators, device, propagate_meas_uncertainty=True):
+    def __init__(self, estimators: List[RecursiveEstimator], required_estimators, device, propagate_meas_uncertainty=True, required_observations=[]):
         assert set(estimator.id for estimator in estimators) == set(required_estimators), f"Estimators should be {required_estimators}"
         meas_config = {estimator.id: estimator.state_mean.size().numel() for estimator in estimators}
         super().__init__(meas_config=meas_config, device=device)
         self.connected_estimators: Dict[str, RecursiveEstimator] = {est.id: est for est in estimators}
         self.propagate_meas_uncertainty = propagate_meas_uncertainty
+        self.required_observations = required_observations
 
     def get_state_dict(self, buffer_dict, estimator_id):
         return {id: buffer_dict[id]['state_mean'] for id in self.connected_estimators.keys() if id != estimator_id}

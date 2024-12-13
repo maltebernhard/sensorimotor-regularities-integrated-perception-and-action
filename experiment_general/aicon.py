@@ -73,22 +73,18 @@ class GeneralTestAICON(AICON):
             estimator_covs[f"CartesianObstacle{i}Pos"] = torch.tensor([[rad**2, 0], [0, rad**2]], device=self.device)
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
-    def eval_step(self, action: torch.Tensor, new_step = False):
-
-        self.update_observations()
-        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items())}
-
+    def eval_update(self, action: torch.Tensor, new_step: bool, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         u = self.get_control_input(action)
 
         # ----------------------------- predicts -------------------------------------
 
         self.REs["RobotVel"].call_predict(u, buffer_dict)
         self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-        self.REs["TargetVisibility"].call_predict(u, buffer_dict)
+        #self.REs["TargetVisibility"].call_predict(u, buffer_dict)
         
-        for i in range(1, self.num_obstacles + 1):
-            self.REs[f"CartesianObstacle{i}Pos"].call_predict(u, buffer_dict)
-            self.REs[f"Obstacle{i}Rad"].call_predict(u, buffer_dict)
+        # for i in range(1, self.num_obstacles + 1):
+        #     self.REs[f"CartesianObstacle{i}Pos"].call_predict(u, buffer_dict)
+        #     self.REs[f"Obstacle{i}Rad"].call_predict(u, buffer_dict)
 
         # print("------------------- Post Predict -------------------")
         # print(buffer_dict['PolarTargetPos']['state_mean'])
@@ -97,11 +93,11 @@ class GeneralTestAICON(AICON):
         
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
 
-        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
+        #self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
         #self.REs["TargetVisibility"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
         
-        for i in range(1, self.num_obstacles + 1):
-            self.REs[f"Obstacle{i}Rad"].call_update_with_active_interconnection(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
+        # for i in range(1, self.num_obstacles + 1):
+        #     self.REs[f"Obstacle{i}Rad"].call_update_with_active_interconnection(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
 
         # print("------------------- Post Update -------------------")
         # print(buffer_dict['PolarTargetPos']['state_mean'])
@@ -116,12 +112,12 @@ class GeneralTestAICON(AICON):
     def meas_updates(self, buffer_dict):
         for model_key, meas_model in self.MMs.items():
             meas_dict = self.get_meas_dict(self.MMs[model_key])
-            print(f"Meas Dict for {model_key}: {meas_dict}")
             if len(meas_dict["means"]) == len(meas_model.observations):
                 self.REs[meas_model.estimator].call_update_with_meas_model(meas_model, buffer_dict, meas_dict)
             else:
-                print(f"Missing measurements for {model_key}")
-    
+                #print(f"Missing measurements for {model_key}")
+                pass
+
     def get_control_input(self, action: torch.Tensor):
         env_action = torch.empty_like(action)
         env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.vel_control else self.env.robot.max_acc)
@@ -153,7 +149,7 @@ class GeneralTestAICON(AICON):
         print filter and environment states for debugging
         """
         self.print_state("TargetVisibility", print_cov=print_cov)
-        obs = self.env.get_observation()
+        obs = self.env.get_reality()
         self.print_state("RobotVel", print_cov=print_cov)
         actual_vel = list(self.env.robot.vel)
         actual_vel.append(self.env.robot.vel_rot)
@@ -185,6 +181,5 @@ class GeneralTestAICON(AICON):
         return mean, cov
     
     def custom_reset(self):
-        self.update_observations()
-        self.goals["PolarGoToTarget"].desired_distance = self.obs["desired_target_distance"].state_mean.item()
-        self.goals["GazeFixation"].desired_distance = self.obs["desired_target_distance"].state_mean.item()
+        self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
+        self.goals["GazeFixation"].desired_distance = self.env.target.distance

@@ -24,14 +24,13 @@ class AICON(ABC):
         torch.set_default_dtype(self.dtype)
         self.logger = AICONLogger()
         self.env: GazeFixEnv = self.define_env()
-        self.set_observations()
         self.REs: Dict[str, RecursiveEstimator] = self.define_estimators()
         self.MMs: Dict[str, MeasurementModel] = self.define_measurement_models()
         self.AIs: Dict[str, ActiveInterconnection] = self.define_active_interconnections()
+        self.set_observations()
         self.goals: Dict[str, Goal] = self.define_goals()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
         self.propagate_meas_uncertainty: bool = propagate_meas_uncertainty
-        self.reset()
 
     def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_dir:str|None=None):
         """
@@ -61,7 +60,13 @@ class AICON(ABC):
             action = self.compute_action(action_gradients)
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
-            self.logger.log(step, self.env.time, {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()}, self.env.get_observation())
+            self.logger.log(
+                step,
+                self.env.time,
+                {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()},
+                self.env.get_reality(), 
+                {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()}
+            )
             if step_by_step:
                 input("Press Enter to continue...")
             self.step(action)
@@ -91,30 +96,19 @@ class AICON(ABC):
 
     def set_observations(self):
         self.obs: Dict[str, Observation] = {}
-        self.observation_noise = self.env.observation_noise
-        observations: dict = self.env.get_observation()
-        for key, value in observations.items():
+        required_observations = list(set([obs for mm in self.MMs.values() for obs in mm.observations] + [obs for ai in self.AIs.values() for obs in ai.required_observations]))
+        self.observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
+        self.env.required_observations = required_observations
+        for key in required_observations:
             self.obs[key] = Observation(key, 1, self.device)
-            if value is not None:
-                noise = 0.0
-                if key in self.observation_noise.keys():
-                    noise = self.observation_noise[key]
-                self.obs[key].set_observation(
-                    obs = torch.tensor([value + noise * np.random.randn()]),
-                    obs_cov = torch.tensor([[noise]]),
-                    time = 0.0
-                )
 
     def update_observations(self):
-        observations: dict = self.env.get_observation()
-        for key, value in observations.items():
+        self.last_observation: dict = self.env.get_observation()
+        for key, value in self.last_observation.items():
             if value is not None:
-                noise = 0.0
-                if key in self.observation_noise.keys():
-                    noise = self.observation_noise[key]
                 self.obs[key].set_observation(
-                    obs = torch.tensor([value + noise * np.random.randn()]),
-                    obs_cov = torch.tensor([[noise]]),
+                    obs = torch.tensor([value]),
+                    obs_cov = torch.tensor([[self.observation_noise[key] if key in self.observation_noise.keys() else 0.0]]),
                     time = self.env.time
                 )
 
@@ -206,12 +200,16 @@ class AICON(ABC):
                 cov = self.REs[id].state_cov if id in self.REs.keys() else self.obs[id].state_cov
             else:
                 cov = buffer_dict[id]["state_cov"]
-            self.print_matrix(cov, f"{id} Cov")
+            if type(print_cov) == int and print_cov == 2:
+                self.print_vector(cov.diag(), id + " Cov")
+            else:
+                self.print_matrix(cov, f"{id} Cov")
 
     def reset(self, seed=None, video_path=None) -> None:
         for estimator in self.REs.values():
             estimator.reset()
-        self.env.reset(seed, video_path)
+        obs, _ = self.env.reset(seed, video_path)
+        self.update_observations()
         self.custom_reset()
 
     @abstractmethod
@@ -249,8 +247,18 @@ class AICON(ABC):
         """
         raise NotImplementedError
 
-    @abstractmethod
     def eval_step(self, action, new_step = False) -> Dict[str, Dict[str, torch.Tensor]]:
+        """
+        Evaluates one step of the environment and returns the buffer_dict
+        """
+        if new_step:
+            self.update_observations()
+        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items())}
+
+        return self.eval_update(action, new_step, buffer_dict)
+
+    @abstractmethod
+    def eval_update(self, action, new_step, buffer_dict) -> Dict[str, Dict[str, torch.Tensor]]:
         """
         MUST be implemented by user. Evaluates one step of the environment and returns the buffer_dict
         """

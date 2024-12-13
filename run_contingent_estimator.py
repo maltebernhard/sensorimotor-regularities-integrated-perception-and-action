@@ -23,7 +23,7 @@ def test_acc_control_pos_estimate_forward(aicon: ContingentEstimatorAICON):
         aicon.REs["RobotState"].call_predict(u, buffer_dict)
         print("Forward Estimate: ", buffer_dict['PolarTargetPos']['state_mean'])
 
-        estimate = aicon.eval_step(action)
+        estimate = aicon.eval_update(action)
         print("Interconnected Estimate: ", estimate["PolarTargetPos"]["state_mean"])
 
         aicon.env.step(np.array(action.cpu()))
@@ -60,7 +60,9 @@ if __name__ == "__main__":
 
     #test_acc_control_pos_estimate_forward(aicon)
 
-    aicon.run(200, seed, render=True, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), prints=1, step_by_step=False, record_dir="test")
+    # TODO: this is broken rn
+
+    aicon.run(200, seed, render=True, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), prints=1, step_by_step=False)
 
     # print("Goal Grad: ", aicon.compute_goal_action_gradient(aicon.goals["GoToTarget"]))
     # print("Estimator Grad: ", aicon.compute_estimator_action_gradient("PolarTargetPos", aicon.last_action)[0]["state_mean"])

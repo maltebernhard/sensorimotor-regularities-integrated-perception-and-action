@@ -10,26 +10,33 @@ class AICONLogger:
     def __init__(self):
         self.data: List[dict] = []
 
-    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], observations: Dict[str,torch.Tensor]):
-        reality = {}
+    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], reality: Dict[str,torch.Tensor], observation: Dict[str,Dict[str,torch.Tensor]]):
+        real_state = {}
         for key in estimators.keys():
             if key[:5] == "Polar" and key[-3:] == "Pos":
-                obj = key[5:-3]
-                reality[key] = {
-                    "state_mean": [
-                        observations["target_distance"],
-                        observations["target_offset_angle"],
-                        observations["del_target_distance"],
-                        observations["del_target_offset_angle"]
-                    ],
-                    "state_cov": torch.zeros(2,2)
-                }
+                obj = key[5:-3].lower()
+                real_state[key] = [
+                    reality[f"{obj}_distance"],
+                    reality[f"{obj}_offset_angle"],
+                    reality[f"del_{obj}_distance"],
+                    reality[f"del_{obj}_offset_angle"]
+                ]
+            elif key == "RobotVel":
+                real_state[key] = [
+                    reality["vel_frontal"],
+                    reality["vel_lateral"],
+                    reality["vel_rot"],
+                ]
+            elif key[-6:] == "Radius":
+                obj = key[:-6].lower()
+                real_state[key] = reality[f"{obj}_radius"]
 
         self.data.append({
             "step": step,
             "time": time,
             "estimators": estimators,
-            "reality": reality
+            "observation": observation,
+            "reality": real_state,
         })
 
     def plot(self):

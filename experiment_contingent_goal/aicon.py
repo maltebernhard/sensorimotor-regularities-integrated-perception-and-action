@@ -1,3 +1,4 @@
+from typing import Dict
 import numpy as np
 import torch
 
@@ -39,10 +40,7 @@ class ContingentGoalAICON(AICON):
         }
         return goals
 
-    def eval_step(self, action, new_step = False):
-        self.update_observations()
-        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
-
+    def eval_update(self, action: torch.Tensor, new_step: bool, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         u = self.get_control_input(action)
 
         self.REs["RobotVel"].call_predict(u, buffer_dict)
@@ -50,11 +48,13 @@ class ContingentGoalAICON(AICON):
 
         if new_step:
             self.REs["RobotVel"].call_update_with_meas_model(self.MMs["VelMM"], buffer_dict, self.get_meas_dict(self.MMs["VelMM"]))
-            self.REs["PolarTargetPos"].call_update_with_meas_model(self.MMs["AngleMeasMM"], buffer_dict, self.get_meas_dict(self.MMs["AngleMeasMM"]))
-            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
-        else:
-            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
-
+            meas_dict = self.get_meas_dict(self.MMs["AngleMeasMM"])
+            if len(meas_dict["means"]) == len(self.MMs["AngleMeasMM"].observations):
+                self.REs["PolarTargetPos"].call_update_with_meas_model(self.MMs["AngleMeasMM"], buffer_dict, meas_dict)
+            else:
+                print("No angle measurement.")
+        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
+        
         return buffer_dict
 
     def get_control_input(self, action):
@@ -81,20 +81,18 @@ class ContingentGoalAICON(AICON):
             return decay * self.last_action - 1e-2 * gradients["GoToTarget"]
     
     def print_states(self, buffer_dict=None):
-        obs = self.env.get_observation()
+        obs = self.env.get_reality()
         print("--------------------------------------------------------------------")
-        self.print_state("PolarTargetPos", buffer_dict=buffer_dict)
+        self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
         # TODO: observations can be None now
-        #print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['del_target_distance']:.3f}, {obs['del_target_offset_angle']:.3f}]")
-        print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}]")
+        print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['del_target_distance']:.3f}, {obs['del_target_offset_angle']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_state("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):
-        self.update_observations()
-        self.goals["GoToTarget"].desired_distance = self.obs["desired_target_distance"].state_mean.item()
+        self.goals["GoToTarget"].desired_distance = self.env.target.distance

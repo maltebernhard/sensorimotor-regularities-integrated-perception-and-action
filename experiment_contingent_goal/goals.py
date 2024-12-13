@@ -20,3 +20,6 @@ class GoToTargetGoal(Goal):
         ]).pow(2).sum()
         loss_cov = 1e0 * torch.trace(buffer_dict['PolarTargetPos']['state_cov'])
         return loss_mean + loss_cov
+        # NOTE: if only mean or only cov is used, the gradient induces strong rotation when the target is not in sight
+        # return loss_mean
+        # return loss_cov
