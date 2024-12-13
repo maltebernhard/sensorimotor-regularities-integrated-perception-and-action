@@ -7,6 +7,7 @@ from typing import Dict, List
 import yaml
 
 from components.estimator import Observation, RecursiveEstimator
+from components.logger import AICONLogger
 from components.measurement_model import MeasurementModel
 from components.active_interconnection import ActiveInterconnection
 from components.goal import Goal
@@ -21,56 +22,58 @@ class AICON(ABC):
         self.dtype = torch.float64
         torch.set_default_device(self.device)
         torch.set_default_dtype(self.dtype)
-        self.env: GazeFixEnv = None
-        self.set_env(self.define_env())
-        self.REs: Dict[str, RecursiveEstimator] = None
-        self.set_estimators(self.define_estimators())
-        self.MMs: Dict[str, MeasurementModel] = None
-        self.set_measurement_models(self.define_measurement_models())
-        self.AIs: Dict[str, ActiveInterconnection] = None
-        self.set_active_interconnections(self.define_active_interconnections())
-        self.goals: Dict[str, Goal] = None
-        self.set_goals(self.define_goals())
-        self.last_action = torch.tensor([0.0, 0.0, 0.0])
-        self.propagate_meas_uncertainty = propagate_meas_uncertainty
+        self.logger = AICONLogger()
+        self.env: GazeFixEnv = self.define_env()
+        self.set_observations()
+        self.REs: Dict[str, RecursiveEstimator] = self.define_estimators()
+        self.MMs: Dict[str, MeasurementModel] = self.define_measurement_models()
+        self.AIs: Dict[str, ActiveInterconnection] = self.define_active_interconnections()
+        self.goals: Dict[str, Goal] = self.define_goals()
+        self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
+        self.propagate_meas_uncertainty: bool = propagate_meas_uncertainty
         self.reset()
 
-    def set_env(self, env):
-        self.env = env
-        self.obs: Dict[str, Observation] = {} 
-        observations: dict = self.env.get_observation()
-        for key, value in observations.items():
-            self.obs[key] = Observation(key, 1, self.device)
-            if value is not None:
-                self.obs[key].set_observation(
-                    obs = torch.tensor([value]),
-                    obs_cov = 1e-3 * torch.ones((1,1)),
-                    time = 0.0
-                )
-
-    def set_estimators(self, REs: Dict[str, RecursiveEstimator]):
-        self.REs = REs
-
-    def set_measurement_models(self, MMs: Dict[str, MeasurementModel]):
-        self.MMs = MMs
-
-    def set_active_interconnections(self, AIs: Dict[str, ActiveInterconnection]):
-        self.AIs = AIs
-
-    def set_goals(self, goals: Dict[str, Goal]):
-        self.goals = goals
-
-    def update_observations(self):
-        observations: dict = self.env.get_observation()
-        for key, value in observations.items():
-            # TODO: consider measurement noise (possibly on env level)
-            if value is not None:
-                self.obs[key].set_observation(
-                    obs = torch.tensor([value], device=self.device, dtype=self.dtype),
-                    # TODO: what if there is covariance?
-                    obs_cov = 0.1 * torch.ones((1,1), device=self.device, dtype=self.dtype),
-                    time = self.env.time
-                )
+    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_dir:str|None=None):
+        """
+        Runs AICON on the environment for a given number of timesteps
+        Args:
+            timesteps:    number of timesteps to run
+            env_seed:     seed for the environment
+            render:       render the environment
+            prints:       print the states every "prints" timesteps
+            step_by_step: wait for user input after each step
+        """
+        assert self.env is not None, "Environment not set"
+        assert self.REs is not None, "Estimators not set"
+        assert self.MMs is not None, "Measurement Models not set"
+        assert self.AIs is not None, "Active Interconnections not set"
+        assert self.goals is not None, "Goals not set"
+        self.reset(seed=env_seed, video_path=record_dir+"/vid.mp4" if record_dir is not None else None)
+        if prints > 0:
+            print(f"============================ Initial State ================================")
+            self.print_states()
+        if initial_action is not None:
+            self.last_action = initial_action
+        if render:
+            self.render()
+        for step in range(timesteps):
+            action_gradients = self.compute_action_gradients()
+            action = self.compute_action(action_gradients)
+            if prints > 0 and step % prints == 0:
+                print("Action: ", end=""), self.print_vector(action)
+            self.logger.log(step, self.env.time, {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()}, self.env.get_observation())
+            if step_by_step:
+                input("Press Enter to continue...")
+            self.step(action)
+            if render:
+                self.render()
+            step += 1
+            if prints > 0 and step % prints == 0:
+                print(f"============================ Step {step} ================================")
+                self.print_states()
+        if record_dir is not None:
+            self.logger.save(record_dir)
+            self.env.reset()
 
     def step(self, action):
         if action[:2].norm() > 1.0:
@@ -86,6 +89,35 @@ class AICON(ABC):
         for key, buffer_dict in buffers.items():
             self.REs[key].load_state_dict(buffer_dict) if key in self.REs.keys() else None
 
+    def set_observations(self):
+        self.obs: Dict[str, Observation] = {}
+        self.observation_noise = self.env.observation_noise
+        observations: dict = self.env.get_observation()
+        for key, value in observations.items():
+            self.obs[key] = Observation(key, 1, self.device)
+            if value is not None:
+                noise = 0.0
+                if key in self.observation_noise.keys():
+                    noise = self.observation_noise[key]
+                self.obs[key].set_observation(
+                    obs = torch.tensor([value + noise * np.random.randn()]),
+                    obs_cov = torch.tensor([[noise]]),
+                    time = 0.0
+                )
+
+    def update_observations(self):
+        observations: dict = self.env.get_observation()
+        for key, value in observations.items():
+            if value is not None:
+                noise = 0.0
+                if key in self.observation_noise.keys():
+                    noise = self.observation_noise[key]
+                self.obs[key].set_observation(
+                    obs = torch.tensor([value + noise * np.random.randn()]),
+                    obs_cov = torch.tensor([[noise]]),
+                    time = self.env.time
+                )
+
     def _eval_goal_with_aux(self, action, goal):
         buffer_dict = self.eval_step(action, new_step=False)
         loss = goal.loss_function_from_buffer(buffer_dict)
@@ -94,11 +126,9 @@ class AICON(ABC):
     def _eval_estimator_with_aux(self, action, estimator_id):
         buffer_dict = self.eval_step(action, new_step=False)
         state = buffer_dict[estimator_id]
-        #print(f"{state=}\n============================================================")
         return state, state
 
     def compute_goal_action_gradient(self, goal):
-        #action = torch.tensor([0.0, 0.0, 0.0], device=self.device)
         action = self.last_action
         jacobian, step_eval = jacrev(
             self._eval_goal_with_aux,
@@ -116,11 +146,10 @@ class AICON(ABC):
     def compute_action_gradients(self):
         gradients: Dict[str, torch.Tensor] = {}
         for key, goal in self.goals.items():
-            #print(f"----------- Computing gradients for goal: {key} -----------")
             gradients[key] = self.compute_goal_action_gradient(goal)
-        print("Action gradients:")
-        for key, gradient in gradients.items():
-            print(f"{key}: {[f'{x:.3f}' for x in gradient.tolist()]}")
+        # print("Action gradients:")
+        # for key, gradient in gradients.items():
+        #     print(f"{key}: {[f'{x:.3f}' for x in gradient.tolist()]}")
         return gradients
 
     def get_steepest_gradient(self, gradients: Dict[str, torch.Tensor]):
@@ -129,47 +158,6 @@ class AICON(ABC):
             if gradient.norm() > steepest_gradient.norm():
                 steepest_gradient = gradient
         return steepest_gradient
-
-    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_video=False):
-        """
-        Runs AICON on the environment for a given number of timesteps
-        Args:
-            timesteps:    number of timesteps to run
-            env_seed:     seed for the environment
-            render:       render the environment
-            prints:       print the states every "prints" timesteps
-            step_by_step: wait for user input after each step
-        """
-        assert self.env is not None, "Environment not set"
-        assert self.REs is not None, "Estimators not set"
-        assert self.AIs is not None, "Active Interconnections not set"
-        assert self.goals is not None, "Goals not set"
-        self.reset(seed=env_seed, video_path="test_vid.mp4" if record_video else None)
-        print(f"============================ Initial State ================================")
-        self.print_states()
-        if initial_action is not None:
-            self.last_action = initial_action
-        if render:
-            self.render()
-        input("Press Enter to continue...")
-        for step in range(timesteps):
-            action_gradients = self.compute_action_gradients()
-            action = self.compute_action(action_gradients)
-
-            if step_by_step:
-                input("Press Enter to continue...")
-
-            if prints > 0 and step % prints == 0:
-                print(f"============================ Step {step+1} ================================")
-
-            self.step(action)
-            if render:
-                self.render()
-            step += 1
-            if prints > 0 and step % prints == 0:
-                self.print_states()
-        if record_video:
-            self.env.reset()
 
     def print_vector(self, vector: torch.Tensor, name = None, trail = "", use_scientific = False):
         if not use_scientific:
@@ -237,6 +225,13 @@ class AICON(ABC):
     def define_estimators(self) -> Dict[str, RecursiveEstimator]:
         """
         MUST be implemented by user. Returns the estimators
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def define_measurement_models(self) -> Dict[str, MeasurementModel]:
+        """
+        MUST be implemented by user. Returns the measurement models
         """
         raise NotImplementedError
     

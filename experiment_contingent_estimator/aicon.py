@@ -41,7 +41,7 @@ class ContingentEstimatorAICON(AICON):
 
     def eval_step(self, action, new_step = False):
         self.update_observations()
-        buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
+        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
         u = self.get_control_input(action)
         self.REs["RobotState"].call_predict(u, buffer_dict)
         if new_step:
@@ -84,18 +84,18 @@ class ContingentEstimatorAICON(AICON):
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
         # TODO: observations can be None now
-        #print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]]}")
+        #print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_target_distance'], obs['del_target_offset_angle']]]}")
         print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle]]}")
         actual_state = [self.env.robot.vel[0], self.env.robot.vel[1], self.env.robot.vel_rot]
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
         # TODO: observations can be None now
-        #actual_state += [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle']]
+        #actual_state += [dist, angle, obs['del_target_distance'], obs['del_target_offset_angle']]
         actual_state += [dist, angle]
         print(f"True State: {actual_state}")
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):
         self.update_observations()
-        self.goals["GoToTarget"].desired_distance = self.obs["target_distance"].state_mean.item()
+        self.goals["GoToTarget"].desired_distance = self.obs["desired_target_distance"].state_mean.item()

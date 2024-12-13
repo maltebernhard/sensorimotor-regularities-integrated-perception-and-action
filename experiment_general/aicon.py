@@ -74,8 +74,9 @@ class GeneralTestAICON(AICON):
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     def eval_step(self, action: torch.Tensor, new_step = False):
+
         self.update_observations()
-        buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(self.REs.items())}
+        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items())}
 
         u = self.get_control_input(action)
 
@@ -115,6 +116,7 @@ class GeneralTestAICON(AICON):
     def meas_updates(self, buffer_dict):
         for model_key, meas_model in self.MMs.items():
             meas_dict = self.get_meas_dict(self.MMs[model_key])
+            print(f"Meas Dict for {model_key}: {meas_dict}")
             if len(meas_dict["means"]) == len(meas_model.observations):
                 self.REs[meas_model.estimator].call_update_with_meas_model(meas_model, buffer_dict, meas_dict)
             else:
@@ -127,8 +129,8 @@ class GeneralTestAICON(AICON):
         return torch.concat([torch.tensor([0.05], device=self.device), env_action])
 
     def compute_action(self, gradients):
-        goal = "PolarGoToTarget"
-        #goal = "GazeFixation"
+        #goal = "PolarGoToTarget"
+        goal = "GazeFixation"
         if self.vel_control:
             action = 0.9 * self.last_action - 5e-3 * gradients[goal]
             for i in range(self.num_obstacles):
@@ -161,7 +163,7 @@ class GeneralTestAICON(AICON):
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        print(f"True PolarTargetPos: {[f'{x:.3f}' for x in [dist, angle, obs['del_robot_target_distance'], obs['del_target_offset_angle'] if obs['del_target_offset_angle'] else 0.0]]}")
+        print(f"True PolarTargetPos: {[f'{x:.3f}' for x in [dist, angle, obs['del_target_distance'], obs['del_target_offset_angle'] if obs['del_target_offset_angle'] else 0.0]]}")
         print("--------------------------------------------------------------------")
         if self.num_obstacles > 0:
             [self.print_state(f"CartesianObstacle{i}Pos", print_cov=print_cov) for i in range(1, self.num_obstacles + 1)]
@@ -184,4 +186,5 @@ class GeneralTestAICON(AICON):
     
     def custom_reset(self):
         self.update_observations()
-        self.goals["PolarGoToTarget"].desired_distance = self.obs["target_distance"].state_mean.item()
+        self.goals["PolarGoToTarget"].desired_distance = self.obs["desired_target_distance"].state_mean.item()
+        self.goals["GazeFixation"].desired_distance = self.obs["desired_target_distance"].state_mean.item()

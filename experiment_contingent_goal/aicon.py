@@ -41,7 +41,7 @@ class ContingentGoalAICON(AICON):
 
     def eval_step(self, action, new_step = False):
         self.update_observations()
-        buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
+        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items()) + list(self.obs.items())}
 
         u = self.get_control_input(action)
 
@@ -88,7 +88,7 @@ class ContingentGoalAICON(AICON):
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
         # TODO: observations can be None now
-        #print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['del_robot_target_distance']:.3f}, {obs['del_target_offset_angle']:.3f}]")
+        #print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['del_target_distance']:.3f}, {obs['del_target_offset_angle']:.3f}]")
         print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_state("RobotVel", buffer_dict=buffer_dict) 
@@ -97,4 +97,4 @@ class ContingentGoalAICON(AICON):
 
     def custom_reset(self):
         self.update_observations()
-        self.goals["GoToTarget"].desired_distance = self.obs["target_distance"].state_mean.item()
+        self.goals["GoToTarget"].desired_distance = self.obs["desired_target_distance"].state_mean.item()

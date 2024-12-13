@@ -51,7 +51,6 @@ class Angle_Meas_MM(MeasurementModel):
         super().__init__(f'Polar{object_name}Pos', required_observations, device)
 
     def implicit_measurement_model(self, x, meas_dict: Dict[str, torch.Tensor]):
-        print(meas_dict)
         return torch.stack([
             (meas_dict[f'{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - x[1] + torch.pi) % (2*torch.pi) - torch.pi,
             meas_dict[f'del_{self.object_name[0].lower() + self.object_name[1:]}_offset_angle'] - x[3],

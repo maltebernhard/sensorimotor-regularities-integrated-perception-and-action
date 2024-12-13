@@ -9,6 +9,8 @@ episode_duration:   30.0
 wall_collision:     false
 # moving target
 moving_target:      true
+# moving obstacles
+moving_obstacles:   false
 
 # number of obstacles in observation space
 num_obstacles:      0
@@ -38,3 +40,12 @@ robot_sensor_angle: 6.28318530718
 # 2 - fixed acceleration
 # 3 - continuous velocity
 action_mode:        1
+
+# ============================== OBSERVATION CONFIG ===================================
+
+observation_noise:
+  target_offset_angle: 0.01
+  del_target_offset_angle: 0.1
+  vel_frontal: 0.1
+  vel_lateral: 0.1
+  vel_rot: 0.1

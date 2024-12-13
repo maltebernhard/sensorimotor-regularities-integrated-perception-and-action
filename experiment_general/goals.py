@@ -23,7 +23,7 @@ class PolarGoToTargetGazeFixationGoal(Goal):
             #1e1 * trans_vel_penalty,
             #1e1 * angular_vel_penalty,
         ]).pow(2).sum()
-        loss_cov = 1e-1* torch.trace(polar_target_pos_uncertainty).pow(2)
+        loss_cov = 1e-1 * torch.trace(polar_target_pos_uncertainty).pow(2)
         #print(f"Loss Mean: {loss_mean} | Loss Cov: {loss_cov}")
         return loss_mean + loss_cov
     

@@ -19,7 +19,7 @@ class State(Module):
         self.register_buffer('state_cov', torch.eye(self.state_dim, dtype=dtype))
 
         self.to(device)
-        self.set_buffer_dict()
+        self.get_buffer_dict()
 
     # -----------------------------------------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ class State(Module):
         # if required. Otherwise, simply access the buffers directly
         return self.state_mean, self.state_cov
 
-    def set_buffer_dict(self):
+    def get_buffer_dict(self):
         self.buffer_dict = dict(self.named_buffers())
         return self.buffer_dict
     
@@ -40,7 +40,7 @@ class State(Module):
         self.state_mean = mean
         self.state_cov = torch.eye(
             self.state_dim, dtype=self.dtype, device=self.state_mean.device) if cov is None else cov
-        self.set_buffer_dict()
+        self.get_buffer_dict()
 
 # =========================================================================================
 
@@ -67,7 +67,7 @@ class RecursiveEstimator(ABC, State):
         
         # Initialize static process/motion noise to identity
         self.register_buffer('forward_noise', torch.eye(self.state_dim, device=self.device, dtype=self.dtype))
-        self.set_buffer_dict()
+        self.get_buffer_dict()
 
     # --------------------------- properties, getters and setters ---------------------------------
 

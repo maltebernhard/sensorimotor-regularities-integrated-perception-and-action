@@ -17,7 +17,7 @@ def test_acc_control_pos_estimate_forward(aicon: ContingentEstimatorAICON):
 
         print(f"================================ {[f'{x:.2f}' for x in action.tolist()]} ==================================")
 
-        buffer_dict = {key: estimator.set_buffer_dict() for key, estimator in list(aicon.REs.items()) + list(aicon.obs.items())}
+        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(aicon.REs.items()) + list(aicon.obs.items())}
         u = aicon.get_control_input(action)
         aicon.REs["PolarTargetPos"].call_predict(u, buffer_dict)
         aicon.REs["RobotState"].call_predict(u, buffer_dict)
@@ -60,7 +60,7 @@ if __name__ == "__main__":
 
     #test_acc_control_pos_estimate_forward(aicon)
 
-    aicon.run(200, seed, render=True, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), prints=1, step_by_step=False, record_video=False)
+    aicon.run(200, seed, render=True, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), prints=1, step_by_step=False, record_dir="test")
 
     # print("Goal Grad: ", aicon.compute_goal_action_gradient(aicon.goals["GoToTarget"]))
     # print("Estimator Grad: ", aicon.compute_estimator_action_gradient("PolarTargetPos", aicon.last_action)[0]["state_mean"])
