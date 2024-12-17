@@ -18,6 +18,7 @@ from experiment_general.goals import AvoidObstacleGoal, PolarGoToTargetGazeFixat
 
 class GeneralTestAICON(AICON):
     def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0):
+        self.type = "GeneralTest"
         super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles)
 
     def define_estimators(self):

@@ -13,6 +13,7 @@ from experiment_contingent_estimator.goals import SpecificGoToTargetGoal
 
 class ContingentEstimatorAICON(AICON):
     def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0):
+        self.type = "ContingentEstimator"
         super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles)
 
     def define_estimators(self):

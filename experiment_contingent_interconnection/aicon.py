@@ -8,13 +8,15 @@ from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
 from components.instances.goals import PolarGoToTargetGoal
 
-from experiment_contingent_interconnection.active_interconnections import Gaze_Fixation_AI
+from experiment_contingent_interconnection.active_interconnections import Gaze_Fixation_AI, Gaze_Fixation_AI2
 from experiment_contingent_interconnection.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
+from experiment_contingent_interconnection.goals import PolarGoToTargetGazeFixationGoal
 
 # ========================================================================================================
 
 class ContingentInterconnectionAICON(AICON):
     def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0):
+        self.type = "ContingentInterconnection"
         super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles)
 
     def define_estimators(self):
@@ -39,6 +41,7 @@ class ContingentInterconnectionAICON(AICON):
     def define_goals(self):
         goals = {
             "GoToTarget": PolarGoToTargetGoal(self.device),
+            #"GoToTarget": PolarGoToTargetGazeFixationGoal(self.device),
         }
         return goals
 
@@ -53,8 +56,14 @@ class ContingentInterconnectionAICON(AICON):
             self.REs["PolarTargetPos"].call_update_with_meas_model(self.MMs["AngleMeasMM"], buffer_dict, self.get_meas_dict(self.MMs["AngleMeasMM"]))
             self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         else:
+            # NOTE: both connections individually have the same effect
             self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
             self.REs["RobotVel"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+
+            # NOTE: completely chaotic behavior
+            # self.REs["RobotVel"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+            # self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+
             self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
 
         return buffer_dict
@@ -85,9 +94,8 @@ class ContingentInterconnectionAICON(AICON):
             action = decay * self.last_action - 1e0 * gradients["GoToTarget"]
         else:
             action = decay * self.last_action - 5e-2 * gradients["GoToTarget"]
-        # manual gaze fixation
-        # if self.vel_control:
-        #     action[2] = 0.8 * self.REs["PolarTargetPos"].state_mean[1] - 0.05 * self.REs["PolarTargetPos"].state_mean[3]
+            # NOTE: just for demonstration purposes, delete later
+            #action = decay * self.last_action - 5e-4 * gradients["GoToTarget"]
         return action
     
     def print_states(self, buffer_dict=None):

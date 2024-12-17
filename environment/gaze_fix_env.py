@@ -96,7 +96,8 @@ class GazeFixEnv(BaseEnv):
         self.generate_target()
         self.generate_obstacles()
 
-        self.history: Dict[int,Dict[str,float]] = {}
+        self.observation_history: Dict[int,Dict[str,float]] = {}
+        self.real_state_history: Dict[int,Dict[str,float]] = {}
 
         self.generate_observation_space()
         self.generate_action_space()
@@ -124,17 +125,20 @@ class GazeFixEnv(BaseEnv):
             self.move_target()
         if self.moving_obstacles:
             self.move_obstacles()
-        self.last_observation, rewards, done, trun, info = self._get_observation(), self.get_rewards(), self.get_terminated(), False, self.get_info()
+        self.last_state, rewards, done, trun, info = self._get_state(), self.get_rewards(), self.get_terminated(), False, self.get_info()
+        self.last_observation = self.apply_noise(self.last_state.copy())
 
         # add observation to history
-        self.history[self.current_step] = self.last_observation.copy()
-        if self.current_step - 2 in self.history:
-            del self.history[self.current_step - 2]
+        self.real_state_history[self.current_step] = self.last_state.copy()
+        self.observation_history[self.current_step] = self.last_observation.copy()
+        if self.current_step - 2 in self.observation_history:
+            del self.observation_history[self.current_step - 2]
+            del self.real_state_history[self.current_step - 2]
 
         rew = np.sum(rewards)
         self.total_reward += rew
 
-        return np.array(list(self.apply_noise(self.last_observation).values())), rewards, done, trun, info
+        return np.array(list(self.apply_noise(self.last_state).values())), rewards, done, trun, info
     
     def reset(self, seed=None, video_path = None, **kwargs):
         if seed is not None:
@@ -144,6 +148,7 @@ class GazeFixEnv(BaseEnv):
             if len(dirs) > 1:
                 os.makedirs("/".join(dirs[:-1]), exist_ok=True)
             self.video.export(verbose=True)
+            self.video = None
         
         if video_path is not None:
             self.record_video = True
@@ -155,37 +160,44 @@ class GazeFixEnv(BaseEnv):
         self.current_step = 0
         self.total_reward = 0.0
         self.action = np.array([0.0, 0.0, 0.0])
-        self.history = {}
+        self.real_state_history = {}
+        self.observation_history = {}
         self.robot.reset()
         self.collision = False
         self.generate_target()
         self.generate_obstacles()
 
-        self.last_observation, info = self._get_observation(), self.get_info()
-        self.history[self.current_step] = self.last_observation.copy()
+        self.last_state, info = self._get_state(), self.get_info()
+        self.last_observation = self.apply_noise(self.last_state.copy())
+        self.real_state_history[self.current_step] = self.last_state.copy()
+        self.observation_history[self.current_step] = self.last_observation.copy()
 
-        return np.array(list(self.apply_noise(self.last_observation).values())), info
+        return np.array(list(self.apply_noise(self.last_state).values())), info
     
     def close(self):
         pygame.quit()
         self.screen = None
         
-    def _get_observation(self):
+    def _get_state(self):
         """Computes a new observation."""
         return {key: obs.calculate_value() for key, obs in self.observations.items()}
         
     def get_observation(self):
         """Return the current, unnormalized observation."""
-        obs = self.get_reality()
-        return self.apply_noise(obs)
+        try:
+            obs = self.observation_history[self.current_step].copy()
+        except:
+            raise Exception("I think this should never happen.")
+            obs = self._get_state()
+        return obs
 
     def get_reality(self):
         """Return the current environment state."""
         try:
-            obs = self.history[self.current_step].copy()
+            obs = self.real_state_history[self.current_step].copy()
         except:
             raise Exception("I think this should never happen.")
-            obs = self._get_observation()
+            obs = self._get_state()
         return obs
 
     def get_rewards(self):
@@ -253,7 +265,7 @@ class GazeFixEnv(BaseEnv):
             self.observations[f"del_obstacle{o+1}_distance"] = Observation(-1.0, 1.0, lambda o=o: self.compute_del_distance(self.obstacles[o]))
 
         self.observation_indices = np.array([i for i in range(len(self.observations))])
-        self.last_observation = None
+        self.last_state = None
 
         self.required_observations = [key for key in self.observations.keys()]
 
@@ -309,7 +321,7 @@ class GazeFixEnv(BaseEnv):
         for i, x in enumerate(x_positions):
             for j, y in enumerate(y_positions):
                 self.set_robot_position(np.array([x,y]), np.arctan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]))
-                observation_field[i][j] = np.array(list(self._get_observation().values()))
+                observation_field[i][j] = np.array(list(self._get_state().values()))
         return observation_field
 
     def set_robot_position(self, pos, orientation):

@@ -29,7 +29,6 @@ class CartesianGoToTargetGoal(Goal):
         loss_cov = 1.0 * torch.trace(current_state_cov[:2,:2]).pow(2)
         return loss_mean + loss_cov
     
-    
 class GazeFixationGoal(Goal):
     def __init__(self, device):
         super().__init__(device)

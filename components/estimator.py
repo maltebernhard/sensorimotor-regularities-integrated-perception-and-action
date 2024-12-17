@@ -63,7 +63,7 @@ class RecursiveEstimator(ABC, State):
 
         self.default_state = torch.zeros(self.state_dim, dtype=dtype, device=device)
         self.default_cov = torch.eye(self.state_dim, dtype=dtype, device=device)
-        self.default_static_motion_noise = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
+        self.default_motion_noise = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
         
         # Initialize static process/motion noise to identity
         self.register_buffer('forward_noise', torch.eye(self.state_dim, device=self.device, dtype=self.dtype))
@@ -73,12 +73,12 @@ class RecursiveEstimator(ABC, State):
 
     def reset(self):
         self.set_state(self.default_state, self.default_cov)
-        self.set_static_motion_noise(self.default_static_motion_noise)
+        self.set_static_motion_noise(self.default_motion_noise)
 
     def set_static_motion_noise(self, noise_cov: torch.Tensor) -> None:
         assert noise_cov.shape == (self.state_dim, self.state_dim), (
             f"Motion noise shape {noise_cov.shape} does not match {self.state_dim}")
-        setattr(self, '_R', noise_cov.to(self.dtype))
+        setattr(self, 'forward_noise', noise_cov.to(self.dtype))
 
     # --------------------------- everything related to forward model ------------------------------------
 

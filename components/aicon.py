@@ -1,3 +1,5 @@
+from datetime import datetime
+import os
 import numpy as np
 import torch
 from torch.func import jacrev
@@ -31,8 +33,10 @@ class AICON(ABC):
         self.goals: Dict[str, Goal] = self.define_goals()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
         self.propagate_meas_uncertainty: bool = propagate_meas_uncertainty
+        self.run_number = 0
+        self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.type}"
 
-    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_dir:str|None=None):
+    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_data:bool=False):
         """
         Runs AICON on the environment for a given number of timesteps
         Args:
@@ -47,7 +51,9 @@ class AICON(ABC):
         assert self.MMs is not None, "Measurement Models not set"
         assert self.AIs is not None, "Active Interconnections not set"
         assert self.goals is not None, "Goals not set"
-        self.reset(seed=env_seed, video_path=record_dir+"/vid.mp4" if record_dir is not None else None)
+        self.run_number += 1
+        print(f"==================== AICON RUN NUMBER: {self.run_number} ======================")
+        self.reset(seed=env_seed, video_path=self.record_dir+f"/run{self.run_number}.mp4" if record_data else None)
         if prints > 0:
             print(f"============================ Initial State ================================")
             self.print_states()
@@ -60,13 +66,14 @@ class AICON(ABC):
             action = self.compute_action(action_gradients)
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
-            self.logger.log(
-                step,
-                self.env.time,
-                {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()},
-                self.env.get_reality(), 
-                {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()}
-            )
+            if record_data:
+                self.logger.log(
+                    step,
+                    self.env.time,
+                    {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()},
+                    self.env.get_reality(), 
+                    {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()}
+                )
             if step_by_step:
                 input("Press Enter to continue...")
             self.step(action)
@@ -76,8 +83,8 @@ class AICON(ABC):
             if prints > 0 and step % prints == 0:
                 print(f"============================ Step {step} ================================")
                 self.print_states()
-        if record_dir is not None:
-            self.logger.save(record_dir)
+        if record_data:
+            self.save()
             self.env.reset()
 
     def step(self, action):
@@ -209,8 +216,17 @@ class AICON(ABC):
         for estimator in self.REs.values():
             estimator.reset()
         obs, _ = self.env.reset(seed, video_path)
+        self.logger.run = self.run_number
         self.update_observations()
         self.custom_reset()
+
+    def save(self):
+        self.logger.save(self.record_dir)
+
+    def load(self, file):
+        folder = os.path.dirname(file)
+        self.record_dir = folder
+        self.logger.load(file)
 
     @abstractmethod
     def define_env(self) -> BaseEnv:
@@ -306,9 +322,14 @@ class DroneEnvAICON(AICON):
     def define_env(self):
         config = 'environment/env_config.yaml'
         with open(config) as file:
-            env_config = yaml.load(file, Loader=yaml.FullLoader)
-            env_config["num_obstacles"] = self.num_obstacles
-            env_config["action_mode"] = 3 if self.vel_control else 1
-            env_config["moving_target"] = self.moving_target
-            env_config["robot_sensor_angle"] = self.sensor_angle_deg / 180 * np.pi
-        return GazeFixEnv(env_config)
+            self.env_config = yaml.load(file, Loader=yaml.FullLoader)
+            self.env_config["num_obstacles"] = self.num_obstacles
+            self.env_config["action_mode"] = 3 if self.vel_control else 1
+            self.env_config["moving_target"] = self.moving_target
+            self.env_config["robot_sensor_angle"] = self.sensor_angle_deg / 180 * np.pi
+        return GazeFixEnv(self.env_config)
+    
+    def save(self):
+        self.logger.save(self.record_dir)
+        with open(os.path.join(self.record_dir, 'env_config.yaml'), 'w') as file:
+            yaml.dump(self.env_config, file)

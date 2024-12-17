@@ -55,7 +55,6 @@ def test_acc_control_vel_estimate_forward(aicon: ContingentEstimatorAICON):
 seed = 10
 
 if __name__ == "__main__":
-    print("Running General AICON Test")
     aicon = ContingentEstimatorAICON()
 
     #test_acc_control_pos_estimate_forward(aicon)

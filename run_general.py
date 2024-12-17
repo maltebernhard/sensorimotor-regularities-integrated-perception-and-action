@@ -8,7 +8,13 @@ seed = 10
 #seed = 50
 
 if __name__ == "__main__":
-    print("Running General AICON Test")
-    aicon = GeneralTestAICON(moving_target=False, sensor_angle_deg=130)
+    aicon = GeneralTestAICON(moving_target=False,)# sensor_angle_deg=130)
 
-    aicon.run(200, seed, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), render=True, prints=1, step_by_step=True,)# record_dir="test")
+    #aicon.load("./test_recording/data.yaml")
+
+    aicon.run(200, seed, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), render=True, prints=1, step_by_step=True)# record_dir="test")
+    
+    
+    # for i in range(10):
+    #     aicon.run(50, seed+i, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), render=True, prints=200, step_by_step=False, record_data=True)
+    # aicon.logger.plot_estimation_error("PolarTargetPos", value_keys={0:"Target Distance", 1:"Target Offset Angle"}, save_path=aicon.record_dir)
