@@ -20,8 +20,8 @@ class AICONLogger:
                 real_state[key] = torch.tensor([
                     reality[f"{obj}_distance"],
                     reality[f"{obj}_offset_angle"],
-                    reality[f"del_{obj}_distance"],
-                    reality[f"del_{obj}_offset_angle"]
+                    reality[f"{obj}_distance_dot"],
+                    reality[f"{obj}_offset_angle_dot"]
                 ], device=estimators[key]["state_mean"].device)
             elif key == "RobotVel":
                 real_state[key] = torch.tensor([

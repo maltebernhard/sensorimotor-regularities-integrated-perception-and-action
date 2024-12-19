@@ -111,7 +111,7 @@ class FovealVisionAICON(AICON):
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
-        print(f"True PolarTargetPos: {[f'{x:.3f}' for x in [dist, angle, obs['del_target_distance'], obs['del_target_offset_angle'] if obs['del_target_offset_angle'] else 0.0]]}")
+        print(f"True PolarTargetPos: {[f'{x:.3f}' for x in [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot'] if obs['target_offset_angle_dot'] else 0.0]]}")
         print("--------------------------------------------------------------------")
 
     def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):

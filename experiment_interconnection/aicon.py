@@ -101,14 +101,14 @@ class ContingentInterconnectionAICON(AICON):
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
         #TODO: Consider observations that are None
-        #print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['del_target_distance'], obs['del_target_offset_angle']]]}")
+        #print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot']]]}")
         print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle]]}")
         actual_state = [self.env.robot.vel[0], self.env.robot.vel[1], self.env.robot.vel_rot]
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
         #TODO: Consider observations that are None
-        #actual_state += [dist, angle, obs['del_target_distance'], obs['del_target_offset_angle']]
+        #actual_state += [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot']]
         actual_state += [dist, angle]
         print(f"True State: ", end="")
         [print(f'{x:.3f} ', end="") for x in actual_state]

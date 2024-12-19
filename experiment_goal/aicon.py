@@ -89,7 +89,7 @@ class ContingentGoalAICON(AICON):
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)
         # TODO: observations can be None now
-        print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['del_target_distance']:.3f}, {obs['del_target_offset_angle']:.3f}]")
+        print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_state("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")
