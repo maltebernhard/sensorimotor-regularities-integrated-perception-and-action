@@ -2,38 +2,43 @@ import torch
 from components.estimator import RecursiveEstimator
 
 # ==================================== Specific Implementations ==============================================
-    
-# class Target_Visibility_Estimator(RecursiveEstimator):
-#     """
-#     Estimator for target visibility state x:
-#     x[0]: target visibility
-#     """
-#     def __init__(self, device, id: str):
-#         super().__init__(id, 1, device)
-#         self.default_state = torch.tensor([1.0], device=device)
-#         self.default_cov = 1e1 * torch.eye(1, device=device)
-#         self.default_motion_noise = 1e-2 * torch.eye(1, device=device)
 
-#     def forward_model(self, x_mean, cov: torch.Tensor, u):
-#         return torch.clamp(x_mean - 0.1, min=0.0), cov
-    
-class Foveal_Angle_Estimator(RecursiveEstimator):
+class Polar_Pos_Estimator_Vel(RecursiveEstimator):
     """
-    Estimator for foveal angle state x:
-    x[0]: foveal angle
-    x[1]: foveal angle velocity
+    Estimator for Target state x:
+    x[0]: target distance
+    x[1]: target offset angle
+    x[2]: del target distance
+    x[3]: del target offset angle
     """
     def __init__(self, device, id: str):
-        super().__init__(id, 2, device)
-        self.default_state = torch.tensor([0.0, 0.0], device=device)
-        self.default_cov = 1e-2 * torch.eye(2, device=device)
-        self.default_motion_noise = 1e-2 * torch.eye(2, device=device)
+        super().__init__(id, 4, device)
+        self.default_state = torch.tensor([10.0, 0.1, 0.0, 0.0], device=device)
+        self.default_cov = 1e3 * torch.eye(4, device=device)
+        self.default_motion_noise = torch.eye(4, device=device) * torch.tensor([1e-1, 1e-1, 1e-1, 1e-1], device=device) * 0.0
 
-    def forward_model(self, x_mean, cov: torch.Tensor, u):
+    @staticmethod
+    def smooth_abs(x, margin=1.0):
+        abs_x = torch.abs(x)
+        smooth_part = 0.5 * (x**2) / margin
+        linear_part = abs_x - 0.5 * margin
+        return torch.where(abs_x <= margin, smooth_part, linear_part)
+
+    def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
+        timestep = u[0]
+        offset_angle = x_mean[1]
+        robot_target_frame_rotation_matrix = torch.stack([
+            torch.stack([torch.cos(-offset_angle), -torch.sin(-offset_angle)]),
+            torch.stack([torch.sin(-offset_angle), torch.cos(-offset_angle)]),
+        ]).squeeze()
+        robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, u[1:3])
+
         ret_mean = torch.empty_like(x_mean)
-        ret_mean[0] = (x_mean[0] - u[3] * u[0] + torch.pi) % (2*torch.pi) - torch.pi
-        ret_mean[1] = - u[3]
-        ret_cov = torch.empty_like(cov)
-        ret_cov[0,0] = cov[0,0] + ret_mean[0] / torch.pi * 100
-        ret_cov[1,1] = cov[1,1] + ret_mean[0] / torch.pi * 100
+        ret_mean[0] = x_mean[0] + (- robot_target_frame_vel[0]) * timestep
+        ret_mean[1] = (x_mean[1] + (- robot_target_frame_vel[1]/x_mean[0] - u[3]) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
+        ret_mean[2] = - robot_target_frame_vel[0]
+        ret_mean[3] = - robot_target_frame_vel[1]/x_mean[0] - u[3]
+        ret_cov = cov.clone()
+        ret_cov[1,1] = self.smooth_abs(ret_mean[1], margin=1e-1)
+        ret_cov[3,3] = self.smooth_abs(ret_mean[1], margin=1e-1)
         return ret_mean, ret_cov

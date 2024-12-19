@@ -4,14 +4,12 @@ from typing import Dict
 
 from components.aicon import DroneEnvAICON as AICON
 from components.estimator import RecursiveEstimator
-from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
+from components.instances.estimators import Robot_Vel_Estimator_Vel #, Polar_Pos_Estimator_Vel
 from components.instances.measurement_models import Vel_MM, Angle_Meas_MM
 from components.instances.active_interconnections import Triangulation_AI
 from components.instances.goals import PolarGoToTargetGoal
 
-from experiment_foveal_vision.active_interconnections import Foveal_Angle_AI
-from experiment_foveal_vision.measurement_models import Foveal_Angle_MM
-from experiment_foveal_vision.estimators import Foveal_Angle_Estimator
+from experiment_foveal_vision.estimators import Polar_Pos_Estimator_Vel
 
 # =============================================================================================================================================================
 
@@ -24,22 +22,19 @@ class FovealVisionAICON(AICON):
         REs: Dict[str, RecursiveEstimator] = {
             "RobotVel": Robot_Vel_Estimator_Vel(self.device),
             "PolarTargetPos": Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos"),
-            "FovealTargetAngle": Foveal_Angle_Estimator(self.device, "FovealTargetAngle"),
         }
         return REs
 
     def define_measurement_models(self):
         MMs = {
             "RobotVel": Vel_MM(self.device),
-            #"PolarAngle": Angle_Meas_MM(self.device, "Target"),
-            "FovealTargetAngle": Foveal_Angle_MM(self.device, object_name="Target"),
+            "PolarAngle": Angle_Meas_MM(self.device, "Target"),
         }
         return MMs
 
     def define_active_interconnections(self):
         AIs = {
             "PolarDistance": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
-            "FovealTargetAngle": Foveal_Angle_AI([self.REs["PolarTargetPos"], self.REs["FovealTargetAngle"]], self.device, object_name="Target"),
         }
         return AIs
 
@@ -62,22 +57,21 @@ class FovealVisionAICON(AICON):
 
         self.REs["RobotVel"].call_predict(u, buffer_dict)
         self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-        self.REs["FovealTargetAngle"].call_predict(u, buffer_dict)
 
         print("------------------- Post Predict -------------------")
-        print(buffer_dict['FovealTargetAngle']['state_mean'])
-        print(buffer_dict['FovealTargetAngle']['state_cov'])
+        print(buffer_dict['PolarTargetPos']['state_mean'])
+        print(buffer_dict['PolarTargetPos']['state_cov'])
 
         # ----------------------------- active interconnections -------------------------------------
         
         if new_step:
             self.meas_updates(buffer_dict)
 
-        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["FovealTargetAngle"], buffer_dict)
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
 
-        # print("------------------- Post Update -------------------")
-        # print(buffer_dict['PolarTargetPos']['state_mean'])
+        print("------------------- Post Update -------------------")
+        print(buffer_dict['PolarTargetPos']['state_mean'])
+        print(buffer_dict['PolarTargetPos']['state_cov'])
 
         # ----------------------------- measurements -------------------------------------
 
@@ -99,8 +93,8 @@ class FovealVisionAICON(AICON):
         return torch.concat([torch.tensor([0.05], device=self.device), env_action])
 
     def compute_action(self, gradients):
-        goal = "PolarGoToTarget"
-        action = 0.9 * self.last_action - 1e-2 * gradients[goal]
+        self.print_vector(gradients["PolarGoToTarget"], "GoToTarget Gradient")
+        action = 0.9 * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
         return action
 
     def print_states(self, print_cov=False):

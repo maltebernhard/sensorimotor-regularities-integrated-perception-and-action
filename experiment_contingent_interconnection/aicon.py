@@ -90,7 +90,6 @@ class ContingentInterconnectionAICON(AICON):
         #decay = 1.0
         decay = 0.8
         self.print_vector(gradients["GoToTarget"], "GoToTarget Gradient")
-        print(self.goals["GoToTarget"].desired_distance)
         action = decay * self.last_action - 5e-2 * gradients["GoToTarget"]
         return action
     

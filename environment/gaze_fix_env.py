@@ -47,20 +47,18 @@ class Robot:
         self.vel: np.ndarray = np.array([0.0, 0.0], dtype=np.float64)
         self.vel_rot: float = 0.0
 
-class Obstacle:
-    def __init__(self, radius = 1.0, pos = np.array([0.0, 0.0], dtype=np.float64)):
-        self.radius: float = radius
-        self.pos: np.ndarray = pos
-        self.current_movement_direction = 0.0
-        self.vel = 0.0
-
-class Target:
-    def __init__(self, x=0.0, y=0.0, distance=0.0, vel=0.0, base_movement_direction=0.0):
-        self.pos = np.array([x, y], dtype=np.float64)
+class EnvObject:
+    def __init__(self, pos=np.zeros(2), vel=0.0, base_movement_direction=0.0, radius=1.0):
+        self.pos = pos
         self.base_movement_direction = base_movement_direction
         self.current_movement_direction = base_movement_direction
-        self.distance = distance
         self.vel = vel
+        self.radius = radius
+
+class Target(EnvObject):
+    def __init__(self, pos=np.zeros(2), vel=0.0, base_movement_direction=0.0, radius=1.0, distance=0.0):
+        super().__init__(pos=pos, vel=vel, base_movement_direction=base_movement_direction, radius=radius)
+        self.distance = distance
 
 # =====================================================================================================
 
@@ -94,7 +92,7 @@ class GazeFixEnv(BaseEnv):
         self.scale = SCREEN_SIZE / self.world_size
 
         self.robot = Robot(np.array([-self.world_size/4, 0.0], dtype=np.float64), config["robot_sensor_angle"], config["robot_max_vel"], config["robot_max_vel_rot"], config["robot_max_acc"], config["robot_max_acc_rot"])
-        self.obstacles: List[Obstacle] = []
+        self.obstacles: List[EnvObject] = []
         self.generate_target()
         self.generate_obstacles()
 
@@ -252,19 +250,22 @@ class GazeFixEnv(BaseEnv):
             "desired_target_distance" : Observation(0.0, self.config["target_distance"], lambda: self.target.distance),
             "target_offset_angle" :     Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.target)),
             "del_target_offset_angle" : Observation(-2*np.pi/self.timestep/self.robot.max_vel_rot, 2*np.pi/self.timestep/self.robot.max_vel_rot, lambda: self.compute_del_offset_angle(self.target)),
-            "vel_rot" :                 Observation(-1.0, 1.0, lambda: self.robot.vel_rot),
-            "vel_frontal" :             Observation(-1.0, 1.0, lambda: self.robot.vel[0]),
-            "vel_lateral" :             Observation(-1.0, 1.0, lambda: self.robot.vel[1]),
+            "vel_rot" :                 Observation(-self.robot.max_vel_rot, self.robot.max_vel_rot, lambda: self.robot.vel_rot),
+            "vel_frontal" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[0]),
+            "vel_lateral" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[1]),
             "target_distance" :         Observation(0.0, np.inf, lambda: self.compute_distance(self.target)),
-            "del_target_distance" :     Observation(-1.0, 1.0, lambda: self.compute_del_distance(self.target)),
+            "del_target_distance" :     Observation(-1.5*self.robot.max_vel, 1.5*self.robot.max_vel, lambda: self.compute_del_distance(self.target)),
+            "target_radius" :           Observation(0.0, np.inf, lambda: self.target.radius),
+            "target_visual_angle" :     Observation(0.0, self.robot.sensor_angle, lambda: self.compute_visual_angle(self.target)),
+            "del_target_visual_angle" : Observation(-np.inf, np.inf, lambda: self.compute_del_visual_angle(self.target)),
         }
         for o in range(self.num_obstacles):
             self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o]))
-            self.observations[f"obstacle{o+1}_radius"] = Observation(0.0, np.inf, lambda o=o: self.obstacles[o].radius)
-            self.observations[f"obstacle{o+1}_coverage"] = Observation(0.0, 1.0, lambda o=o: self.compute_circle_coverage(self.obstacles[o]))
-            self.observations[f"obstacle{o+1}_visual_angle"] = Observation(0.0, np.inf, lambda o=o: 2 * math.asin(min(1.0, self.obstacles[o].radius / self.compute_distance(self.obstacles[o]))))
             self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: self.compute_distance(self.obstacles[o]))
             self.observations[f"del_obstacle{o+1}_distance"] = Observation(-1.0, 1.0, lambda o=o: self.compute_del_distance(self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_radius"] = Observation(0.0, np.inf, lambda o=o: self.obstacles[o].radius)
+            self.observations[f"obstacle{o+1}_visual_angle"] = Observation(0.0, self.robot.sensor_angle, lambda o=o: self.compute_visual_angle(self.obstacles[o]))
+            self.observations[f"del_obstacle{o+1}_visual_angle"] = Observation(-np.inf, np.inf, lambda o=o: self.compute_del_visual_angle(self.obstacles[o]))
 
         self.observation_indices = np.array([i for i in range(len(self.observations))])
         self.last_state = None
@@ -298,7 +299,13 @@ class GazeFixEnv(BaseEnv):
         angle = np.random.uniform(-np.pi, np.pi)
         x = distance * np.cos(angle)
         y = distance * np.sin(angle)
-        self.target = Target(x, y, np.random.uniform(0.0, self.max_target_distance), 0.5 * self.robot.max_vel, np.random.uniform(-np.pi, np.pi))
+        self.target = Target(
+            pos = np.array([x,y]),
+            vel = 0.5 * self.robot.max_vel,
+            base_movement_direction = np.random.uniform(-np.pi, np.pi),
+            radius = 1.0,
+            distance = np.random.uniform(0.0, self.max_target_distance)
+        )
     
     def generate_obstacles(self):
         self.obstacles = []
@@ -311,7 +318,12 @@ class GazeFixEnv(BaseEnv):
                 pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
                 # Ensure the obstacle doesn't spawn too close to robot
                 if np.linalg.norm(pos-self.robot.pos) > radius + 5 * self.robot.size:
-                    self.obstacles.append(Obstacle(radius, pos))
+                    self.obstacles.append(EnvObject(
+                        pos = pos,
+                        vel = 0.5 * self.robot.max_vel,
+                        base_movement_direction = np.random.uniform(-np.pi, np.pi),
+                        radius = radius
+                    ))
                     break
     
     # -------------------------------------- helpers -------------------------------------------
@@ -412,7 +424,7 @@ class GazeFixEnv(BaseEnv):
                     continue
                 obs.append(angle)
                 # coverage
-                obs.append(self.compute_circle_coverage(obstacle))
+                obs.append(self.compute_visual_angle(obstacle))
                 # distance
                 obs.append(self.compute_distance(obstacle)-obstacle.radius)
                 obstacles += obs
@@ -436,48 +448,73 @@ class GazeFixEnv(BaseEnv):
     def apply_noise(self, observation: Dict[str, float]) -> Dict[str, float]:
         """Applies gaussion noise and occlusions to real state."""
         real_observation = observation.copy()
+        # delete all observations not provided to any measurement model
         keys_to_delete = [key for key in real_observation if key not in self.required_observations]
         for key in keys_to_delete:
             del real_observation[key]
+        # delete all occluded observations
         for key, value in real_observation.items():
             if key[0] != "d" and key[-12:] == "offset_angle":
-                if abs(real_observation[key]) > self.robot.sensor_angle / 2:
-                    real_observation[key] = None
+                if "target" in key: obj = self.target
+                else: obj = self.obstacles[int(key[8])-1]
+                if abs(real_observation[key]) > self.robot.sensor_angle / 2 + obj.radius / 2:   # if target/obstacle is outside of camera angle, remove observations:
+                    real_observation[key] = None                                                    # angle
                     if "del_"+key in real_observation.keys():
-                        real_observation["del_"+key] = None
+                        real_observation["del_"+key] = None                                         # del angle
+                if abs(real_observation[key]) > self.robot.sensor_angle / 2 - obj.radius / 2:   # if target/obstacle is partially outside of camera angle, remove visual angle observations:
+                    if key[:-12] + "visual_angle" in real_observation.keys():
+                        print("TEST: HOORAY")
+                        real_observation[key[:-12] + "visual_angle"] = None                         # visual angle
+                    if "del_"+key[:-12]+"visual_angle" in real_observation.keys():
+                        print("TEST2: HOORAY")
+                        real_observation["del_"+key[:-12]+"visual_angle"] = None                    # del visual angle   
+
+        # apply sensor noise
+        for key, value in real_observation.items():
             if real_observation[key] is not None:
                 if key in self.observation_noise.keys():
                     real_observation[key] = value + self.observation_noise[key] * np.random.randn()
         return real_observation
     
-    def compute_offset_angle(self, obj: Target|Obstacle) -> float:
+    def compute_offset_angle(self, obj: EnvObject) -> float:
         return self.normalize_angle(np.arctan2(obj.pos[1]-self.robot.pos[1], obj.pos[0]-self.robot.pos[0]) - self.robot.orientation)
     
-    def compute_del_offset_angle(self, obj: Target|Obstacle):
+    def compute_del_offset_angle(self, obj: EnvObject):
         offset_angle = self.compute_offset_angle(obj)
         # angular vel due to robot's rotation
         del_offset_angle = - self.robot.vel_rot
         # angular vel due to robot's translation
         del_offset_angle -= (self.rotation_matrix(-offset_angle) @ self.robot.vel)[1] / self.compute_distance(obj)
         # angular vel due to object's movement
-        if (type(obj) == Target and self.moving_target) or (type(obj) == Obstacle and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target) or (type(obj) == EnvObject and self.moving_obstacles):
             del_offset_angle += obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
         return del_offset_angle
     
-    def compute_distance(self, obj: Target|Obstacle):
+    def compute_distance(self, obj: EnvObject):
         return np.linalg.norm(obj.pos-self.robot.pos)
 
-    def compute_del_distance(self, obj: Target|Obstacle):
+    def compute_del_distance(self, obj: EnvObject):
         offset_angle = self.compute_offset_angle(obj)
         del_object_distance = - (self.rotation_matrix(-offset_angle) @ self.robot.vel)[0]
-        if (type(obj) == Target and self.moving_target) or (type(obj) == Obstacle and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target) or (type(obj) == EnvObject and self.moving_obstacles):
             del_object_distance += obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
         return del_object_distance
     
-    def compute_circle_coverage(self, obstacle: Obstacle):
-        angular_size = 2 * math.asin(min(1.0, obstacle.radius / self.compute_distance(obstacle)))
-        coverage = angular_size / self.robot.sensor_angle
-        return min(coverage, 1.0)
+    def compute_visual_angle(self, obj: EnvObject):
+        distance = self.compute_distance(obj)
+        # angular size with respect to distance
+        if obj.radius / distance >= 1.0:
+            return self.robot.sensor_angle
+        else:
+            return 2 * math.asin(obj.radius / distance)
+    
+    def compute_del_visual_angle(self, obj: EnvObject):
+        distance = self.compute_distance(obj)
+        # Derivative of the angular size with respect to distance
+        if obj.radius / distance >= 1.0:
+            return 0.0
+        else:
+            return -2 * obj.radius / (distance**2 * math.sqrt(1 - (obj.radius / distance)**2))
 
     # ----------------------------------- render stuff -----------------------------------------
 
@@ -551,7 +588,7 @@ class GazeFixEnv(BaseEnv):
         # draw target distance
         pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=2)
         # draw target
-        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.robot.size*self.scale)
+        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.radius*self.scale)
         # draw vision axis
         pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)))
         # draw Agent
