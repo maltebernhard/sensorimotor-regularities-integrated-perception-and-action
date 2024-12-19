@@ -10,7 +10,7 @@ from components.instances.active_interconnections import Triangulation_AI
 from components.instances.goals import GazeFixationGoal, CartesianGoToTargetGoal
 
 from experiment_general.estimators import Obstacle_Rad_Estimator, Target_Visibility_Estimator
-from experiment_general.active_interconnections import Radius_Pos_VisAngle_AI, Visibility_Angle_AI, Scaled_Triangulation_AI
+from experiment_general.active_interconnections import Radius_Pos_VisAngle_AI, Visibility_Angle_AI
 from experiment_general.measurement_models import Visibility_MM
 from experiment_general.goals import AvoidObstacleGoal, PolarGoToTargetGazeFixationGoal, PolarGoToTargetGoal
 
@@ -109,15 +109,6 @@ class GeneralTestAICON(AICON):
             self.meas_updates(buffer_dict)
 
         return buffer_dict
-    
-    def meas_updates(self, buffer_dict):
-        for model_key, meas_model in self.MMs.items():
-            meas_dict = self.get_meas_dict(self.MMs[model_key])
-            if len(meas_dict["means"]) == len(meas_model.observations):
-                self.REs[meas_model.estimator].call_update_with_meas_model(meas_model, buffer_dict, meas_dict)
-            else:
-                #print(f"Missing measurements for {model_key}")
-                pass
 
     def get_control_input(self, action: torch.Tensor):
         env_action = torch.empty_like(action)

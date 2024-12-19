@@ -228,6 +228,15 @@ class AICON(ABC):
         self.record_dir = folder
         self.logger.load(file)
 
+    def meas_updates(self, buffer_dict):
+        for model_key, meas_model in self.MMs.items():
+            meas_dict = self.get_meas_dict(self.MMs[model_key])
+            if len(meas_dict["means"]) == len(meas_model.observations):
+                self.REs[meas_model.estimator].call_update_with_meas_model(meas_model, buffer_dict, meas_dict)
+            else:
+                #print(f"Missing measurements for {model_key}")
+                pass
+
     @abstractmethod
     def define_env(self) -> BaseEnv:
         """
