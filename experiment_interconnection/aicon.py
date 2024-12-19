@@ -7,9 +7,9 @@ from components.instances.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_E
 from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
 
-from experiment_contingent_interconnection.active_interconnections import Gaze_Fixation_AI, Gaze_Fixation_AI2
-from experiment_contingent_interconnection.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
-from experiment_contingent_interconnection.goals import PolarGoToTargetGoal, PolarGoToTargetGazeFixationGoal
+from experiment_interconnection.active_interconnections import Gaze_Fixation_AI, Gaze_Fixation_AI2
+from experiment_interconnection.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
+from experiment_interconnection.goals import PolarGoToTargetGoal, PolarGoToTargetGazeFixationGoal
 
 # ========================================================================================================
 

@@ -7,7 +7,7 @@ from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_E
 from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
 
-from experiment_contingent_goal.goals import GoToTargetGoal
+from experiment_goal.goals import GoToTargetGoal
 
 # ========================================================================================================
 

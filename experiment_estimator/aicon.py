@@ -5,9 +5,9 @@ import torch
 from components.aicon import DroneEnvAICON as AICON
 from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
 
-from experiment_contingent_estimator.active_interconnections import DistanceUpdaterAcc, DistanceUpdaterVel
-from experiment_contingent_estimator.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
-from experiment_contingent_estimator.goals import SpecificGoToTargetGoal
+from experiment_estimator.active_interconnections import DistanceUpdaterAcc, DistanceUpdaterVel
+from experiment_estimator.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
+from experiment_estimator.goals import SpecificGoToTargetGoal
 
 # ========================================================================================================
 

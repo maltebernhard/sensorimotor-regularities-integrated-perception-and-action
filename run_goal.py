@@ -1,5 +1,5 @@
 import torch
-from experiment_contingent_goal.aicon import ContingentGoalAICON
+from experiment_goal.aicon import ContingentGoalAICON
 
 # ===========================================================================================
 

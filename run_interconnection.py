@@ -1,6 +1,5 @@
 import torch
-from experiment_contingent_interconnection.aicon import ContingentInterconnectionAICON
-import os
+from experiment_interconnection.aicon import ContingentInterconnectionAICON
 
 # ===========================================================================================
 

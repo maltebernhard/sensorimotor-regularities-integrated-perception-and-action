@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from experiment_contingent_estimator.aicon import ContingentEstimatorAICON
+from experiment_estimator.aicon import ContingentEstimatorAICON
 
 # ===========================================================================================
 

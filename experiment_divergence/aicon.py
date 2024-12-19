@@ -11,9 +11,9 @@ from components.instances.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 
-class ContingentGoalAICON(AICON):
+class DivergenceAICON(AICON):
     def __init__(self, moving_target=False, sensor_angle_deg=360, num_obstacles=0):
-        self.type = "ContingentGoal"
+        self.type = "Divergence"
         super().__init__(True, moving_target, sensor_angle_deg, num_obstacles)
 
     def define_estimators(self):
