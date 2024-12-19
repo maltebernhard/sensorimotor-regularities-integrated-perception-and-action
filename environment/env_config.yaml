@@ -43,16 +43,16 @@ action_mode:        1
 
 # ============================== OBSERVATION CONFIG ===================================
 
-observation_noise:
-  target_offset_angle: 0.01
-  del_target_offset_angle: 0.01
-  vel_frontal: 0.1
-  vel_lateral: 0.1
-  vel_rot: 0.01
-
 # observation_noise:
-#   target_offset_angle: 0.0
-#   del_target_offset_angle: 0.0
-#   vel_frontal: 0.0
-#   vel_lateral: 0.0
-#   vel_rot: 0.0
+#   target_offset_angle: 0.01
+#   del_target_offset_angle: 0.01
+#   vel_frontal: 0.1
+#   vel_lateral: 0.1
+#   vel_rot: 0.01
+
+observation_noise:
+  target_offset_angle: 0.0
+  del_target_offset_angle: 0.0
+  vel_frontal: 0.0
+  vel_lateral: 0.0
+  vel_rot: 0.0

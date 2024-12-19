@@ -9,6 +9,8 @@ from environment.base_env import BaseEnv, Observation
 
 # =====================================================================================================
 
+os.environ['SDL_VIDEO_WINDOW_POS'] = "%d, %d" %(1000, 50)
+
 # Colors
 WHITE = (255, 255, 255)
 BLUE = (0, 0, 255)

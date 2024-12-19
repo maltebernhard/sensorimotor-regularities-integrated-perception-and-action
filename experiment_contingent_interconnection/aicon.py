@@ -6,11 +6,10 @@ from components.aicon import DroneEnvAICON as AICON
 from components.instances.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_Estimator_Vel
 from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
-from components.instances.goals import PolarGoToTargetGoal
 
 from experiment_contingent_interconnection.active_interconnections import Gaze_Fixation_AI, Gaze_Fixation_AI2
 from experiment_contingent_interconnection.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
-from experiment_contingent_interconnection.goals import PolarGoToTargetGazeFixationGoal
+from experiment_contingent_interconnection.goals import PolarGoToTargetGoal, PolarGoToTargetGazeFixationGoal
 
 # ========================================================================================================
 
@@ -58,7 +57,7 @@ class ContingentInterconnectionAICON(AICON):
         else:
             # NOTE: both connections individually have the same effect
             self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
-            self.REs["RobotVel"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+            #self.REs["RobotVel"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
 
             # NOTE: completely chaotic behavior
             # self.REs["RobotVel"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
@@ -90,12 +89,9 @@ class ContingentInterconnectionAICON(AICON):
     def compute_action(self, gradients):
         #decay = 1.0
         decay = 0.8
-        if not self.vel_control:
-            action = decay * self.last_action - 1e0 * gradients["GoToTarget"]
-        else:
-            action = decay * self.last_action - 5e-2 * gradients["GoToTarget"]
-            # NOTE: just for demonstration purposes, delete later
-            #action = decay * self.last_action - 5e-4 * gradients["GoToTarget"]
+        self.print_vector(gradients["GoToTarget"], "GoToTarget Gradient")
+        print(self.goals["GoToTarget"].desired_distance)
+        action = decay * self.last_action - 5e-2 * gradients["GoToTarget"]
         return action
     
     def print_states(self, buffer_dict=None):

@@ -59,57 +59,57 @@ class AICONLogger:
         variance = np.var(data_array, axis=0)
         return mean, variance
 
-    def plot_goal_error(self, reality_id:str, default_vals:list=None, indices:List[int]=None, save_path:str=None):
+    def plot_mean_variance(self, subplot, label:str, plot_type:str, error_means:np.ndarray, error_variances:np.ndarray):
+        subplot.plot(error_means, label=f'{label} Mean')
+        subplot.fill_between(
+            range(len(error_means)), 
+            error_means - error_variances,
+            error_means + error_variances,
+            alpha=0.2, label=f'{label} Variance'
+        )
+        subplot.set_title(f'{plot_type} for {label}')
+        subplot.set_xlabel('Time Step')
+        subplot.set_ylabel(plot_type)
+        subplot.grid()
+        subplot.legend()
+
+
+    def plot_state(self, reality_id:str, offset:list=None, indices:List[int]=None, save_path:str=None):
         errors = [[] for _ in range(len(self.data))]
 
         if reality_id == "PolarTargetPos":
             indices = np.array([0, 1])
+        else:
+            indices = np.array([i for i in range(len(self.data[1]["data"][0]["reality"][reality_id]))])
 
         for i, run in enumerate(self.data.values()):
-            if reality_id == "PolarTargetPos":
-                default_vals = torch.tensor([run["desired_distance"], 0.0], device=run["data"][0]["estimators"]["PolarTargetPos"]["state_mean"].device)
+            if offset is None:
+                if reality_id == "PolarTargetPos":
+                    offset = torch.tensor([run["desired_distance"], 0.0], device=run["data"][0]["estimators"]["PolarTargetPos"]["state_mean"].device)
+                else:
+                    offset = torch.zeros(len(indices))
             for j, entry in enumerate(run["data"]):
                 assert reality_id in entry["reality"], f"ID {reality_id} not found in run {i}"
-                error = entry["reality"][reality_id][indices] - default_vals
+                error = entry["reality"][reality_id][indices] - offset
                 errors[i].append(error.cpu().numpy())
         
         errors = np.array(errors)
         error_means, error_variances = self.compute_mean_and_variance(errors)
         
-        # TODO: implement for more than just Polar Target Pos when necessary
-        plt.figure(figsize=(14, 6))
-        plt.subplot(1, 2, 1)
-        plt.plot(error_means[:, 0], label='Distance Mean')
-        plt.fill_between(
-            range(len(error_means)), 
-            error_means[:, 0] - error_variances[:, 0],
-            error_means[:, 0] + error_variances[:, 0],
-            alpha=0.2, label='Distance Variance'
-        )
-        plt.title(f'Goal Error for TargetDistance')
-        plt.xlabel('Time step')
-        plt.ylabel('Error')
-        plt.grid()
-        plt.legend()
-        
-        plt.subplot(1, 2, 2)
-        plt.plot(error_means[:, 1], label='Offset Angle Mean')
-        plt.fill_between(
-            range(len(error_means)), 
-            error_means[:, 1] - error_variances[:, 1], 
-            error_means[:, 1] + error_variances[:, 1], 
-            alpha=0.2, label='Offset Angle Variance'
-        )
-        plt.title(f'Goal Error for TargetOffsetAngle')
-        plt.xlabel('Time step')
-        plt.ylabel('Error')
-        plt.grid()
-        plt.legend()
+        if reality_id == "PolarTargetPos":
+            fig, axs = plt.subplots(1, 2, figsize=(14, 6))
+            self.plot_mean_variance(axs[0], "Distance", "Goal Error", error_means[:,0], error_variances[:,0])
+            self.plot_mean_variance(axs[1], "Angle", "Goal Error", error_means[:,1], error_variances[:,1])
+        else:
+            fig, axs = plt.subplots(1, 1, figsize=(14, 6))
+            for i in range(len(indices)):
+                self.plot_mean_variance(axs, f"{reality_id} {indices[i]}", "Goal Error", error_means[:,i], error_variances[:,i])
+
         if save_path is not None:
             os.makedirs(save_path, exist_ok=True)
-            plt.savefig(save_path+f"/goal_error_{reality_id}.png")
+            fig.savefig(save_path+f"/goal_error_{reality_id}.png")
         else:
-            plt.show()
+            fig.show()
 
     def plot_estimation_error(self, estimator_id:str, value_keys:Dict[int,str]=None, save_path:str=None):
         errors = [[] for _ in range(len(self.data))]
