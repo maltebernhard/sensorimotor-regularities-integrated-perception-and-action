@@ -45,10 +45,13 @@ action_mode:        1
 
 observation_noise:
   target_offset_angle: 0.01
-  del_target_offset_angle: 0.01
+  target_offset_angle_dot: 0.01
+  target_visual_angle: 0.01
+  target_visual_angle_dot: 0.01
   vel_frontal: 0.1
   vel_lateral: 0.1
   vel_rot: 0.01
+
 
 # observation_noise:
 #   target_offset_angle: 0.0

@@ -3,16 +3,17 @@ from experiment_general.aicon import GeneralTestAICON
 
 # ===========================================================================================
 
-seed = 10
+# seed = 10
 # Great seed for 90 degree config failing without gaze fixation | good 2-obstacle seed
 #seed = 50
+seed = 70
 
 if __name__ == "__main__":
     aicon = GeneralTestAICON(moving_target=False,)# sensor_angle_deg=130)
 
     #aicon.load("./test_recording/data.yaml")
 
-    aicon.run(200, seed, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), render=True, prints=1, step_by_step=True)# record_dir="test")
+    aicon.run(200, seed, initial_action=torch.tensor([0.0, 0.0, 0.0], device=aicon.device), render=True, prints=1, step_by_step=True, record_data=False)
     
     
     # for i in range(10):

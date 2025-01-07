@@ -17,7 +17,7 @@ class Polar_Pos_Rad_Estimator(RecursiveEstimator):
         super().__init__(id, 5, device)
         self.default_state = torch.tensor([10.0, 0.1, 0.0, 0.0, 1.0], device=device)
         self.default_cov = 1e3 * torch.eye(5, device=device)
-        self.default_motion_noise = torch.eye(5, device=device) * torch.tensor([1e0, 1e0, 1e0, 1e0, 1e0], device=device)
+        self.default_motion_noise = torch.eye(5, device=device) * torch.tensor([5e-1, 1e-2, 1e0, 1e-1, 1e-2], device=device)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
@@ -35,17 +35,3 @@ class Polar_Pos_Rad_Estimator(RecursiveEstimator):
         ret_mean[3] = - robot_target_frame_vel[1]/x_mean[0] - u[3]
         ret_mean[4] = x_mean[4]
         return ret_mean, cov
-
-# class Object_Visual_Angle_Estimator(RecursiveEstimator):
-#     """
-#     Estimator for object visual angle state x:
-#     x[0]: object visual angle
-#     """
-#     def __init__(self, device, id: str):
-#         super().__init__(id, 1, device)
-#         self.default_state = torch.tensor([0.1], device=device)
-#         self.default_cov = 1e1 * torch.eye(1, device=device)
-#         self.default_motion_noise = 1e-2 * torch.eye(1, device=device)
-
-#     def forward_model(self, x_mean, cov: torch.Tensor, u):
-#         return x_mean, cov

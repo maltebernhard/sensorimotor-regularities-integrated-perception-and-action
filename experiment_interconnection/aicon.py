@@ -14,9 +14,9 @@ from experiment_interconnection.goals import PolarGoToTargetGoal, PolarGoToTarge
 # ========================================================================================================
 
 class ContingentInterconnectionAICON(AICON):
-    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0):
+    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0, timestep=0.05):
         self.type = "ContingentInterconnection"
-        super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles)
+        super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles, timestep)
 
     def define_estimators(self):
         estimators = {}
@@ -74,17 +74,10 @@ class ContingentInterconnectionAICON(AICON):
         return torch.concat([torch.tensor([0.05], device=self.device), env_action])
 
     def render(self):
-        estimator_means = {"PolarTargetPos": np.array(torch.stack([
-            self.REs["PolarTargetPos"].state_mean[0] * torch.cos(self.REs["PolarTargetPos"].state_mean[1]),
-            self.REs["PolarTargetPos"].state_mean[0] * torch.sin(self.REs["PolarTargetPos"].state_mean[1])
-        ]).cpu())}
-        cart_cov = torch.zeros((2, 2), device=self.device)
-        cart_cov[0, 0] = self.REs["PolarTargetPos"].state_cov[0, 0] * torch.cos(self.REs["PolarTargetPos"].state_mean[1])**2 + self.REs["PolarTargetPos"].state_cov[1, 1] * torch.sin(self.REs["PolarTargetPos"].state_mean[1])**2
-        cart_cov[0, 1] = (self.REs["PolarTargetPos"].state_cov[0, 0] - self.REs["PolarTargetPos"].state_cov[1, 1]) * torch.cos(self.REs["PolarTargetPos"].state_mean[1]) * torch.sin(self.REs["PolarTargetPos"].state_mean[1])
-        cart_cov[1, 0] = cart_cov[0, 1]
-        cart_cov[1, 1] = self.REs["PolarTargetPos"].state_cov[0, 0] * torch.sin(self.REs["PolarTargetPos"].state_mean[1])**2 + self.REs["PolarTargetPos"].state_cov[1, 1] * torch.cos(self.REs["PolarTargetPos"].state_mean[1])**2
-        estimator_covs = {"PolarTargetPos": np.array(cart_cov.cpu())}
-        return self.env.render(1.0, estimator_means, estimator_covs)
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
+        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
+        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
+        return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     def compute_action(self, gradients):
         #decay = 1.0

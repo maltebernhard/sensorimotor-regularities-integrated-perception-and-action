@@ -72,7 +72,7 @@ class RecursiveEstimator(ABC, State):
     # --------------------------- properties, getters and setters ---------------------------------
 
     def reset(self):
-        self.set_state(self.default_state, self.default_cov)
+        self.set_state(self.default_state.clone(), self.default_cov.clone())
         self.set_static_motion_noise(self.default_motion_noise)
 
     def set_static_motion_noise(self, noise_cov: torch.Tensor) -> None:

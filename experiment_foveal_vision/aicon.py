@@ -14,9 +14,9 @@ from experiment_foveal_vision.estimators import Polar_Pos_Estimator_Vel
 # =============================================================================================================================================================
 
 class FovealVisionAICON(AICON):
-    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0):
+    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0, timestep=0.05):
         self.type = "FovealVision"
-        super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles)
+        super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles, timestep)
 
     def define_estimators(self):
         REs: Dict[str, RecursiveEstimator] = {
@@ -104,18 +104,6 @@ class FovealVisionAICON(AICON):
         dist = np.linalg.norm(actual_pos)
         print(f"True PolarTargetPos: {[f'{x:.3f}' for x in [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot'] if obs['target_offset_angle_dot'] else 0.0]]}")
         print("--------------------------------------------------------------------")
-
-    def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):
-        mean = torch.stack([
-            polar_mean[0] * torch.cos(polar_mean[1]),
-            polar_mean[0] * torch.sin(polar_mean[1])
-        ])
-        cov = torch.zeros((2, 2), device=self.device)
-        cov[0, 0] = polar_cov[0, 0] * torch.cos(polar_mean[1])**2 + polar_cov[1, 1] * torch.sin(polar_mean[1])**2
-        cov[1, 1] = polar_cov[0, 0] * torch.sin(polar_mean[1])**2 + polar_cov[1, 1] * torch.cos(polar_mean[1])**2
-        cov[0, 1] = (polar_cov[0, 0] - polar_cov[1, 1]) * torch.cos(polar_mean[1]) * torch.sin(polar_mean[1])
-        cov[1, 0] = cov[0, 1]
-        return mean, cov
     
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance

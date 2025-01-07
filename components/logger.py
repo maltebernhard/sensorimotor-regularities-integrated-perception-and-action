@@ -12,26 +12,37 @@ class AICONLogger:
         self.data: Dict[int,List[dict]] = {}
         self.run = 0
 
-    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], reality: Dict[str,torch.Tensor], observation: Dict[str,Dict[str,torch.Tensor]]):
+    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], reality: Dict[str,float], observation: Dict[str,Dict[str,float]]):
         real_state = {}
         for key in estimators.keys():
             if key[:5] == "Polar" and key[-3:] == "Pos":
                 obj = key[5:-3].lower()
-                real_state[key] = torch.tensor([
+                real_state[key] = np.array([
                     reality[f"{obj}_distance"],
                     reality[f"{obj}_offset_angle"],
                     reality[f"{obj}_distance_dot"],
                     reality[f"{obj}_offset_angle_dot"]
-                ], device=estimators[key]["state_mean"].device)
+                ])
+            elif key[:5] == "Polar" and key[-9:] == "PosRadius":
+                obj = key[5:-9].lower()
+                real_state[key] = np.array([
+                    reality[f"{obj}_distance"],
+                    reality[f"{obj}_offset_angle"],
+                    reality[f"{obj}_distance_dot"],
+                    reality[f"{obj}_offset_angle_dot"],
+                    reality[f"{obj}_radius"]
+                ])
             elif key == "RobotVel":
-                real_state[key] = torch.tensor([
+                real_state[key] = np.array([
                     reality["vel_frontal"],
                     reality["vel_lateral"],
                     reality["vel_rot"],
-                ], device=estimators[key]["state_mean"].device)
+                ])
             elif key[-6:] == "Radius":
                 obj = key[:-6].lower()
-                real_state[key] = torch.tensor(reality[f"{obj}_radius"], device=estimators[key]["state_mean"].device)
+                real_state[key] = np.array([
+                    reality[f"{obj}_radius"]
+                ])
 
         if self.run not in self.data:
             self.data[self.run] = {
@@ -43,9 +54,18 @@ class AICONLogger:
         self.data[self.run]["data"].append({
             "step": step,
             "time": time,
-            "estimators": estimators,
-            "observation": observation,
-            "reality": real_state,
+            "estimators": {
+                estimator_key: {
+                    "state_mean": np.array(estimators[estimator_key]["state_mean"].tolist()),
+                    "state_cov": np.array(estimators[estimator_key]["state_cov"].tolist()),
+                    "motion_noise": np.array(estimators[estimator_key]["forward_noise"].tolist()),
+                } for estimator_key in estimators.keys()
+            },
+            "observation": {key: {
+                "measurement": val["measurement"],
+                "noise": val["noise"],
+             } for key, val in observation.items()},
+            "reality": real_state
         })
 
     # ======================================= generated code ==========================================
@@ -85,13 +105,13 @@ class AICONLogger:
         for i, run in enumerate(self.data.values()):
             if offset is None:
                 if reality_id == "PolarTargetPos":
-                    offset = torch.tensor([run["desired_distance"], 0.0], device=run["data"][0]["estimators"]["PolarTargetPos"]["state_mean"].device)
+                    offset = np.array([run["desired_distance"], 0.0])
                 else:
-                    offset = torch.zeros(len(indices))
+                    offset = np.zeros(len(indices))
             for j, entry in enumerate(run["data"]):
                 assert reality_id in entry["reality"], f"ID {reality_id} not found in run {i}"
                 error = entry["reality"][reality_id][indices] - offset
-                errors[i].append(error.cpu().numpy())
+                errors[i].append(error)
         
         errors = np.array(errors)
         error_means, error_variances = self.compute_mean_and_variance(errors)
@@ -106,12 +126,14 @@ class AICONLogger:
                 self.plot_mean_variance(axs, f"{reality_id} {indices[i]}", "Goal Error", error_means[:,i], error_variances[:,i])
 
         if save_path is not None:
+            if not save_path.endswith('/'):
+                save_path += '/'
             os.makedirs(save_path, exist_ok=True)
-            fig.savefig(save_path+f"/goal_error_{reality_id}.png")
+            fig.savefig(save_path + f"goal_error_{reality_id}.png")
         else:
             fig.show()
 
-    def plot_estimation_error(self, estimator_id:str, value_keys:Dict[int,str]=None, save_path:str=None):
+    def plot_estimation_error(self, estimator_id:str, value_indices:Dict[int,str]=None, save_path:str=None):
         errors = [[] for _ in range(len(self.data))]
         error_norms = [[] for _ in range(len(self.data))]
 
@@ -119,8 +141,8 @@ class AICONLogger:
             for j, entry in enumerate(run["data"]):
                 assert estimator_id in entry["estimators"] and estimator_id in entry["reality"], f"Estimator ID {estimator_id} not found in run {i}"
                 error = entry["estimators"][estimator_id]["state_mean"] - entry["reality"][estimator_id]
-                errors[i].append(error.cpu().numpy())
-                error_norms[i].append(torch.norm(error).item())
+                errors[i].append(error)
+                error_norms[i].append(np.linalg.norm(error).item())
 
         errors = np.array(errors)
         error_norms = np.array(error_norms)
@@ -129,10 +151,10 @@ class AICONLogger:
 
         plt.figure(figsize=(14, 6))
 
-        if error_means.shape[1] > 1 and (value_keys is None or len(value_keys) > 1):
+        if error_means.shape[1] > 1 and (value_indices is None or len(value_indices) > 1):
             plt.subplot(1, 2, 1)
-            indices = value_keys.keys() if value_keys else range(error_means.shape[1])
-            labels = value_keys.values() if value_keys else [f"State {i}" for i in range(error_means.shape[1])]
+            indices = value_indices.values() if value_indices else range(error_means.shape[1])
+            labels = value_indices.keys() if value_indices else [f"State {i}" for i in range(error_means.shape[1])]
             for index, label in zip(indices, labels):
                 plt.plot(error_means[:, index], label=f"{label} Mean")
                 plt.fill_between(
@@ -162,7 +184,7 @@ class AICONLogger:
             plt.legend()
 
         else:
-            if value_keys is None:
+            if value_indices is None:
                 plt.plot(error_means, label='Error Mean')
                 plt.fill_between(
                     range(len(error_means)), 
@@ -171,13 +193,13 @@ class AICONLogger:
                     alpha=0.2, label='Error Variance'
                 )
             else:
-                index = value_keys.keys()[0]
-                plt.plot(error_means[index], label=f'{value_keys.values()[0]} Error Mean')
+                index = value_indices.keys()[0]
+                plt.plot(error_means[index], label=f'{value_indices.values()[0]} Error Mean')
                 plt.fill_between(
                     range(len(error_means)), 
                     error_means[index] - error_variances[index],
                     error_means[index] + error_variances[index], 
-                    alpha=0.2, label=f'{value_keys.values()[0]} Error Variance'
+                    alpha=0.2, label=f'{value_indices.values()[0]} Error Variance'
                 )
             plt.title(f'Estimation Error for {estimator_id}')
             plt.xlabel('Time step')
@@ -186,40 +208,41 @@ class AICONLogger:
             plt.legend()
 
         if save_path is not None:
+            if not save_path.endswith('/'):
+                save_path += '/'
             os.makedirs(save_path, exist_ok=True)
             plt.savefig(save_path+f"/estimation_error_{estimator_id}.png")
         else:
             plt.show()
 
     def load(self, file):
-        def convert_to_tensors(obj):
+        def convert_to_numpy(obj):
             if isinstance(obj, list):
-                return torch.tensor(obj)
+                return np.array(obj)
             elif isinstance(obj, dict):
-                return {k: convert_to_tensors(v) for k, v in obj.items()}
+                return {k: convert_to_numpy(v) for k, v in obj.items()}
             else:
                 return obj
 
         with open(file, 'r') as f:
             loaded_data = yaml.safe_load(f)
 
-        # self.data = {int(k): [convert_to_tensors(item) for item in v] for k, v in loaded_data.items()}
         self.data = {int(k): {
             "desired_distance": v["desired_distance"],
-            "data": [convert_to_tensors(item) for item in v["data"]]
+            "data": [convert_to_numpy(item) for item in v["data"]]
         } for k, v in loaded_data.items()}
         print(f"Loaded {len(self.data)} runs")
     
     # ======================================= generated code ==========================================
 
     def save(self, record_dir):
-        def convert_tensors(obj):
-            if isinstance(obj, torch.Tensor):
-                return obj.tolist()
-            elif isinstance(obj, dict):
-                return {k: convert_tensors(v) for k, v in obj.items()}
+        def convert_to_serializable(obj):
+            # if isinstance(obj, torch.Tensor):
+            #     return obj.tolist()
+            if isinstance(obj, dict):
+                return {k: convert_to_serializable(v) for k, v in obj.items()}
             elif isinstance(obj, list):
-                return [convert_tensors(i) for i in obj]
+                return [convert_to_serializable(i) for i in obj]
             elif isinstance(obj, np.ndarray):
                 return obj.tolist()
             elif isinstance(obj, np.generic):
@@ -227,7 +250,7 @@ class AICONLogger:
             else:
                 return obj
 
-        serializable_data = convert_tensors(self.data)
+        serializable_data = convert_to_serializable(self.data)
         os.makedirs(record_dir, exist_ok=True)
         with open(os.path.join(record_dir, "data.yaml"), 'w') as f:
             f.write(yaml.dump(serializable_data))

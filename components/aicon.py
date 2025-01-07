@@ -68,11 +68,11 @@ class AICON(ABC):
                 print("Action: ", end=""), self.print_vector(action)
             if record_data:
                 self.logger.log(
-                    step,
-                    self.env.time,
-                    {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()},
-                    self.env.get_reality(), 
-                    {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()}
+                    step = step,
+                    time = self.env.time,
+                    estimators = {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()},
+                    reality = self.env.get_reality(),
+                    observation = {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()}
                 )
             if step_by_step:
                 input("Press Enter to continue...")
@@ -83,8 +83,7 @@ class AICON(ABC):
             if prints > 0 and step % prints == 0:
                 print(f"============================ Step {step} ================================")
                 self.print_states()
-        if record_data:
-            self.save()
+        if render and record_data:
             self.env.reset()
 
     def step(self, action):
@@ -321,11 +320,12 @@ class AICON(ABC):
         }
     
 class DroneEnvAICON(AICON):
-    def __init__(self, vel_control, moving_target, sensor_angle_deg, num_obstacles):
+    def __init__(self, vel_control, moving_target, sensor_angle_deg, num_obstacles, timestep):
         self.moving_target = moving_target
         self.vel_control = vel_control
         self.sensor_angle_deg = sensor_angle_deg
         self.num_obstacles = num_obstacles
+        self.timestep = timestep
         super().__init__()
 
     def define_env(self):
@@ -336,9 +336,22 @@ class DroneEnvAICON(AICON):
             self.env_config["action_mode"] = 3 if self.vel_control else 1
             self.env_config["moving_target"] = self.moving_target
             self.env_config["robot_sensor_angle"] = self.sensor_angle_deg / 180 * np.pi
+            self.env_config["timestep"] = self.timestep
         return GazeFixEnv(self.env_config)
     
     def save(self):
         self.logger.save(self.record_dir)
         with open(os.path.join(self.record_dir, 'env_config.yaml'), 'w') as file:
             yaml.dump(self.env_config, file)
+
+    def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):
+        mean = torch.stack([
+            polar_mean[0] * torch.cos(polar_mean[1]),
+            polar_mean[0] * torch.sin(polar_mean[1])
+        ])
+        cov = torch.zeros((2, 2), device=self.device)
+        cov[0, 0] = polar_cov[0, 0] * torch.cos(polar_mean[1])**2 + polar_cov[1, 1] * torch.sin(polar_mean[1])**2
+        cov[1, 1] = polar_cov[0, 0] * torch.sin(polar_mean[1])**2 + polar_cov[1, 1] * torch.cos(polar_mean[1])**2
+        cov[0, 1] = (polar_cov[0, 0] - polar_cov[1, 1]) * torch.cos(polar_mean[1]) * torch.sin(polar_mean[1])
+        cov[1, 0] = cov[0, 1]
+        return mean, cov
