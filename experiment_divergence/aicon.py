@@ -74,7 +74,7 @@ class DivergenceAICON(AICON):
         print("--------------------------------------------------------------------")
         self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         # TODO: observations can be None now
-        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}, {obs['target_radius']:.3f}]")
+        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_state("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")

@@ -14,7 +14,7 @@ if __name__ == "__main__":
         6: "Estimator"
     }
 
-    aicon_type = 6
+    aicon_type = 5
 
     # --------------------- config ---------------------
 

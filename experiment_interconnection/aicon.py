@@ -3,13 +3,13 @@ import numpy as np
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from components.instances.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_Estimator_Vel
+from components.instances.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_Estimator_Vel, Robot_Vel_Estimator_Acc, Robot_Vel_Estimator_Vel
 from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
+#from components.instances.goals import PolarGoToTargetGoal
 
-from experiment_interconnection.active_interconnections import Gaze_Fixation_AI, Gaze_Fixation_AI2
-from experiment_interconnection.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
-from experiment_interconnection.goals import PolarGoToTargetGoal, PolarGoToTargetGazeFixationGoal
+from experiment_interconnection.active_interconnections import Gaze_Fixation_AI, Gaze_Fixation_Relative_AI, Gaze_Fixation_Constrained_AI
+from experiment_interconnection.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 
@@ -20,7 +20,7 @@ class ContingentInterconnectionAICON(AICON):
 
     def define_estimators(self):
         estimators = {}
-        estimators["RobotVel"] = Robot_State_Estimator_Acc(self.device) if not self.vel_control else Robot_State_Estimator_Vel(self.device)
+        estimators["RobotVel"] = Robot_Vel_Estimator_Acc(self.device) if not self.vel_control else Robot_Vel_Estimator_Vel(self.device)
         estimators["PolarTargetPos"] = Polar_Pos_Estimator_Acc(self.device, "PolarTargetPos") if not self.vel_control else Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos")
         return estimators
 
@@ -33,14 +33,15 @@ class ContingentInterconnectionAICON(AICON):
     def define_active_interconnections(self):
         active_interconnections = {
             "TriangulationAI": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
-            "GazeFixation": Gaze_Fixation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
+            #"GazeFixation": Gaze_Fixation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
+            #"GazeFixation": Gaze_Fixation_Relative_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
+            "GazeFixation": Gaze_Fixation_Constrained_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
         }
         return active_interconnections
 
     def define_goals(self):
         goals = {
-            "GoToTarget": PolarGoToTargetGoal(self.device),
-            #"GoToTarget": PolarGoToTargetGazeFixationGoal(self.device),
+            "PolarGoToTarget": PolarGoToTargetGoal(self.device),
         }
         return goals
 
@@ -70,31 +71,18 @@ class ContingentInterconnectionAICON(AICON):
     def compute_action(self, gradients):
         #decay = 1.0
         decay = 0.8
-        self.print_vector(gradients["GoToTarget"], "GoToTarget Gradient")
-        action = decay * self.last_action - 5e-2 * gradients["GoToTarget"]
+        #self.print_vector(gradients["PolarGoToTarget"], "GoToTarget Gradient")
+        action = decay * self.last_action - 5e-2 * gradients["PolarGoToTarget"]
         return action
     
     def print_states(self, buffer_dict=None):
         obs = self.env.get_reality()
-        print("--------------------------------------------------------------------")
-        self.print_state("RobotVel", buffer_dict=buffer_dict)
-        actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
-        angle = np.arctan2(actual_pos[1], actual_pos[0])
-        dist = np.linalg.norm(actual_pos)
-        #TODO: Consider observations that are None
-        #print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot']]]}")
-        print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle]]}")
-        actual_state = [self.env.robot.vel[0], self.env.robot.vel[1], self.env.robot.vel_rot]
-        actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
-        angle = np.arctan2(actual_pos[1], actual_pos[0])
-        dist = np.linalg.norm(actual_pos)
-        #TODO: Consider observations that are None
-        #actual_state += [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot']]
-        actual_state += [dist, angle]
-        print(f"True State: ", end="")
-        [print(f'{x:.3f} ', end="") for x in actual_state]
-        print()
+        self.print_state("PolarTargetPos", buffer_dict=buffer_dict)
+        # TODO: observations can be None now
+        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
+        self.print_state("RobotVel", buffer_dict=buffer_dict) 
+        print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):
-        self.goals["GoToTarget"].desired_distance = self.env.target.distance
+        self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
