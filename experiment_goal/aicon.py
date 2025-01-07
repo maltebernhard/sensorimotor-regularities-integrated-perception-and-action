@@ -4,17 +4,17 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
-from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
+from components.instances.measurement_models import Vel_MM, Angle_Meas_MM
 
-from experiment_goal.goals import GoToTargetGoal
+from experiment_goal.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 
 class ContingentGoalAICON(AICON):
-    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0, timestep = 0.05):
+    def __init__(self, env_config):
         self.type = "ContingentGoal"
-        super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles, timestep)
+        super().__init__(**env_config)
 
     def define_estimators(self):
         estimators = {
@@ -37,7 +37,7 @@ class ContingentGoalAICON(AICON):
 
     def define_goals(self):
         goals = {
-            "GoToTarget": GoToTargetGoal(self.device),
+            "PolarGoToTarget": PolarGoToTargetGoal(self.device),
         }
         return goals
 
@@ -48,25 +48,21 @@ class ContingentGoalAICON(AICON):
         self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
 
         if new_step:
-            self.REs["RobotVel"].call_update_with_meas_model(self.MMs["VelMM"], buffer_dict, self.get_meas_dict(self.MMs["VelMM"]))
-            meas_dict = self.get_meas_dict(self.MMs["AngleMeasMM"])
-            if len(meas_dict["means"]) == len(self.MMs["AngleMeasMM"].observations):
-                self.REs["PolarTargetPos"].call_update_with_meas_model(self.MMs["AngleMeasMM"], buffer_dict, meas_dict)
-            else:
-                print("No angle measurement.")
+            self.meas_updates(buffer_dict)
+            # self.REs["RobotVel"].call_update_with_meas_model(self.MMs["VelMM"], buffer_dict, self.get_meas_dict(self.MMs["VelMM"]))
+            # meas_dict = self.get_meas_dict(self.MMs["AngleMeasMM"])
+            # if len(meas_dict["means"]) == len(self.MMs["AngleMeasMM"].observations):
+            #     self.REs["PolarTargetPos"].call_update_with_meas_model(self.MMs["AngleMeasMM"], buffer_dict, meas_dict)
+            # else:
+            #     print("No angle measurement.")
+        
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         
         return buffer_dict
 
-    def render(self):
-        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
-        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
-        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
-        return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
-
     def compute_action(self, gradients):
             decay = 0.9
-            return decay * self.last_action - 1e-2 * gradients["GoToTarget"]
+            return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     
     def print_states(self, buffer_dict=None):
         obs = self.env.get_reality()
@@ -83,4 +79,4 @@ class ContingentGoalAICON(AICON):
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):
-        self.goals["GoToTarget"].desired_distance = self.env.target.distance
+        self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance

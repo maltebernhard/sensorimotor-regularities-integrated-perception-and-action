@@ -14,9 +14,9 @@ from experiment_foveal_vision.estimators import Polar_Pos_Estimator_Vel
 # =============================================================================================================================================================
 
 class FovealVisionAICON(AICON):
-    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0, timestep=0.05):
+    def __init__(self, env_config):
         self.type = "FovealVision"
-        super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles, timestep)
+        super().__init__(**env_config)
 
     def define_estimators(self):
         REs: Dict[str, RecursiveEstimator] = {
@@ -43,12 +43,6 @@ class FovealVisionAICON(AICON):
             "PolarGoToTarget" : PolarGoToTargetGoal(self.device),
         }
         return goals
-
-    def render(self):
-        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
-        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
-        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
-        return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     def eval_update(self, action: torch.Tensor, new_step: bool, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         u = self.get_control_input(action)

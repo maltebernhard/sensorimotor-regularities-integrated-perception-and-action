@@ -24,13 +24,7 @@ class Robot_Vel_Estimator_Vel(RecursiveEstimator):
                 u[2]: lateral vel       v_y
                 u[3]: rotational vel    w
             """
-        # maybe this fixes the triangulation issue?
-        # return torch.stack([
-        #     u[1],
-        #     u[2],
-        #     u[3],
-        # ]).squeeze(), cov
-
+        
         rotation = - u[3] * u[0]
         rotation_matrix = torch.stack([
             torch.stack([torch.cos(rotation), -torch.sin(rotation)]),

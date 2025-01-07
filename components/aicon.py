@@ -306,12 +306,6 @@ class AICON(ABC):
         """
         for estimator in self.REs.values():
             self.print_state(estimator.id, print_cov=True)
-
-    def render(self, estimator_means: List[torch.Tensor] = None, estimator_covs: List[torch.Tensor] = None, playback_speed=1.0):
-        """
-        CAN be implemented by user, overwrite to include custom estimator means and covariances into rendering
-        """
-        return self.env.render()
     
     def get_meas_dict(self, meas_model: MeasurementModel):
         return {
@@ -320,12 +314,13 @@ class AICON(ABC):
         }
     
 class DroneEnvAICON(AICON):
-    def __init__(self, vel_control, moving_target, sensor_angle_deg, num_obstacles, timestep):
+    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0, timestep=0.05, observation_noise={}):
         self.moving_target = moving_target
         self.vel_control = vel_control
         self.sensor_angle_deg = sensor_angle_deg
         self.num_obstacles = num_obstacles
         self.timestep = timestep
+        self.config_observation_noise = observation_noise
         super().__init__()
 
     def define_env(self):
@@ -337,6 +332,7 @@ class DroneEnvAICON(AICON):
             self.env_config["moving_target"] = self.moving_target
             self.env_config["robot_sensor_angle"] = self.sensor_angle_deg / 180 * np.pi
             self.env_config["timestep"] = self.timestep
+            self.env_config["observation_noise"] = self.config_observation_noise
         return GazeFixEnv(self.env_config)
     
     def save(self):
@@ -361,3 +357,9 @@ class DroneEnvAICON(AICON):
         env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.vel_control else self.env.robot.max_acc)
         env_action[2] = action[2] * (self.env.robot.max_vel_rot if self.vel_control else self.env.robot.max_acc_rot)
         return torch.concat([torch.tensor([0.05], device=self.device), env_action])
+    
+    def render(self):
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
+        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
+        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
+        return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})

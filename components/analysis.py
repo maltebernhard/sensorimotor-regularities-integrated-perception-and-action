@@ -1,4 +1,5 @@
 import torch
+from experiment_control.aicon import ControlAICON
 from experiment_divergence.aicon import DivergenceAICON
 from experiment_estimator.aicon import ContingentEstimatorAICON
 from experiment_foveal_vision.aicon import FovealVisionAICON
@@ -21,13 +22,13 @@ class Analysis:
         self.step_by_step = experiment_config['step_by_step']
         self.record_data = experiment_config['record_data']
 
-        if   type == "GeneralTest":     self.aicon = GeneralTestAICON(**env_config)
-        elif type == "FovealVision":    self.aicon = FovealVisionAICON(**env_config)
-        elif type == "Divergence":      self.aicon = DivergenceAICON(**env_config)
-        elif type == "Goal":            self.aicon = ContingentGoalAICON(**env_config)
-        elif type == "Estimator":       self.aicon = ContingentEstimatorAICON(**env_config)
-        elif type == "Interconnection": self.aicon = ContingentInterconnectionAICON(**env_config)
-        #elif type == "Control":         self.aicon = ControlAICON(**env_config)
+        if   type == "GeneralTest":     self.aicon = GeneralTestAICON(env_config)
+        elif type == "FovealVision":    self.aicon = FovealVisionAICON(env_config)
+        elif type == "Divergence":      self.aicon = DivergenceAICON(env_config)
+        elif type == "Goal":            self.aicon = ContingentGoalAICON(env_config)
+        elif type == "Estimator":       self.aicon = ContingentEstimatorAICON(env_config)
+        elif type == "Interconnection": self.aicon = ContingentInterconnectionAICON(env_config)
+        elif type == "Control":         self.aicon = ControlAICON(env_config)
         else:
             raise ValueError(f"AICON Type {type} not recognized")
 

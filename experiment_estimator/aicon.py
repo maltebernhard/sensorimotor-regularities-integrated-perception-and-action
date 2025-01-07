@@ -12,13 +12,13 @@ from experiment_estimator.goals import SpecificGoToTargetGoal
 # ========================================================================================================
 
 class ContingentEstimatorAICON(AICON):
-    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0):
+    def __init__(self, env_config):
         self.type = "ContingentEstimator"
-        super().__init__(vel_control, moving_target, sensor_angle_deg, num_obstacles)
+        super().__init__(**env_config)
 
     def define_estimators(self):
         estimators = {}
-        estimators["RobotState"] = Robot_State_Estimator_Acc(self.device) if not self.vel_control else Robot_State_Estimator_Vel(self.device)
+        estimators["RobotState"] = Robot_State_Estimator_Vel(self.device) if self.vel_control else Robot_State_Estimator_Acc(self.device)
         #estimators["PolarTargetPos"] = Polar_Pos_Estimator_Acc(self.device, "PolarTargetPos") if not self.vel_control else Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos")
         return estimators
     
@@ -52,25 +52,18 @@ class ContingentEstimatorAICON(AICON):
             pass
         return buffer_dict
 
-    def render(self):
-        estimator_means = {"RobotState": np.array(torch.stack([
-            self.REs["RobotState"].state_mean[3] * torch.cos(self.REs["RobotState"].state_mean[4]),
-            self.REs["RobotState"].state_mean[3] * torch.sin(self.REs["RobotState"].state_mean[4])
-        ]).cpu())}
-        cart_cov = torch.zeros((2, 2), device=self.device)
-        cart_cov[0, 0] = self.REs["RobotState"].state_cov[3, 3] * torch.cos(self.REs["RobotState"].state_mean[4])**2 + self.REs["RobotState"].state_cov[4, 4] * torch.sin(self.REs["RobotState"].state_mean[4])**2
-        cart_cov[0, 1] = (self.REs["RobotState"].state_cov[3, 3] - self.REs["RobotState"].state_cov[4, 4]) * torch.cos(self.REs["RobotState"].state_mean[4]) * torch.sin(self.REs["RobotState"].state_mean[4])
-        cart_cov[1, 0] = cart_cov[0, 1]
-        cart_cov[1, 1] = self.REs["RobotState"].state_cov[3, 3] * torch.sin(self.REs["RobotState"].state_mean[4])**2 + self.REs["RobotState"].state_cov[4, 4] * torch.cos(self.REs["RobotState"].state_mean[4])**2
-        estimator_covs = {"RobotState": np.array(cart_cov.cpu())}
-        return self.env.render(1.0, estimator_means, estimator_covs)
-
     def compute_action(self, gradients):
         if not self.vel_control:
             return self.last_action - 1e0 * gradients["GoToTarget"]
         else:
             return self.last_action - 1e-2 * gradients["GoToTarget"]
-    
+
+    def render(self):
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["RobotState"].state_mean, self.REs["RobotState"].state_cov)
+        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
+        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
+        return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
+
     def print_states(self, buffer_dict=None):
         obs = self.env.get_reality()
         print("--------------------------------------------------------------------")
