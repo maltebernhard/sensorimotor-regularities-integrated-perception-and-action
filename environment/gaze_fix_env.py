@@ -457,11 +457,10 @@ class GazeFixEnv(BaseEnv):
             if self.robot.sensor_angle < 2*np.pi and key[-12:] == "offset_angle":
                 if "target" in key: obj = self.target
                 else: obj = self.obstacles[int(key[8])-1]
-                if abs(real_observation[key]) > self.robot.sensor_angle / 2 + observation[f"{key[:-12]}_visual_angle"] / 2:   # if target/obstacle is outside of camera angle, remove observations:
+                if abs(real_observation[key]) > self.robot.sensor_angle / 2 + observation[f"{key[:-12]}visual_angle"] / 2:   # if target/obstacle is outside of camera angle, remove observations:
                     real_observation[key] = None                                                    # angle
                     if key+"_dot" in real_observation.keys():
                         real_observation[key+"_dot"] = None                                         # del angle
-                if abs(real_observation[key]) > self.robot.sensor_angle / 2 - observation[f"{key[:-12]}_visual_angle"] / 2:   # if target/obstacle is partially outside of camera angle, remove visual angle observations:
                     if key[:-12] + "visual_angle" in real_observation.keys():
                         print("TEST: HOORAY", observation)
                         real_observation[key[:-12] + "visual_angle"] = None                         # visual angle

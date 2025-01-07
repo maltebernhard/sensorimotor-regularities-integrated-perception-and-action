@@ -100,7 +100,7 @@ class Polar_Pos_Estimator_Vel(RecursiveEstimator):
     """
     def __init__(self, device, id: str):
         super().__init__(id, 4, device)
-        self.default_state = torch.tensor([10.0, 0.1, 0.0, 0.0], device=device)
+        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0], device=device)
         self.default_cov = 1e3 * torch.eye(4, device=device)
         self.default_motion_noise = torch.eye(4, device=device) * torch.tensor([1e0, 1e0, 1e0, 1e0], device=device)
 
@@ -182,10 +182,10 @@ class Cartesian_Pos_Estimator(RecursiveEstimator):
         ret_mean[2:4] = torch.matmul(rotation_matrix, x_mean[2:4])
         ret_mean[4] = x_mean[4]
 
+        # turn the covariance matrix
         ret_cov = torch.empty_like(cov)
         ret_cov[:2, :2] = torch.matmul(rotation_matrix, torch.matmul(cov[:2, :2], rotation_matrix.t()))
         ret_cov[2:4, 2:4] = torch.matmul(rotation_matrix, torch.matmul(cov[2:4, 2:4], rotation_matrix.t()))
-
         ret_cov[:2, 2:4] = torch.matmul(rotation_matrix, cov[:2, 2:4])
         ret_cov[2:4, :2] = torch.matmul(cov[2:4, :2], rotation_matrix.t())
         ret_cov[:4, 4] = cov[:4, 4]

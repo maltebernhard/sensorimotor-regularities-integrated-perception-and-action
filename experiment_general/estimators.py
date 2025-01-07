@@ -24,9 +24,12 @@ class Target_Visibility_Estimator(RecursiveEstimator):
     """
     def __init__(self, device, id: str):
         super().__init__(id, 1, device)
-        self.default_state = torch.tensor([1.0], device=device)
-        self.default_cov = 1e1 * torch.eye(1, device=device)
-        self.default_motion_noise = 1e-2 * torch.eye(1, device=device)
+        self.default_state = torch.tensor([0.0], device=device)
+        self.default_cov = 0.1 * torch.eye(1, device=device)
+        self.default_motion_noise = 1e-3 * torch.eye(1, device=device)
 
     def forward_model(self, x_mean, cov: torch.Tensor, u):
-        return torch.clamp(x_mean - 0.1, min=0.0), cov
+        ret_mean = x_mean - 0.1
+        if ret_mean < 0:
+            ret_mean = torch.zeros(1)
+        return ret_mean, cov

@@ -6,12 +6,12 @@ from components.aicon import DroneEnvAICON as AICON
 from components.estimator import RecursiveEstimator
 from components.instances.estimators import Robot_Vel_Estimator_Vel, Robot_Vel_Estimator_Acc, Polar_Pos_Estimator_Vel, Polar_Pos_Estimator_Acc, Cartesian_Pos_Estimator
 from components.instances.measurement_models import Vel_MM, Pos_Angle_MM, Angle_Meas_MM
-from components.instances.active_interconnections import Triangulation_AI
+#from components.instances.active_interconnections import Triangulation_AI
 
 from experiment_general.estimators import Obstacle_Rad_Estimator, Target_Visibility_Estimator
-from experiment_general.active_interconnections import Radius_Pos_VisAngle_AI, Visibility_Angle_AI
-from experiment_general.measurement_models import Visibility_MM
+from experiment_general.active_interconnections import Radius_Pos_VisAngle_AI, Visibility_Angle_AI, Triangulation_AI
 from experiment_general.goals import AvoidObstacleGoal, PolarGoToTargetGazeFixationGoal, PolarGoToTargetGoal
+from experiment_general.measurement_models import Visibility_MM
 
 # =============================================================================================================================================================
 
@@ -24,29 +24,31 @@ class GeneralTestAICON(AICON):
         REs: Dict[str, RecursiveEstimator] = {
             "RobotVel": Robot_Vel_Estimator_Vel(self.device) if self.vel_control else Robot_Vel_Estimator_Acc(self.device),
             # TODO: use this or nah?
-            "CartesianTargetPos": Cartesian_Pos_Estimator(self.device, "CartesianTargetPos"),
+            #"CartesianTargetPos": Cartesian_Pos_Estimator(self.device, "CartesianTargetPos"),
             "PolarTargetPos": Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos") if self.vel_control else Polar_Pos_Estimator_Acc(self.device, "PolarTargetPos"),
             "TargetVisibility": Target_Visibility_Estimator(self.device, "TargetVisibility"),
         }
         for i in range(1, self.num_obstacles + 1):
-            REs[f"CartesianObstacle{i}Pos"] = Cartesian_Pos_Estimator(self.device, f"CartesianObstacle{i}Pos")
+            REs[f"PolarObstacle{i}Pos"] = Polar_Pos_Estimator_Vel(self.device, f"PolarObstacle{i}Pos") if self.vel_control else Polar_Pos_Estimator_Acc(self.device, f"PolarObstacle{i}Pos")
+            #REs[f"CartesianObstacle{i}Pos"] = Cartesian_Pos_Estimator(self.device, f"CartesianObstacle{i}Pos")
             REs[f"Obstacle{i}Rad"] = Obstacle_Rad_Estimator(self.device, f"Obstacle{i}Rad")
         return REs
 
     def define_measurement_models(self):
         MMs = {
             "RobotVel": Vel_MM(self.device),
-            "PolarAngle": Angle_Meas_MM(self.device, "Target"),
-            "CartesianTargetPos-Angle": Pos_Angle_MM(self.device, "Target"),
+            "PolarTargetAngle": Angle_Meas_MM(self.device, "Target"),
+            #"CartesianTargetPos-Angle": Pos_Angle_MM(self.device, "Target"),
             "TargetVisiblity": Visibility_MM(self.device, object_name="Target"),
         }
         for i in range(1, self.num_obstacles + 1):
-            MMs[f"CartesianObstacle{i}Pos-Angle"] = Pos_Angle_MM(self.device, f"Obstacle{i}")
+            MMs[f"PolarObstacle{i}Angle"] = Angle_Meas_MM(self.device, f"Obstacle{i}")
+            #MMs[f"CartesianObstacle{i}Pos-Angle"] = Pos_Angle_MM(self.device, f"Obstacle{i}")
         return MMs
 
     def define_active_interconnections(self):
         AIs = {
-            "PolarDistance": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
+            "Triangulation": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["TargetVisibility"], self.REs["RobotVel"]], self.device),
             "TargetVisibility": Visibility_Angle_AI([self.REs["PolarTargetPos"], self.REs["TargetVisibility"]], self.device, object_name="Target", sensor_angle_rad=self.env.robot.sensor_angle),
         }
         for i in range(1, self.num_obstacles + 1):
@@ -79,14 +81,11 @@ class GeneralTestAICON(AICON):
 
         self.REs["RobotVel"].call_predict(u, buffer_dict)
         self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-        #self.REs["TargetVisibility"].call_predict(u, buffer_dict)
-        
+        self.REs["TargetVisibility"].call_predict(u, buffer_dict)
         # for i in range(1, self.num_obstacles + 1):
+        #     self.REs[f"PolarObstacle{i}Pos"].call_predict(u, buffer_dict)
         #     self.REs[f"CartesianObstacle{i}Pos"].call_predict(u, buffer_dict)
         #     self.REs[f"Obstacle{i}Rad"].call_predict(u, buffer_dict)
-
-        # print("------------------- Post Predict -------------------")
-        # print(buffer_dict['PolarTargetPos']['state_mean'])
 
         # ----------------------------- measurements -------------------------------------
 
@@ -95,10 +94,8 @@ class GeneralTestAICON(AICON):
 
         # ----------------------------- active interconnections -------------------------------------
 
-        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
-
-        #self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
-        #self.REs["TargetVisibility"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
+        self.REs["TargetVisibility"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
+        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["Triangulation"], buffer_dict)
         
         # for i in range(1, self.num_obstacles + 1):
         #     self.REs[f"Obstacle{i}Rad"].call_update_with_active_interconnection(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
@@ -124,25 +121,22 @@ class GeneralTestAICON(AICON):
         #     action[2] = 0.05 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
         return action
 
-    def print_states(self, print_cov=False):
+    def print_states(self, buffer_dict=None):
         """
         print filter and environment states for debugging
         """
-        self.print_state("TargetVisibility", print_cov=print_cov)
+        self.print_state("TargetVisibility", print_cov=2)
         obs = self.env.get_reality()
-        self.print_state("RobotVel", print_cov=print_cov)
-        actual_vel = list(self.env.robot.vel)
-        actual_vel.append(self.env.robot.vel_rot)
-        print(f"True Robot Vel: {[f'{x:.3f}' for x in actual_vel]}")
-        # print("--------------------------------------------------------------------")
-        self.print_state("PolarTargetPos", print_cov=print_cov)
-        actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
-        angle = np.arctan2(actual_pos[1], actual_pos[0])
-        dist = np.linalg.norm(actual_pos)
-        print(f"True PolarTargetPos: {[f'{x:.3f}' for x in [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot'] if obs['target_offset_angle_dot'] else 0.0]]}")
+        print("--------------------------------------------------------------------")
+        self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
+        # TODO: observations can be None now
+        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
+        print("--------------------------------------------------------------------")
+        self.print_state("RobotVel", buffer_dict=buffer_dict) 
+        print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
         print("--------------------------------------------------------------------")
         if self.num_obstacles > 0:
-            [self.print_state(f"CartesianObstacle{i}Pos", print_cov=print_cov) for i in range(1, self.num_obstacles + 1)]
+            [self.print_state(f"CartesianObstacle{i}Pos", print_cov=3) for i in range(1, self.num_obstacles + 1)]
             actual_radii = [self.env.obstacles[i-1].radius for i in range(1, self.num_obstacles + 1)]
             print(f"True Obstacle Radius: {[f'{x:.3f}' for x in actual_radii]}")
             print("--------------------------------------------------------------------")

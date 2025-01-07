@@ -14,7 +14,7 @@ if __name__ == "__main__":
         6: "Estimator"
     }
 
-    aicon_type = 5
+    aicon_type = 0
 
     # --------------------- config ---------------------
 
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     env_config = {
         "vel_control":          True,
         "moving_target":        False,
-        "sensor_angle_deg":     360,
+        "sensor_angle_deg":     90,
         "num_obstacles":        0,
         "timestep":             0.05,
         "observation_noise":    observation_noise if use_observation_noise else {},
@@ -43,10 +43,10 @@ if __name__ == "__main__":
         "num_runs":         1,
         "num_steps":        2000,
         "initial_action":   [0.0, 0.0, 0.0],
-        "seed":             1,
+        "seed":             60,
         "render":           True,
         "prints":           1,
-        "step_by_step":     False,
+        "step_by_step":     True,
         "record_data":      False,
     }
 

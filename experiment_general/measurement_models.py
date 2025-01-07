@@ -11,4 +11,4 @@ class Visibility_MM(MeasurementModel):
         super().__init__(f'{object_name}Visibility', required_observations, device)
 
     def implicit_measurement_model(self, x, meas_dict: Dict[str, torch.Tensor]):
-        return 1.0 - x[0]
+        return torch.ones(1)# - x[0]
