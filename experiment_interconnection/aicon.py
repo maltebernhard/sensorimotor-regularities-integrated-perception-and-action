@@ -6,10 +6,14 @@ from components.aicon import DroneEnvAICON as AICON
 from components.instances.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_Estimator_Vel, Robot_Vel_Estimator_Acc, Robot_Vel_Estimator_Vel
 from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
-#from components.instances.goals import PolarGoToTargetGoal
 
-from experiment_interconnection.active_interconnections import Gaze_Fixation_AI, Gaze_Fixation_Relative_AI, Gaze_Fixation_Constrained_AI
-from experiment_interconnection.goals import PolarGoToTargetGoal
+# works well together:
+from experiment_interconnection.active_interconnections import Gaze_Fixation_Constrained_AI
+from components.instances.goals import PolarGoToTargetGoal
+
+# scaled goal necessary for unconstrained offset angle value AI:
+from experiment_interconnection.active_interconnections import Gaze_Fixation_AI, Gaze_Fixation_Relative_AI
+#from experiment_interconnection.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 
