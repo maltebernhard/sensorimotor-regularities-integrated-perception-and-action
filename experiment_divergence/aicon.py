@@ -57,12 +57,6 @@ class DivergenceAICON(AICON):
         
         return buffer_dict
 
-    def get_control_input(self, action):
-        env_action = torch.empty_like(action)
-        env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * self.env.robot.max_vel
-        env_action[2] = action[2] * self.env.robot.max_vel_rot
-        return torch.concat([torch.tensor([0.05], device=self.device), env_action])
-
     def render(self):
         target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPosRadius"].state_mean, self.REs["PolarTargetPosRadius"].state_cov)
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPosRadius": target_mean}
@@ -86,9 +80,3 @@ class DivergenceAICON(AICON):
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
-
-    def plot(self):
-        self.logger.plot_estimation_error("PolarTargetPosRadius", {"distance": 0, "offset_angle": 1}, save_path=self.record_dir)
-        self.logger.plot_state("PolarTargetPosRadius", save_path=self.record_dir)
-        self.logger.plot_estimation_error("RobotVel", save_path=self.record_dir)
-        self.logger.plot_state("RobotVel", save_path=self.record_dir)

@@ -67,12 +67,6 @@ class ContingentInterconnectionAICON(AICON):
 
         return buffer_dict
 
-    def get_control_input(self, action: torch.Tensor):
-        env_action = torch.empty_like(action)
-        env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.vel_control else self.env.robot.max_acc)
-        env_action[2] = action[2] * (self.env.robot.max_vel_rot if self.vel_control else self.env.robot.max_acc_rot)
-        return torch.concat([torch.tensor([0.05], device=self.device), env_action])
-
     def render(self):
         target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}

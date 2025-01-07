@@ -43,10 +43,12 @@ class Analysis:
                 record_data=self.record_data,
             )
         if self.record_data:
+            self.plot()
             self.aicon.save()
 
+    # TODO: implement general version
     def plot(self):
-        self.aicon.plot()
-        
-
-    
+        self.aicon.logger.plot_estimation_error("PolarTargetPosRadius", {"distance": 0, "offset_angle": 1}, save_path=self.aicon.record_dir)
+        self.aicon.logger.plot_state("PolarTargetPosRadius", save_path=self.aicon.record_dir)
+        self.aicon.logger.plot_estimation_error("RobotVel", save_path=self.aicon.record_dir)
+        self.aicon.logger.plot_state("RobotVel", save_path=self.aicon.record_dir)

@@ -355,3 +355,9 @@ class DroneEnvAICON(AICON):
         cov[0, 1] = (polar_cov[0, 0] - polar_cov[1, 1]) * torch.cos(polar_mean[1]) * torch.sin(polar_mean[1])
         cov[1, 0] = cov[0, 1]
         return mean, cov
+    
+    def get_control_input(self, action):
+        env_action = torch.empty_like(action)
+        env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.vel_control else self.env.robot.max_acc)
+        env_action[2] = action[2] * (self.env.robot.max_vel_rot if self.vel_control else self.env.robot.max_acc_rot)
+        return torch.concat([torch.tensor([0.05], device=self.device), env_action])
