@@ -7,6 +7,7 @@ from experiment_general.aicon import GeneralTestAICON
 from experiment_goal.aicon import ContingentGoalAICON
 from experiment_interconnection.aicon import ContingentInterconnectionAICON
 from experiment_foveal_vision.aicon import FovealVisionAICON
+from experiment_visibility.aicon import VisibilityAICON
 
 # ========================================================================================================
 
@@ -29,6 +30,7 @@ class Analysis:
         elif type == "Estimator":       self.aicon = ContingentEstimatorAICON(env_config)
         elif type == "Interconnection": self.aicon = ContingentInterconnectionAICON(env_config)
         elif type == "Control":         self.aicon = ControlAICON(env_config)
+        elif type == "Visibility":      self.aicon = VisibilityAICON(env_config)
         else:
             raise ValueError(f"AICON Type {type} not recognized")
 

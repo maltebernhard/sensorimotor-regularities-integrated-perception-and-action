@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
+from components.instances.measurement_models import Angle_MM, Vel_MM
 
 from experiment_estimator.active_interconnections import DistanceUpdaterAcc, DistanceUpdaterVel
 from experiment_estimator.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
@@ -25,7 +25,7 @@ class ContingentEstimatorAICON(AICON):
     def define_measurement_models(self):
         return {
             "VelMM": Vel_MM(self.device),
-            "AngleMeasMM": Angle_Meas_MM(self.device, "Target"),
+            "AngleMeasMM": Angle_MM(self.device, "Target"),
         }
 
     def define_active_interconnections(self):

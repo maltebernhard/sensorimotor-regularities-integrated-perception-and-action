@@ -45,8 +45,37 @@ class Visibility_Angle_AI(ActiveInterconnection):
         else: return torch.cos(angle) / 2 + 0.5
 
     def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
-        #visibility = self.visibility_plateau(meas_dict[f'Polar{self.object_name}Pos'][1])
-        visibility = self.visibility(meas_dict[f'Polar{self.object_name}Pos'][1])
+        visibility = self.visibility_plateau(meas_dict[f'Polar{self.object_name}Pos'][1])
+        #visibility = self.visibility(meas_dict[f'Polar{self.object_name}Pos'][1])
+        return torch.atleast_1d(visibility - meas_dict[f'{self.object_name}Visibility'])
+    
+class Visibility_Detached_AI(ActiveInterconnection):
+    def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target", sensor_angle_rad = torch.pi/2):
+        self.object_name = object_name
+        self.sensor_angle_rad = sensor_angle_rad
+        required_estimators = [f'Polar{object_name}Angle', f'{object_name}Visibility']
+        super().__init__(estimators, required_estimators, device)
+
+    def visibility_plateau(self, angle: torch.Tensor):
+        half_angle = self.sensor_angle_rad / 2
+        if angle == 0.0: return 1.0
+        elif torch.abs(angle) <= half_angle:
+            return angle/angle
+        elif angle > half_angle:
+            if angle > torch.pi: return 0.0 * angle
+            else: return torch.cos((angle-half_angle) * torch.pi/(torch.pi-half_angle)) / 2 + 0.5
+        else:
+            if angle < -torch.pi: return 0.0 * angle
+            else: return torch.cos((angle+half_angle) * torch.pi/(torch.pi-half_angle)) / 2 + 0.5
+
+    def visibility(self, angle: torch.Tensor):
+        if torch.abs(angle) > torch.pi:
+            return 0.0 * angle
+        else: return torch.cos(angle) / 2 + 0.5
+
+    def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
+        visibility = self.visibility_plateau(meas_dict[f'Polar{self.object_name}Angle'][0])
+        #visibility = self.visibility(meas_dict[f'Polar{self.object_name}Angle'][0])
         return torch.atleast_1d(visibility - meas_dict[f'{self.object_name}Visibility'])
 
 class Triangulation_Visibility_AI(ActiveInterconnection):
@@ -75,12 +104,40 @@ class Triangulation_Visibility_AI(ActiveInterconnection):
             #triangulated_distance = torch.abs(robot_target_frame_vel[1] / torch.tan(angular_vel))
             triangulated_distance = torch.abs(robot_target_frame_vel[1] / angular_vel)
 
-        if meas_dict[f'{self.object_name}Visibility'] < 0.5:
-            return torch.zeros(1)
-
         return torch.stack([
             torch.atleast_1d(triangulated_distance - meas_dict[f'Polar{self.object_name}Pos'][0]) * meas_dict[f'{self.object_name}Visibility'],
             torch.atleast_1d(- robot_target_frame_vel[0] - meas_dict[f'Polar{self.object_name}Pos'][2]) * meas_dict[f'{self.object_name}Visibility'],
+        ]).squeeze()
+    
+class Triangulation_Detached_AI(ActiveInterconnection):
+    def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
+        self.object_name = object_name
+        required_estimators = [f'Polar{object_name}Distance', f'Polar{object_name}Angle', f'{object_name}Visibility', 'RobotVel']
+        super().__init__(estimators, required_estimators, device)
+
+    def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
+        # TODO: suppresses gradient propagation of changes in offset angle in this AI
+            # BAD because it suppresses an action component
+            # GOOD because we don't want rotation to influence triangulation
+            # NOTE: not sure whether this suppression will have additional effects other than the desired one
+        #offset_angle = torch.tensor([meas_dict[f'Polar{self.object_name}Pos'][1].item()])
+        offset_angle = meas_dict[f'Polar{self.object_name}Angle'][0]
+        robot_target_frame_rotation_matrix = torch.stack([
+            torch.stack([torch.cos(-offset_angle), -torch.sin(-offset_angle)]),
+            torch.stack([torch.sin(-offset_angle), torch.cos(-offset_angle)]),
+        ]).squeeze()
+        robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, meas_dict['RobotVel'][:2])
+        angular_vel = meas_dict[f'Polar{self.object_name}Angle'][1] + meas_dict['RobotVel'][2]
+        if torch.abs(robot_target_frame_vel[1]) == 0.0 or torch.abs(angular_vel) == 0.0:
+            triangulated_distance = meas_dict[f'Polar{self.object_name}Distance'][0]
+        else:
+            # TODO: tan or plain?
+            #triangulated_distance = torch.abs(robot_target_frame_vel[1] / torch.tan(angular_vel))
+            triangulated_distance = torch.abs(robot_target_frame_vel[1] / angular_vel)
+
+        return torch.stack([
+            torch.atleast_1d(triangulated_distance - meas_dict[f'Polar{self.object_name}Distance'][0]) * meas_dict[f'{self.object_name}Visibility'],
+            torch.atleast_1d(- robot_target_frame_vel[0] - meas_dict[f'Polar{self.object_name}Distance'][1]) * meas_dict[f'{self.object_name}Visibility'],
         ]).squeeze()
 
 # TODO: making these two estimators update each other is stupid, it seems

@@ -5,7 +5,7 @@ import torch
 from components.aicon import DroneEnvAICON as AICON
 from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
 from components.instances.active_interconnections import Triangulation_AI
-from components.instances.measurement_models import Vel_MM, Angle_Meas_MM
+from components.instances.measurement_models import Vel_MM, Angle_MM
 from components.instances.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
@@ -25,7 +25,7 @@ class ControlAICON(AICON):
     def define_measurement_models(self):
         return {
             "VelMM": Vel_MM(self.device),
-            "AngleMeasMM": Angle_Meas_MM(self.device),
+            "AngleMeasMM": Angle_MM(self.device),
         }
 
     def define_active_interconnections(self):

@@ -44,7 +44,7 @@ class Vel_MM(MeasurementModel):
             meas_dict['vel_rot'] - x[2]
         ]).squeeze()
     
-class Angle_Meas_MM(MeasurementModel):
+class Angle_MM(MeasurementModel):
     def __init__(self, device, object_name:str="Target") -> None:
         self.object_name = object_name
         required_observations = [f'{self.object_name.lower()}_offset_angle', f'{self.object_name.lower()}_offset_angle_dot']

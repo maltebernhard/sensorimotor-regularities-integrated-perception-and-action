@@ -5,13 +5,18 @@ from components.analysis import Analysis
 if __name__ == "__main__":
 
     aicon_types = {
+        # ------ SANDBOX ------
         0: "GeneralTest",
-        1: "FovealVision",
-        2: "Divergence",
-        3: "Goal",
-        4: "Control",
-        5: "Interconnection",
-        6: "Estimator"
+        # ------ BEHAVIOR ------
+        1: "Control",
+        2: "Goal",
+        3: "FovealVision",
+        4: "Interconnection",
+        5: "Estimator",
+        # ---- ACTUAL SMCs ----
+        6: "Divergence",
+        7: "Visibility",
+        
     }
 
     aicon_type = 0
@@ -46,7 +51,7 @@ if __name__ == "__main__":
         "seed":             60,
         "render":           True,
         "prints":           1,
-        "step_by_step":     True,
+        "step_by_step":     False,
         "record_data":      False,
     }
 

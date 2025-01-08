@@ -4,7 +4,7 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.instances.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_Estimator_Vel, Robot_Vel_Estimator_Acc, Robot_Vel_Estimator_Vel
-from components.instances.measurement_models import Angle_Meas_MM, Vel_MM
+from components.instances.measurement_models import Angle_MM, Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
 
 # works well together:
@@ -31,7 +31,7 @@ class ContingentInterconnectionAICON(AICON):
     def define_measurement_models(self):
         return {
             "VelMM": Vel_MM(self.device),
-            "AngleMeasMM": Angle_Meas_MM(self.device, "Target"),
+            "AngleMeasMM": Angle_MM(self.device, "Target"),
         }
 
     def define_active_interconnections(self):
