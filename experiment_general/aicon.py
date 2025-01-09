@@ -48,11 +48,11 @@ class GeneralTestAICON(AICON):
 
     def define_active_interconnections(self):
         AIs = {
-            "Triangulation": Triangulation_Visibility_AI([self.REs["PolarTargetPos"], self.REs["TargetVisibility"], self.REs["RobotVel"]], self.device),
-            "TargetVisibility": Visibility_Angle_AI([self.REs["PolarTargetPos"], self.REs["TargetVisibility"]], self.device, object_name="Target", sensor_angle_rad=self.env.robot.sensor_angle),
+            "Triangulation": Triangulation_Visibility_AI(self.device),
+            "TargetVisibility": Visibility_Angle_AI(self.device, object_name="Target", sensor_angle_rad=self.env.robot.sensor_angle),
         }
         for i in range(1, self.num_obstacles + 1):
-            AIs[f"Obstacle{i}Rad"] = Radius_Pos_VisAngle_AI([self.REs[f"CartesianObstacle{i}Pos"], self.REs[f"Obstacle{i}Rad"], self.obs[f"obstacle{i}_visual_angle"]], self.device, object_name=f"Obstacle{i}")
+            AIs[f"Obstacle{i}Rad"] = Radius_Pos_VisAngle_AI(self.device, object_name=f"Obstacle{i}")
         return AIs
 
     def define_goals(self):

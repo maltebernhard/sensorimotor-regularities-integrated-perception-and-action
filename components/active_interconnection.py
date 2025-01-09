@@ -7,27 +7,12 @@ from components.measurement_model import ImplicitMeasurementModel
 # ====================================================================================================================================
 
 class ActiveInterconnection(ABC, ImplicitMeasurementModel):
-    def __init__(self, estimators: List[RecursiveEstimator], required_estimators, device, propagate_meas_uncertainty=True, required_observations=[]):
-        assert set(estimator.id for estimator in estimators) == set(required_estimators), f"Estimators should be {required_estimators}"
-
-        meas_config = {estimator.id: estimator.state_mean.size().numel() for estimator in estimators}
-        super().__init__(meas_config=meas_config, device=device)
-        self.connected_estimators: Dict[str, RecursiveEstimator] = {est.id: est for est in estimators}
-        self.propagate_meas_uncertainty = propagate_meas_uncertainty
-        self.required_observations = required_observations
-
-    def get_state_dict(self, buffer_dict, estimator_id):
-        return {id: buffer_dict[id]['state_mean'] for id in self.connected_estimators.keys() if id != estimator_id}
-    
-    def get_uncertainty_dict(self, buffer_dict, estimator_id):
-        if self.propagate_meas_uncertainty:
-            return {id: buffer_dict[id]['state_cov'] + self.connected_estimators[id].update_uncertainty for id in self.connected_estimators.keys() if id != estimator_id}
-        else:
-            return None
+    def __init__(self, required_estimators, device):
+        super().__init__(required_states=required_estimators, device=device)
 
     def implicit_measurement_model(self, x, meas_dict):
-        missing_key = next(key for key in self.connected_estimators.keys() if key not in meas_dict)
-        assert sum(1 for key in self.connected_estimators.keys() if key not in meas_dict) == 1, "There should be exactly one missing key"
+        missing_key = next(key for key in self.connected_states.keys() if key not in meas_dict)
+        assert sum(1 for key in self.connected_states.keys() if key not in meas_dict) == 1, "There should be exactly one missing key"
         meas_dict[missing_key] = x
         return self.implicit_interconnection_model(meas_dict)
 

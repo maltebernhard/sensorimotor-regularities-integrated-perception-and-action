@@ -10,9 +10,9 @@ from components.instances.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 
-class ControlAICON(AICON):
+class BaseAICON(AICON):
     def __init__(self, env_config):
-        self.type = "Control"
+        self.type = "Base"
         super().__init__(**env_config)
 
     def define_estimators(self):
@@ -25,7 +25,7 @@ class ControlAICON(AICON):
     def define_measurement_models(self):
         return {
             "VelMM": Vel_MM(self.device),
-            "AngleMeasMM": Angle_MM(self.device),
+            "AngleMeasMM": Angle_MM(self.device, "Target"),
         }
 
     def define_active_interconnections(self):
@@ -48,25 +48,20 @@ class ControlAICON(AICON):
 
         if new_step:
             self.meas_updates(buffer_dict)
-
+        
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         
         return buffer_dict
 
     def compute_action(self, gradients):
-        decay = 0.9
-        gradient_action = decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
-        # control
-        obs = self.env.get_observation()
-        gradient_action[2] = 1.0 * obs["target_offset_angle"] + 0.01 * obs["target_offset_angle_dot"]
-        return gradient_action
+            decay = 0.9
+            return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     
     def print_states(self, buffer_dict=None):
         obs = self.env.get_reality()
         print("--------------------------------------------------------------------")
         self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
-        # TODO: observations can be None now
-        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}, {obs['target_radius']:.3f}]")
+        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_state("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")

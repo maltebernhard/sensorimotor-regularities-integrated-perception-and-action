@@ -34,7 +34,7 @@ class FovealVisionAICON(AICON):
 
     def define_active_interconnections(self):
         AIs = {
-            "PolarDistance": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
+            "PolarDistance": Triangulation_AI(self.device),
         }
         return AIs
 

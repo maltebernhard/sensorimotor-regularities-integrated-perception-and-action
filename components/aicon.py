@@ -19,7 +19,7 @@ from environment.gaze_fix_env import GazeFixEnv
 # ========================================================================================
 
 class AICON(ABC):
-    def __init__(self, propagate_meas_uncertainty: bool = True):
+    def __init__(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.dtype = torch.float64
         torch.set_default_device(self.device)
@@ -30,9 +30,9 @@ class AICON(ABC):
         self.MMs: Dict[str, MeasurementModel] = self.define_measurement_models()
         self.AIs: Dict[str, ActiveInterconnection] = self.define_active_interconnections()
         self.set_observations()
+        self.connect_states()
         self.goals: Dict[str, Goal] = self.define_goals()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
-        self.propagate_meas_uncertainty: bool = propagate_meas_uncertainty
         self.run_number = 0
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.type}"
 
@@ -102,11 +102,17 @@ class AICON(ABC):
 
     def set_observations(self):
         self.obs: Dict[str, Observation] = {}
-        required_observations = list(set([obs for mm in self.MMs.values() for obs in mm.observations] + [obs for ai in self.AIs.values() for obs in ai.required_observations]))
+        required_observations = [key for key in [obs for mm in self.MMs.values() for obs in mm.required_states] + [obs for ai in self.AIs.values() for obs in ai.required_states] if key in self.env.observations.keys()]
         self.observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
             self.obs[key] = Observation(key, 1, self.device)
+
+    def connect_states(self):
+        for ai in self.AIs.values():
+            ai.set_connected_states([self.REs[estimator_id] for estimator_id in ai.required_states])
+        for mm in self.MMs.values():
+            mm.set_connected_states([self.obs[obs_id] for obs_id in mm.required_states])
 
     def update_observations(self):
         self.last_observation: dict = self.env.get_observation()
@@ -230,8 +236,8 @@ class AICON(ABC):
     def meas_updates(self, buffer_dict):
         for model_key, meas_model in self.MMs.items():
             meas_dict = self.get_meas_dict(self.MMs[model_key])
-            if len(meas_dict["means"]) == len(meas_model.observations):
-                self.REs[meas_model.estimator].call_update_with_meas_model(meas_model, buffer_dict, meas_dict)
+            if len(meas_dict["means"]) == len(meas_model.connected_states):
+                self.REs[meas_model.estimator_id].call_update_with_meas_model(meas_model, buffer_dict, meas_dict)
             else:
                 #print(f"Missing measurements for {model_key}")
                 pass
@@ -309,8 +315,8 @@ class AICON(ABC):
     
     def get_meas_dict(self, meas_model: MeasurementModel):
         return {
-            "means": {key: obs.state_mean for key, obs in self.obs.items() if key in meas_model.observations and obs.updated},
-            "covs": {key: obs.state_cov for key, obs in self.obs.items() if key in meas_model.observations and obs.updated}
+            "means": {key: obs.state_mean for key, obs in meas_model.connected_states.items() if obs.updated},
+            "covs": {key: obs.state_cov for key, obs in meas_model.connected_states.items() if obs.updated}
         }
     
 class DroneEnvAICON(AICON):

@@ -37,8 +37,8 @@ class DivergenceAICON(AICON):
 
     def define_active_interconnections(self):
         active_interconnections = {
-            "TriangulationAI": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
-            "VisAngleRadAI": VisAngle_Rad_AI([self.REs["PolarTargetPos"], self.REs["TargetVisAngle"], self.REs["TargetRad"]], self.device),
+            "TriangulationAI": Triangulation_AI(self.device),
+            "VisAngleRadAI": VisAngle_Rad_AI(self.device),
         }
         return active_interconnections
 

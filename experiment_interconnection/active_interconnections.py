@@ -6,17 +6,17 @@ from components.estimator import RecursiveEstimator
 # ========================================================================================================
     
 class Gaze_Fixation_AI(ActiveInterconnection):
-    def __init__(self, estimators, device):
+    def __init__(self, device):
         required_estimators = ['PolarTargetPos', 'RobotVel']
-        super().__init__(estimators, required_estimators, device)
+        super().__init__(required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict):
         return torch.atleast_1d(meas_dict['RobotVel'][2] - (- meas_dict['RobotVel'][1] / meas_dict['PolarTargetPos'][0]))
 
 class Gaze_Fixation_Relative_AI(ActiveInterconnection):
-    def __init__(self, estimators, device):
+    def __init__(self, device):
         required_estimators = ['PolarTargetPos', 'RobotVel']
-        super().__init__(estimators, required_estimators, device)
+        super().__init__(required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict):
         offset_angle = meas_dict[f'PolarTargetPos'][1]
@@ -28,9 +28,9 @@ class Gaze_Fixation_Relative_AI(ActiveInterconnection):
         return torch.atleast_1d(robot_target_frame_vel[1] / meas_dict['PolarTargetPos'][0] + meas_dict['RobotVel'][2])
     
 class Gaze_Fixation_Constrained_AI(ActiveInterconnection):
-    def __init__(self, estimators, device):
+    def __init__(self, device):
         required_estimators = ['PolarTargetPos', 'RobotVel']
-        super().__init__(estimators, required_estimators, device)
+        super().__init__(required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict):
         # TODO: expand to more constrained values?

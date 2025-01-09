@@ -114,12 +114,6 @@ class Polar_Pos_Estimator_Vel(RecursiveEstimator):
         ]).squeeze()
         robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, u[1:3])
 
-        # print("FORWARD:")
-        # print("vel rot: ", u[3])
-        # print("angle old: ", x_mean[1])
-        # print("angle new: ", x_mean[1] + (- robot_target_frame_vel[1]/x_mean[0] - u[3]) * timestep)
-        # print("angle step: ", (- robot_target_frame_vel[1]/x_mean[0] - u[3]) * timestep)
-
         ret_mean = torch.empty_like(x_mean)
         ret_mean[0] = x_mean[0] + (- robot_target_frame_vel[0]) * timestep
         ret_mean[1] = (x_mean[1] + (- robot_target_frame_vel[1]/x_mean[0] - u[3]) * timestep + torch.pi) % (2 * torch.pi) - torch.pi

@@ -36,10 +36,10 @@ class ContingentInterconnectionAICON(AICON):
 
     def define_active_interconnections(self):
         active_interconnections = {
-            "TriangulationAI": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
+            "TriangulationAI": Triangulation_AI(self.device),
             #"GazeFixation": Gaze_Fixation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
             #"GazeFixation": Gaze_Fixation_Relative_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
-            "GazeFixation": Gaze_Fixation_Constrained_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
+            "GazeFixation": Gaze_Fixation_Constrained_AI(self.device),
         }
         return active_interconnections
 

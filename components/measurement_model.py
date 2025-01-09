@@ -4,6 +4,9 @@ import torch
 from torch.nn import Module
 from torch.func import jacrev
 
+from components.estimator import State
+from typing import Type
+
 # ===================================================================================================
 
 class ImplicitMeasurementModel(Module):
@@ -14,7 +17,7 @@ class ImplicitMeasurementModel(Module):
     Notation as in Thrun et al., Probabilistic Robotics
     """
     def __init__(self,
-                 meas_config: dict,
+                 required_states: List[str],
                  device='cpu',
                  outlier_rejection_enabled=False,
                  outlier_threshold=1.0,
@@ -27,17 +30,12 @@ class ImplicitMeasurementModel(Module):
             dtype: Data type of the tensors
         """
         super().__init__()
-
-        self.device = device
-        self.meas_config = meas_config
+        self.device = device if device is not None else torch.get_default_device()
         self.dtype = dtype
 
-        # Initialize static measurement noise to identity for each measurement
-        for key in self.meas_config.keys():
-            self.register_buffer(
-                f'_Q_{key}',
-                torch.eye(self.meas_config[key], dtype=self.dtype),
-                persistent=False)
+        self.required_states: List[str] = required_states
+        self.connected_states: Dict[str, Type[State]] = None
+        self.meas_config: Dict[str, int] = None
             
         self.outlier_rejection_enabled = outlier_rejection_enabled
         self.register_buffer(
@@ -47,7 +45,18 @@ class ImplicitMeasurementModel(Module):
         self.regularize_kalman_gain = regularize_kalman_gain
 
         self.to(device)
-            
+    
+    def set_connected_states(self, connected_states: List[State]) -> None:
+        assert set(state.id for state in connected_states) == set(self.required_states), f"Estimators should be {self.required_states}"
+        self.connected_states: Dict[str, State] = {state.id: state for state in connected_states}
+        self.meas_config = {state.id: state.state_dim for state in connected_states}
+        # Initialize static measurement noise to identity for each measurement
+        for key in self.meas_config.keys():
+            self.register_buffer(
+                f'_Q_{key}',
+                torch.eye(self.meas_config[key], dtype=self.dtype),
+                persistent=False)
+
     def set_static_measurement_noise(self, meas_name: str, noise_cov: torch.Tensor) -> None:
         assert meas_name in self.meas_config.keys(), (
             f"Measurement name {meas_name} not found in {self.meas_config.keys()}")
@@ -58,6 +67,12 @@ class ImplicitMeasurementModel(Module):
             noise_cov.to(self.dtype),
             persistent=False)
         setattr(self, f'_Q_{meas_name}', noise_cov.to(self.dtype))
+
+    def get_state_dict(self, buffer_dict, estimator_id):
+        return {id: buffer_dict[id]['state_mean'] for id in self.connected_states.keys() if id != estimator_id}
+    
+    def get_uncertainty_dict(self, buffer_dict, estimator_id):
+        return {id: buffer_dict[id]['state_cov'] + self.connected_states[id].update_uncertainty for id in self.connected_states.keys() if id != estimator_id}
 
     @abstractmethod
     def implicit_measurement_model(self, x: torch.Tensor, meas_dict: torch.Tensor):
@@ -132,11 +147,9 @@ class ImplicitMeasurementModel(Module):
 # ====================================================================================================================================
 
 class MeasurementModel(ABC, ImplicitMeasurementModel):
-    def __init__(self, estimator: str, required_observations: List[str], device):
-        meas_config = {obs: 1 for obs in required_observations}
-        super().__init__(meas_config=meas_config, device=device)
-        self.estimator = estimator
-        self.observations = required_observations
+    def __init__(self, estimator_id: str, required_observations: List[str], device):
+        super().__init__(required_states=required_observations, device=device)
+        self.estimator_id = estimator_id
 
     @abstractmethod
     def implicit_measurement_model(self, x, meas_dict):

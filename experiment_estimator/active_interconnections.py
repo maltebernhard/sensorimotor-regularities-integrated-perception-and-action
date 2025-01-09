@@ -6,10 +6,10 @@ from components.estimator import RecursiveEstimator
 # ========================================================================================================
 
 class Triangulation_AI(ActiveInterconnection):
-    def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
+    def __init__(self, device, object_name:str="Target") -> None:
         self.object_name = object_name
         required_estimators = [f'Polar{object_name}Pos', 'RobotState']
-        super().__init__(estimators, required_estimators, device)
+        super().__init__(required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
         offset_angle = meas_dict[f'Polar{self.object_name}Pos'][1]
@@ -36,17 +36,17 @@ class Triangulation_AI(ActiveInterconnection):
         ]).squeeze()
     
 class DistanceUpdaterAcc(ActiveInterconnection):
-    def __init__(self, estimators, device):
+    def __init__(self, device):
         required_estimators = ['PolarTargetPos', 'RobotState']
-        super().__init__(estimators, required_estimators, device)
+        super().__init__(required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict):
         return torch.atleast_1d(meas_dict['PolarTargetPos'][0] - meas_dict['RobotState'][6])
     
 class DistanceUpdaterVel(ActiveInterconnection):
-    def __init__(self, estimators, device):
+    def __init__(self, device):
         required_estimators = ['PolarTargetPos', 'RobotState']
-        super().__init__(estimators, required_estimators, device)
+        super().__init__(required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict):
         return torch.atleast_1d(meas_dict['PolarTargetPos'][0] - meas_dict['RobotState'][3])

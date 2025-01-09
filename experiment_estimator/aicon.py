@@ -30,8 +30,8 @@ class ContingentEstimatorAICON(AICON):
 
     def define_active_interconnections(self):
         active_interconnections = {
-            #"TriangulationAI": Triangulation_AI([self.REs["PolarTargetPos"], self.REs["RobotState"]], self.device),
-            #"DistanceUpdater": DistanceUpdaterAcc([self.REs["PolarTargetPos"], self.REs["RobotState"]], self.device) if not self.vel_control else DistanceUpdaterVel([self.REs["PolarTargetPos"], self.REs["RobotState"]], self.device),
+            #"TriangulationAI": Triangulation_AI(self.device),
+            #"DistanceUpdater": DistanceUpdaterAcc(self.device) if not self.vel_control else DistanceUpdaterVel(self.device),
         }
         return active_interconnections
 

@@ -6,10 +6,10 @@ from components.estimator import RecursiveEstimator
 # ========================================================================================================
 
 class Triangulation_AI(ActiveInterconnection):
-    def __init__(self, estimators: List[RecursiveEstimator], device, object_name:str="Target") -> None:
+    def __init__(self, device, object_name:str="Target") -> None:
         self.object_name = object_name
         required_estimators = [f'Polar{object_name}Pos', 'RobotVel']
-        super().__init__(estimators, required_estimators, device)
+        super().__init__(required_estimators, device)
 
     def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
         # TODO: suppresses gradient propagation of changes in offset angle in this AI

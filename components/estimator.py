@@ -8,12 +8,14 @@ from torch.func import jacrev
 # =========================================================================================
 
 class State(Module):
-    def __init__(self, id, state_dim, device, dtype = torch.float64):
+    def __init__(self, id, state_dim, device=None, dtype=None):
         super().__init__()
         self.id: str = id
         self.state_dim = state_dim
         self.device = device
         self.dtype = dtype
+
+        self.update_uncertainty: torch.Tensor = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
 
         self.register_buffer('state_mean', torch.zeros(self.state_dim, dtype=dtype))
         self.register_buffer('state_cov', torch.eye(self.state_dim, dtype=dtype))
@@ -58,13 +60,12 @@ class Observation(State):
 # =========================================================================================
 
 class RecursiveEstimator(ABC, State):
-    def __init__(self, id, state_dim, device, dtype=torch.float64):
+    def __init__(self, id, state_dim, device=None, dtype=None):
         super().__init__(id, state_dim, device, dtype)
 
         self.default_state: torch.Tensor = torch.zeros(self.state_dim, dtype=dtype, device=device)
         self.default_cov: torch.Tensor = torch.eye(self.state_dim, dtype=dtype, device=device)
         self.default_motion_noise: torch.Tensor = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
-        self.update_uncertainty: torch.Tensor = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
         
         # Initialize static process/motion noise to identity
         self.register_buffer('forward_noise', torch.eye(self.state_dim, device=self.device, dtype=self.dtype))

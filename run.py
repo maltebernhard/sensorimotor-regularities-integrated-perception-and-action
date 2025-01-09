@@ -6,20 +6,21 @@ if __name__ == "__main__":
 
     aicon_types = {
         # ------ SANDBOX ------
-        0: "GeneralTest",
+        0: "Base",
+        1: "GeneralTest",
         # ------ BEHAVIOR ------
-        1: "Control",
-        2: "Goal",
-        3: "FovealVision",
-        4: "Interconnection",
-        5: "Estimator",
+        2: "Control",
+        3: "Goal",
+        4: "FovealVision",
+        5: "Interconnection",
+        6: "Estimator",
         # ---- ACTUAL SMCs ----
-        6: "Divergence",
-        7: "Visibility",
+        7: "Divergence",
+        8: "Visibility",
         
     }
 
-    aicon_type = 2
+    aicon_type = 8
 
     # --------------------- config ---------------------
 

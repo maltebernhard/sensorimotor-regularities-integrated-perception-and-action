@@ -1,4 +1,5 @@
 import torch
+from experiment_base.aicon import BaseAICON
 from experiment_control.aicon import ControlAICON
 from experiment_divergence.aicon import DivergenceAICON
 from experiment_estimator.aicon import ContingentEstimatorAICON
@@ -23,7 +24,8 @@ class Analysis:
         self.step_by_step = experiment_config['step_by_step']
         self.record_data = experiment_config['record_data']
 
-        if   type == "GeneralTest":     self.aicon = GeneralTestAICON(env_config)
+        if   type == "Base":            self.aicon = BaseAICON(env_config)
+        elif type == "GeneralTest":     self.aicon = GeneralTestAICON(env_config)
         elif type == "FovealVision":    self.aicon = FovealVisionAICON(env_config)
         elif type == "Divergence":      self.aicon = DivergenceAICON(env_config)
         elif type == "Goal":            self.aicon = ContingentGoalAICON(env_config)
