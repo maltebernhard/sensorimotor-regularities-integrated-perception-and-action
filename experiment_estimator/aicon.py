@@ -66,7 +66,7 @@ class ContingentEstimatorAICON(AICON):
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     def print_states(self, buffer_dict=None):
-        obs = self.env.get_reality()
+        obs = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_state("RobotState", buffer_dict=buffer_dict)
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)

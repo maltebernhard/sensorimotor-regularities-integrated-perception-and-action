@@ -80,7 +80,7 @@ class FovealVisionAICON(AICON):
         """
         print filter and environment states for debugging
         """
-        obs = self.env.get_reality()
+        obs = self.env.get_state()
         self.print_state("RobotVel", print_cov=print_cov)
         actual_vel = list(self.env.robot.vel)
         actual_vel.append(self.env.robot.vel_rot)

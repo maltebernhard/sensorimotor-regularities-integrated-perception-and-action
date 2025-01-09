@@ -3,6 +3,7 @@ import numpy as np
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
+from components.helpers import get_robot_target_frame_vel
 from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
 from components.instances.active_interconnections import Triangulation_AI
 from components.instances.measurement_models import Robot_Vel_MM, Angle_MM
@@ -58,10 +59,12 @@ class BaseAICON(AICON):
             return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     
     def print_states(self, buffer_dict=None):
-        obs = self.env.get_reality()
+        env_state = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
-        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
+        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
+        rtf_vel = get_robot_target_frame_vel(env_state["target_offset_angle"], torch.tensor([env_state["vel_frontal"], env_state["vel_lateral"]]))
+        print(f"True Global TargetVel: [{env_state['target_distance_dot']+rtf_vel[0]:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_state("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")
@@ -69,3 +72,5 @@ class BaseAICON(AICON):
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
+
+    

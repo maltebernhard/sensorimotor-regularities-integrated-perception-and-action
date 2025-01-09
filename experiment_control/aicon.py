@@ -1,5 +1,4 @@
 from typing import Dict
-import numpy as np
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
@@ -62,7 +61,7 @@ class ControlAICON(AICON):
         return gradient_action
     
     def print_states(self, buffer_dict=None):
-        obs = self.env.get_reality()
+        obs = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         # TODO: observations can be None now

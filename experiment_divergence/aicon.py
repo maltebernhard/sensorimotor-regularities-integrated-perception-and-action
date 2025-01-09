@@ -70,7 +70,7 @@ class DivergenceAICON(AICON):
         return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     
     def print_states(self, buffer_dict=None):
-        obs = self.env.get_reality()
+        obs = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         # TODO: observations can be None now

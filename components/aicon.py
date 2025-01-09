@@ -73,7 +73,7 @@ class AICON(ABC):
                     step = step,
                     time = self.env.time,
                     estimators = {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()},
-                    reality = self.env.get_reality(),
+                    reality = self.env.get_state(),
                     observation = {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()}
                 )
             if step_by_step:
@@ -414,6 +414,7 @@ class DroneEnvAICON(AICON):
                     observation_nodes.append(observation_node)
                 G.add_edge(observation_node, mm_node)
         
+        # set x spacing for observation nodes
         min = 0
         max = 0
         for p in pos.values():
@@ -421,19 +422,6 @@ class DroneEnvAICON(AICON):
                 max = p[0]
         for i,obs in enumerate(observation_nodes):
             pos[obs] = ((min+max-len(observation_nodes))/2+i, 0)
-
-        # x_spacing = 1.0
-        # # Position estimator and AI nodes at the top
-        # for i, node in enumerate(estimator_nodes + ai_nodes):
-        #     pos[node] = (i * x_spacing, 2)
-        # # Position measurement model nodes in the middle
-        # for i, node in enumerate(measurement_model_nodes):
-        #     pos[node] = (i * x_spacing, 1)
-        # # Position observation nodes at the bottom
-        # for i, node in enumerate(observation_nodes):
-        #     pos[node] = (i * x_spacing, 0)
-
-        print(pos)
 
         shapes = nx.get_node_attributes(G, 'shape')
         colors = nx.get_node_attributes(G, 'color')

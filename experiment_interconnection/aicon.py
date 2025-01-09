@@ -80,7 +80,7 @@ class ContingentInterconnectionAICON(AICON):
         return action
     
     def print_states(self, buffer_dict=None):
-        obs = self.env.get_reality()
+        obs = self.env.get_state()
         self.print_state("PolarTargetPos", buffer_dict=buffer_dict)
         # TODO: observations can be None now
         print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")

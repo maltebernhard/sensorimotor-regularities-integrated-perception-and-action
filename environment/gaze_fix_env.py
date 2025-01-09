@@ -191,7 +191,7 @@ class GazeFixEnv(BaseEnv):
             obs = self._get_state()
         return obs
 
-    def get_reality(self):
+    def get_state(self):
         """Return the current environment state."""
         try:
             obs = self.real_state_history[self.current_step].copy()

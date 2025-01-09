@@ -126,7 +126,7 @@ class GeneralTestAICON(AICON):
         print filter and environment states for debugging
         """
         self.print_state("TargetVisibility", print_cov=2)
-        obs = self.env.get_reality()
+        obs = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         # TODO: observations can be None now

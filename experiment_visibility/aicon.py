@@ -108,7 +108,7 @@ class VisibilityAICON(AICON):
         print filter and environment states for debugging
         """
         self.print_state("TargetVisibility", print_cov=2)
-        obs = self.env.get_reality()
+        obs = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_state("PolarTargetDistance", buffer_dict=buffer_dict, print_cov=2)
         self.print_state("PolarTargetAngle", buffer_dict=buffer_dict, print_cov=2)
