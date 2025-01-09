@@ -17,7 +17,6 @@ if __name__ == "__main__":
         # ---- ACTUAL SMCs ----
         7: "Divergence",
         8: "Visibility",
-        
     }
 
     aicon_type = 0

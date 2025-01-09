@@ -2,6 +2,7 @@ import torch
 from typing import List, Dict
 from components.active_interconnection import ActiveInterconnection
 from components.estimator import RecursiveEstimator
+from components.helpers import rotate_vector_2d
 
 # ========================================================================================================
     
@@ -19,13 +20,8 @@ class Gaze_Fixation_Relative_AI(ActiveInterconnection):
         super().__init__(required_estimators)
 
     def implicit_interconnection_model(self, meas_dict):
-        offset_angle = meas_dict[f'PolarTargetPos'][1]
-        robot_target_frame_rotation_matrix = torch.stack([
-            torch.stack([torch.cos(-offset_angle), -torch.sin(-offset_angle)]),
-            torch.stack([torch.sin(-offset_angle), torch.cos(-offset_angle)]),
-        ]).squeeze()
-        robot_target_frame_vel = torch.matmul(robot_target_frame_rotation_matrix, meas_dict['RobotVel'][:2])
-        return torch.atleast_1d(robot_target_frame_vel[1] / meas_dict['PolarTargetPos'][0] + meas_dict['RobotVel'][2])
+        rtf_vel = rotate_vector_2d(meas_dict['PolarTargetPos'][1], meas_dict['RobotVel'][:2])
+        return torch.atleast_1d(rtf_vel[1] / meas_dict['PolarTargetPos'][0] + meas_dict['RobotVel'][2])
     
 class Gaze_Fixation_Constrained_AI(ActiveInterconnection):
     def __init__(self):

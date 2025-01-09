@@ -1,10 +1,10 @@
 import torch
 
-def get_robot_target_frame_vel(offset_angle, robot_vel):
-    if not torch.is_tensor(offset_angle):
-        offset_angle = torch.tensor(offset_angle)
-    robot_target_frame_rotation_matrix = torch.stack([
-        torch.stack([torch.cos(-offset_angle), -torch.sin(-offset_angle)]),
-        torch.stack([torch.sin(-offset_angle), torch.cos(-offset_angle)]),
+def rotate_vector_2d(rotation_angle, vector):
+    if not torch.is_tensor(rotation_angle):
+        rotation_angle = torch.tensor(rotation_angle)
+    rotation_matrix = torch.stack([
+        torch.stack([torch.cos(-rotation_angle), -torch.sin(-rotation_angle)]),
+        torch.stack([torch.sin(-rotation_angle), torch.cos(-rotation_angle)]),
     ]).squeeze()
-    return torch.matmul(robot_target_frame_rotation_matrix, robot_vel)
+    return torch.matmul(rotation_matrix, vector)
