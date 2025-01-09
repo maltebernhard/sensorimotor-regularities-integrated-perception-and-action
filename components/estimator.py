@@ -61,9 +61,10 @@ class RecursiveEstimator(ABC, State):
     def __init__(self, id, state_dim, device, dtype=torch.float64):
         super().__init__(id, state_dim, device, dtype)
 
-        self.default_state = torch.zeros(self.state_dim, dtype=dtype, device=device)
-        self.default_cov = torch.eye(self.state_dim, dtype=dtype, device=device)
-        self.default_motion_noise = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
+        self.default_state: torch.Tensor = torch.zeros(self.state_dim, dtype=dtype, device=device)
+        self.default_cov: torch.Tensor = torch.eye(self.state_dim, dtype=dtype, device=device)
+        self.default_motion_noise: torch.Tensor = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
+        self.update_uncertainty: torch.Tensor = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
         
         # Initialize static process/motion noise to identity
         self.register_buffer('forward_noise', torch.eye(self.state_dim, device=self.device, dtype=self.dtype))
@@ -303,7 +304,7 @@ class RecursiveEstimator(ABC, State):
 
     def call_update_with_active_interconnection(self, active_interconnection, buffer_dict: Dict[str, torch.Tensor]):
         args_to_be_passed = ('update_with_specific_meas', active_interconnection)
-        kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id), 'custom_measurement_noise': active_interconnection.get_cov_dict(buffer_dict, self.id)}
+        kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id), 'custom_measurement_noise': active_interconnection.get_uncertainty_dict(buffer_dict, self.id)}
         return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
     
     def call_update_with_meas_model(self, meas_model, buffer_dict, meas_dict: Dict[str, torch.Tensor]):

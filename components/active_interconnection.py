@@ -19,9 +19,9 @@ class ActiveInterconnection(ABC, ImplicitMeasurementModel):
     def get_state_dict(self, buffer_dict, estimator_id):
         return {id: buffer_dict[id]['state_mean'] for id in self.connected_estimators.keys() if id != estimator_id}
     
-    def get_cov_dict(self, buffer_dict, estimator_id):
+    def get_uncertainty_dict(self, buffer_dict, estimator_id):
         if self.propagate_meas_uncertainty:
-            return {id: buffer_dict[id]['state_cov'] for id in self.connected_estimators.keys() if id != estimator_id}
+            return {id: buffer_dict[id]['state_cov'] + self.connected_estimators[id].update_uncertainty for id in self.connected_estimators.keys() if id != estimator_id}
         else:
             return None
 
