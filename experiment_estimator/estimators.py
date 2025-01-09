@@ -4,11 +4,11 @@ from components.estimator import RecursiveEstimator
 # ==================================== Specific Implementations ==============================================
 
 class Robot_State_Estimator_Vel(RecursiveEstimator):
-    def __init__(self, device):
-        super().__init__("RobotState", 7, device)
-        self.default_state = torch.tensor([0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0], device=device)
-        self.default_cov = 1e1 * torch.eye(7, device=device)
-        self.default_motion_noise = 1e0 * torch.eye(7, device=device)
+    def __init__(self):
+        super().__init__("RobotState", 7)
+        self.default_state = torch.tensor([0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0])
+        self.default_cov = 1e1 * torch.eye(7)
+        self.default_motion_noise = 1e0 * torch.eye(7)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """
@@ -56,11 +56,11 @@ class Robot_State_Estimator_Vel(RecursiveEstimator):
         ]).squeeze(), cov
 
 class Robot_State_Estimator_Acc(RecursiveEstimator):
-    def __init__(self, device):
-        super().__init__("RobotState", 7, device)
-        self.default_state = torch.tensor([0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0], device=device)
-        self.default_cov = 1e1 * torch.eye(7, device=device)
-        self.default_motion_noise = 1e0 * torch.eye(7, device=device)
+    def __init__(self):
+        super().__init__("RobotState", 7)
+        self.default_state = torch.tensor([0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0])
+        self.default_cov = 1e1 * torch.eye(7)
+        self.default_motion_noise = 1e0 * torch.eye(7)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """

@@ -7,7 +7,7 @@ from components.measurement_model import ImplicitMeasurementModel
 # ====================================================================================================================================
 
 class ActiveInterconnection(ABC, ImplicitMeasurementModel):
-    def __init__(self, required_estimators, device):
+    def __init__(self, required_estimators, device=None):
         super().__init__(required_states=required_estimators, device=device)
 
     def implicit_measurement_model(self, x, meas_dict):

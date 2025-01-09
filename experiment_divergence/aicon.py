@@ -3,14 +3,14 @@ import numpy as np
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
-from components.instances.measurement_models import Vel_MM
+from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel, Rad_Estimator
+from components.instances.measurement_models import Robot_Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
 from components.instances.goals import PolarGoToTargetGoal
 
 from experiment_divergence.active_interconnections import VisAngle_Rad_AI
-from experiment_divergence.estimators import Rad_Estimator, Vis_Angle_Estimator
-from experiment_divergence.measurement_models import Vis_Angle_MM, Angle_Meas_MM
+from experiment_divergence.estimators import Vis_Angle_Estimator
+from experiment_divergence.measurement_models import Vis_Angle_MM, Angle_MM
 
 # ========================================================================================================
 
@@ -21,30 +21,30 @@ class DivergenceAICON(AICON):
 
     def define_estimators(self):
         estimators = {
-            "RobotVel": Robot_Vel_Estimator_Vel(self.device),
-            "PolarTargetPos": Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos"),
-            "TargetRad": Rad_Estimator(self.device, "TargetRad"),
-            "TargetVisAngle": Vis_Angle_Estimator(self.device, "TargetVisAngle"),
+            "RobotVel":         Robot_Vel_Estimator_Vel(),
+            "PolarTargetPos":   Polar_Pos_Estimator_Vel(),
+            "TargetRad":        Rad_Estimator(),
+            "TargetVisAngle":   Vis_Angle_Estimator(),
         }
         return estimators
 
     def define_measurement_models(self):
         return {
-            "VelMM": Vel_MM(self.device),
-            "AngleMeasMM": Angle_Meas_MM(self.device),
-            "VisAngleMM": Vis_Angle_MM(self.device),
+            "VelMM":            Robot_Vel_MM(),
+            "AngleMeasMM":      Angle_MM(),
+            "VisAngleMM":       Vis_Angle_MM(),
         }
 
     def define_active_interconnections(self):
         active_interconnections = {
-            "TriangulationAI": Triangulation_AI(self.device),
-            "VisAngleRadAI": VisAngle_Rad_AI(self.device),
+            "TriangulationAI":  Triangulation_AI(),
+            "VisAngleRadAI":    VisAngle_Rad_AI(),
         }
         return active_interconnections
 
     def define_goals(self):
         goals = {
-            "PolarGoToTarget": PolarGoToTargetGoal(self.device),
+            "PolarGoToTarget":  PolarGoToTargetGoal(),
         }
         return goals
 

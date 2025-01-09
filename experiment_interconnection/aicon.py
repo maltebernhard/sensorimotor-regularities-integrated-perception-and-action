@@ -4,7 +4,7 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.instances.estimators import Polar_Pos_Estimator_Acc, Polar_Pos_Estimator_Vel, Robot_Vel_Estimator_Acc, Robot_Vel_Estimator_Vel
-from components.instances.measurement_models import Angle_MM, Vel_MM
+from components.instances.measurement_models import Angle_MM, Robot_Vel_MM
 from components.instances.active_interconnections import Triangulation_AI
 
 # works well together:
@@ -24,28 +24,28 @@ class ContingentInterconnectionAICON(AICON):
 
     def define_estimators(self):
         estimators = {}
-        estimators["RobotVel"] = Robot_Vel_Estimator_Acc(self.device) if not self.vel_control else Robot_Vel_Estimator_Vel(self.device)
-        estimators["PolarTargetPos"] = Polar_Pos_Estimator_Acc(self.device, "PolarTargetPos") if not self.vel_control else Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos")
+        estimators["RobotVel"] =        Robot_Vel_Estimator_Acc() if not self.vel_control else Robot_Vel_Estimator_Vel()
+        estimators["PolarTargetPos"] =  Polar_Pos_Estimator_Acc() if not self.vel_control else Polar_Pos_Estimator_Vel()
         return estimators
 
     def define_measurement_models(self):
         return {
-            "VelMM": Vel_MM(self.device),
-            "AngleMeasMM": Angle_MM(self.device, "Target"),
+            "VelMM":        Robot_Vel_MM(),
+            "AngleMeasMM":  Angle_MM(),
         }
 
     def define_active_interconnections(self):
         active_interconnections = {
-            "TriangulationAI": Triangulation_AI(self.device),
-            #"GazeFixation": Gaze_Fixation_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
-            #"GazeFixation": Gaze_Fixation_Relative_AI([self.REs["PolarTargetPos"], self.REs["RobotVel"]], self.device),
-            "GazeFixation": Gaze_Fixation_Constrained_AI(self.device),
+            "TriangulationAI":  Triangulation_AI(),
+            #"GazeFixation":    Gaze_Fixation_AI(),
+            #"GazeFixation":    Gaze_Fixation_Relative_AI(),
+            "GazeFixation":     Gaze_Fixation_Constrained_AI(),
         }
         return active_interconnections
 
     def define_goals(self):
         goals = {
-            "PolarGoToTarget": PolarGoToTargetGoal(self.device),
+            "PolarGoToTarget": PolarGoToTargetGoal(),
         }
         return goals
 

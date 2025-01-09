@@ -5,8 +5,8 @@ from typing import Dict
 # ==================================================================================
 
 class SpecificGoToTargetGoal(Goal):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
         self.desired_distance = 0.0
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):

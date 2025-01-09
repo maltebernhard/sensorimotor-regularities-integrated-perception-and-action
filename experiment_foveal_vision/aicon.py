@@ -5,7 +5,7 @@ from typing import Dict
 from components.aicon import DroneEnvAICON as AICON
 from components.estimator import RecursiveEstimator
 from components.instances.estimators import Robot_Vel_Estimator_Vel #, Polar_Pos_Estimator_Vel
-from components.instances.measurement_models import Vel_MM, Angle_MM
+from components.instances.measurement_models import Robot_Vel_MM, Angle_MM
 from components.instances.active_interconnections import Triangulation_AI
 from components.instances.goals import PolarGoToTargetGoal
 
@@ -20,27 +20,27 @@ class FovealVisionAICON(AICON):
 
     def define_estimators(self):
         REs: Dict[str, RecursiveEstimator] = {
-            "RobotVel": Robot_Vel_Estimator_Vel(self.device),
-            "PolarTargetPos": Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos"),
+            "RobotVel":         Robot_Vel_Estimator_Vel(),
+            "PolarTargetPos":   Polar_Pos_Estimator_Vel(),
         }
         return REs
 
     def define_measurement_models(self):
         MMs = {
-            "RobotVel": Vel_MM(self.device),
-            "PolarAngle": Angle_MM(self.device, "Target"),
+            "RobotVel":         Robot_Vel_MM(),
+            "PolarAngle":       Angle_MM(),
         }
         return MMs
 
     def define_active_interconnections(self):
         AIs = {
-            "PolarDistance": Triangulation_AI(self.device),
+            "PolarDistance":    Triangulation_AI(),
         }
         return AIs
 
     def define_goals(self):
         goals = {
-            "PolarGoToTarget" : PolarGoToTargetGoal(self.device),
+            "PolarGoToTarget" : PolarGoToTargetGoal(),
         }
         return goals
 

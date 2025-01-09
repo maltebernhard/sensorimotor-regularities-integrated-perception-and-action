@@ -6,10 +6,10 @@ from components.estimator import RecursiveEstimator
 # ========================================================================================================
     
 class VisAngle_Rad_AI(ActiveInterconnection):
-    def __init__(self, device, object_name:str="Target") -> None:
+    def __init__(self, object_name:str="Target") -> None:
         self.object_name = object_name
         required_estimators = [f'Polar{object_name}Pos', f'{self.object_name}VisAngle', f'{self.object_name}Rad']
-        super().__init__(required_estimators, device)
+        super().__init__(required_estimators)
 
     def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
         distance = meas_dict[f'Polar{self.object_name}Pos'][0]

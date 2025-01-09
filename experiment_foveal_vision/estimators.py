@@ -11,11 +11,11 @@ class Polar_Pos_Estimator_Vel(RecursiveEstimator):
     x[2]: del target distance
     x[3]: del target offset angle
     """
-    def __init__(self, device, id: str):
-        super().__init__(id, 4, device)
-        self.default_state = torch.tensor([10.0, 0.1, 0.0, 0.0], device=device)
-        self.default_cov = 1e3 * torch.eye(4, device=device)
-        self.default_motion_noise = torch.eye(4, device=device) * torch.tensor([1e-1, 1e-1, 1e-1, 1e-1], device=device) * 0.0
+    def __init__(self, object_name:str="Target"):
+        super().__init__(f'Polar{object_name}Pos', 4)
+        self.default_state = torch.tensor([10.0, 0.1, 0.0, 0.0])
+        self.default_cov = 1e3 * torch.eye(4)
+        self.default_motion_noise = torch.eye(4) * torch.tensor([1e-1, 1e-1, 1e-1, 1e-1]) * 0.0
 
     @staticmethod
     def smooth_abs(x, margin=1.0):

@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from components.instances.measurement_models import Angle_MM, Vel_MM
+from components.instances.measurement_models import Angle_MM, Robot_Vel_MM
 
 from experiment_estimator.active_interconnections import DistanceUpdaterAcc, DistanceUpdaterVel
 from experiment_estimator.estimators import Robot_State_Estimator_Acc, Robot_State_Estimator_Vel
@@ -17,27 +17,28 @@ class ContingentEstimatorAICON(AICON):
         super().__init__(**env_config)
 
     def define_estimators(self):
-        estimators = {}
-        estimators["RobotState"] = Robot_State_Estimator_Vel(self.device) if self.vel_control else Robot_State_Estimator_Acc(self.device)
-        #estimators["PolarTargetPos"] = Polar_Pos_Estimator_Acc(self.device, "PolarTargetPos") if not self.vel_control else Polar_Pos_Estimator_Vel(self.device, "PolarTargetPos")
+        estimators = {
+        "RobotState":       Robot_State_Estimator_Vel() if self.vel_control else Robot_State_Estimator_Acc(),
+        #"PolarTargetPos":   Polar_Pos_Estimator_Acc() if not self.vel_control else Polar_Pos_Estimator_Vel()
+        }
         return estimators
     
     def define_measurement_models(self):
         return {
-            "VelMM": Vel_MM(self.device),
-            "AngleMeasMM": Angle_MM(self.device, "Target"),
+            "VelMM":        Robot_Vel_MM(),
+            "AngleMeasMM":  Angle_MM(),
         }
 
     def define_active_interconnections(self):
         active_interconnections = {
-            #"TriangulationAI": Triangulation_AI(self.device),
-            #"DistanceUpdater": DistanceUpdaterAcc(self.device) if not self.vel_control else DistanceUpdaterVel(self.device),
+            #"TriangulationAI": Triangulation_AI(),
+            #"DistanceUpdater": DistanceUpdaterAcc() if not self.vel_control else DistanceUpdaterVel(),
         }
         return active_interconnections
 
     def define_goals(self):
         goals = {
-            "GoToTarget": SpecificGoToTargetGoal(self.device),
+            "GoToTarget":   SpecificGoToTargetGoal(),
         }
         return goals
 

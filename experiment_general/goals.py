@@ -5,8 +5,8 @@ from typing import Dict
 # ==================================================================================
 
 class PolarGoToTargetGazeFixationGoal(Goal):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
         self.desired_distance = 0.0
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]) -> float:
@@ -28,8 +28,8 @@ class PolarGoToTargetGazeFixationGoal(Goal):
         return loss_mean + loss_cov
     
 class PolarGoToTargetGoal(Goal):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
         self.desired_distance = 0.0
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]) -> float:
@@ -47,8 +47,8 @@ class PolarGoToTargetGoal(Goal):
         return loss_mean + loss_cov
 
 class AvoidObstacleGoal(Goal):
-    def __init__(self, device, i_obstacle):
-        super().__init__(device)
+    def __init__(self, i_obstacle):
+        super().__init__()
         self.i_obstacle = i_obstacle
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):

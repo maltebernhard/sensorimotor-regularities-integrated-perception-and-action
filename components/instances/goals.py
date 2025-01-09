@@ -5,8 +5,8 @@ from components.goal import Goal
 # ==================================================================================
 
 class PolarGoToTargetGoal(Goal):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
         self.desired_distance = 0.0
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
@@ -17,8 +17,8 @@ class PolarGoToTargetGoal(Goal):
         return loss_mean + loss_cov
     
 class CartesianGoToTargetGoal(Goal):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         current_state_mean = buffer_dict['CartesianTargetPos']['state_mean']
@@ -30,8 +30,8 @@ class CartesianGoToTargetGoal(Goal):
         return loss_mean + loss_cov
     
 class GazeFixationGoal(Goal):
-    def __init__(self, device):
-        super().__init__(device)
+    def __init__(self):
+        super().__init__()
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         current_state_mean = buffer_dict['PolarTargetPos']['state_mean']

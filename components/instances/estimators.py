@@ -4,11 +4,11 @@ from components.estimator import RecursiveEstimator
 # ==================================== Specific Implementations ==============================================
 
 class Robot_Vel_Estimator_Vel(RecursiveEstimator):
-    def __init__(self, device):
-        super().__init__("RobotVel", 3, device)
-        self.default_state = torch.tensor([0.0, 0.0, 0.0], device=device)
-        self.default_cov = 1e1 * torch.eye(3, device=device)
-        self.default_motion_noise = 1e0 * torch.eye(3, device=device)
+    def __init__(self):
+        super().__init__("RobotVel", 3)
+        self.default_state = torch.tensor([0.0, 0.0, 0.0])
+        self.default_cov = 1e1 * torch.eye(3)
+        self.default_motion_noise = 1e0 * torch.eye(3)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """
@@ -39,11 +39,11 @@ class Robot_Vel_Estimator_Vel(RecursiveEstimator):
         ]).squeeze(), cov
 
 class Robot_Vel_Estimator_Acc(RecursiveEstimator):
-    def __init__(self, device):
-        super().__init__("RobotVel", 3, device)
-        self.default_state = torch.tensor([0.0, 0.0, 0.0], device=device)
-        self.default_cov = 1e1 * torch.eye(3, device=device)
-        self.default_motion_noise = 1e-1 * torch.eye(3, device=device)
+    def __init__(self):
+        super().__init__("RobotVel", 3)
+        self.default_state = torch.tensor([0.0, 0.0, 0.0])
+        self.default_cov = 1e1 * torch.eye(3)
+        self.default_motion_noise = 1e-1 * torch.eye(3)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """
@@ -98,12 +98,12 @@ class Polar_Pos_Estimator_Vel(RecursiveEstimator):
     x[2]: del target distance
     x[3]: del target offset angle
     """
-    def __init__(self, device, id: str):
-        super().__init__(id, 4, device)
-        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0], device=device)
-        self.default_cov = 1e3 * torch.eye(4, device=device)
-        self.default_motion_noise = torch.eye(4, device=device) * torch.tensor([1e0, 1e0, 1e0, 1e0], device=device)
-        #self.update_uncertainty = torch.eye(4, device=device) * torch.tensor([1e-1, 1e-1, 1e-1, 1e-1], device=device)
+    def __init__(self, object_name:str="Target"):
+        super().__init__(f'Polar{object_name}Pos', 4)
+        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0])
+        self.default_cov = 1e3 * torch.eye(4)
+        self.default_motion_noise = torch.eye(4) * torch.tensor([1e0, 1e0, 1e0, 1e0])
+        #self.update_uncertainty = torch.eye(4) * torch.tensor([1e-1, 1e-1, 1e-1, 1e-1])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
@@ -129,11 +129,11 @@ class Polar_Pos_Estimator_Acc(RecursiveEstimator):
     x[2]: del target distance
     x[3]: del target offset angle
     """
-    def __init__(self, device, id: str):
-        super().__init__(id, 4, device)
-        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0], device=device)
-        self.default_cov = 1e3 * torch.eye(4, device=device)
-        self.default_motion_noise = 1e0 * torch.eye(4, device=device)
+    def __init__(self, object_name:str="Target"):
+        super().__init__(f'Polar{object_name}Pos', 4)
+        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0])
+        self.default_cov = 1e3 * torch.eye(4)
+        self.default_motion_noise = 1e0 * torch.eye(4)
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
@@ -160,11 +160,11 @@ class Cartesian_Pos_Estimator(RecursiveEstimator):
     x[3]: del target lateral offset
     x[4]: del robot target target frame rotation
     """
-    def __init__(self, device, id: str):
-        super().__init__(id, 5, device)
-        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0, 0.0], device=device)
-        self.default_cov = 1e3 * torch.eye(5, device=device)
-        self.default_motion_noise = 1e0 * torch.eye(5, device=device)
+    def __init__(self, object_name:str="Target"):
+        super().__init__(f'Polar{object_name}Pos', 5)
+        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0, 0.0])
+        self.default_cov = 1e3 * torch.eye(5)
+        self.default_motion_noise = 1e0 * torch.eye(5)
 
     def forward_model(self, x_mean, cov: torch.Tensor, u):
         ret_mean = torch.empty_like(x_mean)
@@ -187,3 +187,22 @@ class Cartesian_Pos_Estimator(RecursiveEstimator):
         ret_cov[4, :4] = cov[4, :4]
         ret_cov[4, 4] = cov[4, 4]
         return ret_mean, ret_cov
+    
+class Rad_Estimator(RecursiveEstimator):
+    """
+    Estimator for Object radius r:
+    x[0]: object radius
+    """
+    def __init__(self, object_name:str="Target"):
+        super().__init__(f'{object_name}Rad', 1)
+        self.default_state = torch.tensor([1.0])
+        self.default_cov = 1e3 * torch.eye(1)
+        self.default_motion_noise = torch.eye(1) * 1e-2
+
+    def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
+        # NOTE: This implementation assumes full knowledge of the object radius, resulting in good distance estimation
+        # ret_mean = torch.empty_like(x_mean)
+        # ret_cov = torch.zeros_like(cov)
+        # ret_mean[0] = 1.0
+        # return ret_mean, ret_cov
+        return x_mean, cov

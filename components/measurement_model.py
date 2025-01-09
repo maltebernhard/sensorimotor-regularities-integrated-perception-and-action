@@ -18,7 +18,7 @@ class ImplicitMeasurementModel(Module):
     """
     def __init__(self,
                  required_states: List[str],
-                 device='cpu',
+                 device=None,
                  outlier_rejection_enabled=False,
                  outlier_threshold=1.0,
                  regularize_kalman_gain=False,
@@ -147,7 +147,7 @@ class ImplicitMeasurementModel(Module):
 # ====================================================================================================================================
 
 class MeasurementModel(ABC, ImplicitMeasurementModel):
-    def __init__(self, estimator_id: str, required_observations: List[str], device):
+    def __init__(self, estimator_id: str, required_observations: List[str], device=None):
         super().__init__(required_states=required_observations, device=device)
         self.estimator_id = estimator_id
 

@@ -9,11 +9,11 @@ class Polar_Distance_Estimator(RecursiveEstimator):
     x[0]: target distance
     x[1]: target distance dot
     """
-    def __init__(self, device, id: str):
-        super().__init__(id, 2, device)
-        self.default_state = torch.tensor([10.0, 0.0], device=device)
-        self.default_cov = 1e3 * torch.eye(2, device=device)
-        self.default_motion_noise = torch.eye(2, device=device) * torch.tensor([5e-1, 1e0], device=device)
+    def __init__(self, object_name:str="Target"):
+        super().__init__(f"Polar{object_name}Distance", 2)
+        self.default_state = torch.tensor([10.0, 0.0])
+        self.default_cov = 1e3 * torch.eye(2)
+        self.default_motion_noise = torch.eye(2) * torch.tensor([5e-1, 1e0])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
@@ -35,11 +35,11 @@ class Polar_Angle_Estimator(RecursiveEstimator):
     x[0]: target angle
     x[1]: target angle dot
     """
-    def __init__(self, device, id: str):
-        super().__init__(id, 2, device)
-        self.default_state = torch.tensor([0.1, 0.0], device=device)
-        self.default_cov = 1e3 * torch.eye(2, device=device)
-        self.default_motion_noise = torch.eye(2, device=device) * torch.tensor([1e-2, 1e-1], device=device)
+    def __init__(self, object_name:str="Target"):
+        super().__init__(f'Polar{object_name}Angle', 2)
+        self.default_state = torch.tensor([0.1, 0.0])
+        self.default_cov = 1e3 * torch.eye(2)
+        self.default_motion_noise = torch.eye(2) * torch.tensor([1e-2, 1e-1])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
@@ -54,31 +54,17 @@ class Polar_Angle_Estimator(RecursiveEstimator):
         ret_mean[0] = (x_mean[0] - u[3] * timestep + torch.pi) % (2 * torch.pi) - torch.pi
         ret_mean[1] = - u[3]
         return ret_mean, cov
-
-class Obstacle_Rad_Estimator(RecursiveEstimator):
-    """
-    Estimator for obstacle radius state x:
-    x[0]: obstacle radius
-    """
-    def __init__(self, device, id: str):
-        super().__init__(id, 1, device)
-        self.default_state = torch.tensor([1.0], device=device)
-        self.default_cov = 1e1 * torch.eye(1, device=device)
-        self.default_motion_noise = 1e-2 * torch.eye(1, device=device)
-
-    def forward_model(self, x_mean, cov: torch.Tensor, u):
-        return x_mean, cov
     
 class Target_Visibility_Estimator(RecursiveEstimator):
     """
     Estimator for target visibility state x:
     x[0]: target visibility
     """
-    def __init__(self, device, id: str):
-        super().__init__(id, 1, device)
-        self.default_state = torch.tensor([0.0], device=device)
-        self.default_cov = 0.1 * torch.eye(1, device=device)
-        self.default_motion_noise = 1e-3 * torch.eye(1, device=device)
+    def __init__(self, object_name:str="Target"):
+        super().__init__(f'{object_name}Visibility', 1)
+        self.default_state = torch.tensor([0.0])
+        self.default_cov = 0.1 * torch.eye(1)
+        self.default_motion_noise = 1e-3 * torch.eye(1)
 
     def forward_model(self, x_mean, cov: torch.Tensor, u):
         ret_mean = x_mean - 0.1
