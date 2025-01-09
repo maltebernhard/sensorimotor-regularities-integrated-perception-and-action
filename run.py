@@ -20,7 +20,7 @@ if __name__ == "__main__":
         
     }
 
-    aicon_type = 8
+    aicon_type = 7
 
     # --------------------- config ---------------------
 
@@ -60,4 +60,7 @@ if __name__ == "__main__":
     # --------------------- run ---------------------
 
     analysis = Analysis(type=aicon_types[aicon_type], env_config=env_config, experiment_config=experiment_config)
+
+    #analysis.aicon.visualize_graph()
+
     analysis.run()

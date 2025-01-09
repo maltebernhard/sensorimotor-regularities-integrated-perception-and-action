@@ -6,6 +6,8 @@ from torch.func import jacrev
 from abc import ABC, abstractmethod
 from typing import Dict, List
 
+import matplotlib.pyplot as plt
+import networkx as nx
 import yaml
 
 from components.estimator import Observation, RecursiveEstimator
@@ -369,3 +371,76 @@ class DroneEnvAICON(AICON):
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
+    
+
+    def visualize_graph(self):
+        G = nx.DiGraph()
+
+        pos = {}
+        ai_nodes=[]
+        estimator_nodes=[]
+        measurement_model_nodes=[]
+        observation_nodes=[]
+
+        # Add nodes and edges for Active Interconnections
+        for ai_key, ai in self.AIs.items():
+            ai_node = f"AI_{ai_key}"
+            ai_nodes.append(ai_node)
+            G.add_node(ai_node, shape='o', color='red')
+            for estimator in ai.connected_states.values():
+                estimator_node = f"RE_{estimator.id}"
+                if estimator_node not in G:
+                    G.add_node(estimator_node, shape='s', color='blue')
+                    pos[estimator_node] = (len(estimator_nodes), 2)
+                    estimator_nodes.append(estimator_node)
+                G.add_edge(estimator_node, ai_node)
+            pos[ai_node] = (sum([pos[f'RE_{est}'][0] for est in [state.id for state in ai.connected_states.values()]])/len(ai.connected_states), 3)
+
+        # Add nodes and edges for Measurement Models
+        for mm_key, mm in self.MMs.items():
+            mm_node = f"MM_{mm_key}"
+            G.add_node(mm_node, shape='o', color='green')
+            measurement_model_nodes.append(mm_node)
+            estimator_node = f"RE_{mm.estimator_id}"
+            if estimator_node not in G:
+                G.add_node(estimator_node, shape='s', color='blue')
+                estimator_nodes.append(estimator_node)
+            pos[mm_node] = (pos[estimator_node][0], 1)
+            G.add_edge(estimator_node, mm_node)
+            for observation in mm.connected_states.values():
+                observation_node = f"OBS_{observation.id}"
+                if observation_node not in G:
+                    G.add_node(observation_node, shape='^', color='orange')
+                    observation_nodes.append(observation_node)
+                G.add_edge(observation_node, mm_node)
+        
+        min = 0
+        max = 0
+        for p in pos.values():
+            if p[0] > max:
+                max = p[0]
+        for i,obs in enumerate(observation_nodes):
+            pos[obs] = ((min+max-len(observation_nodes))/2+i, 0)
+
+        # x_spacing = 1.0
+        # # Position estimator and AI nodes at the top
+        # for i, node in enumerate(estimator_nodes + ai_nodes):
+        #     pos[node] = (i * x_spacing, 2)
+        # # Position measurement model nodes in the middle
+        # for i, node in enumerate(measurement_model_nodes):
+        #     pos[node] = (i * x_spacing, 1)
+        # # Position observation nodes at the bottom
+        # for i, node in enumerate(observation_nodes):
+        #     pos[node] = (i * x_spacing, 0)
+
+        print(pos)
+
+        shapes = nx.get_node_attributes(G, 'shape')
+        colors = nx.get_node_attributes(G, 'color')
+
+        for shape in set(shapes.values()):
+            nx.draw_networkx_nodes(G, pos, nodelist=[sNode for sNode in shapes if shapes[sNode] == shape], node_shape=shape, node_color=[colors[sNode] for sNode in shapes if shapes[sNode] == shape])
+        nx.draw_networkx_edges(G, pos)
+        nx.draw_networkx_labels(G, pos)
+
+        plt.show()
