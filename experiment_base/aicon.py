@@ -57,7 +57,7 @@ class BaseAICON(AICON):
         return buffer_dict
 
     def compute_action(self, gradients):
-            decay = 0.9
+            decay = 0.98
             return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     
     def print_states(self, buffer_dict=None):

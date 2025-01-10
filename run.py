@@ -45,15 +45,14 @@ if __name__ == "__main__":
     }
 
     experiment_config = {
-        "num_runs":         1,
-        "num_steps":        2000,
+        "num_runs":         10,
+        "num_steps":        200,
         "initial_action":   [0.0, 0.0, 0.0],
         "seed":             1,
-        #"seed":             60,
-        "render":           True,
-        "prints":           1,
+        "render":           False,
+        "prints":           100,
         "step_by_step":     False,
-        "record_data":      False,
+        "record_data":      True,
     }
 
     # --------------------- run ---------------------

@@ -73,26 +73,25 @@ class AICONLogger:
     # TODO: tkinter plotting UI
 
     @staticmethod
-    def compute_mean_and_variance(data) -> Tuple[np.ndarray, np.ndarray]:
+    def compute_mean_and_stddev(data) -> Tuple[np.ndarray, np.ndarray]:
         data_array = np.array(data)
         mean = np.mean(data_array, axis=0)
-        variance = np.var(data_array, axis=0)
-        return mean, variance
+        stddev = np.std(data_array, axis=0)
+        return mean, stddev
 
-    def plot_mean_variance(self, subplot, label:str, plot_type:str, error_means:np.ndarray, error_variances:np.ndarray):
+    def plot_mean_stddev(self, subplot: plt.Axes, label: str, plot_type: str, error_means: np.ndarray, error_stddevs: np.ndarray):
         subplot.plot(error_means, label=f'{label} Mean')
         subplot.fill_between(
             range(len(error_means)), 
-            error_means - error_variances,
-            error_means + error_variances,
-            alpha=0.2, label=f'{label} Variance'
+            error_means - error_stddevs,
+            error_means + error_stddevs,
+            alpha=0.2, label=f'{label} Stddev'
         )
         subplot.set_title(f'{plot_type} for {label}')
         subplot.set_xlabel('Time Step')
         subplot.set_ylabel(plot_type)
         subplot.grid()
         subplot.legend()
-
 
     def plot_state(self, reality_id:str, offset:list=None, indices:List[int]=None, save_path:str=None):
         errors = [[] for _ in range(len(self.data))]
@@ -114,16 +113,16 @@ class AICONLogger:
                 errors[i].append(error)
         
         errors = np.array(errors)
-        error_means, error_variances = self.compute_mean_and_variance(errors)
+        error_means, error_stddevs = self.compute_mean_and_stddev(errors)
         
         if reality_id == "PolarTargetPos":
             fig, axs = plt.subplots(1, 2, figsize=(14, 6))
-            self.plot_mean_variance(axs[0], "Distance", "Goal Error", error_means[:,0], error_variances[:,0])
-            self.plot_mean_variance(axs[1], "Angle", "Goal Error", error_means[:,1], error_variances[:,1])
+            self.plot_mean_stddev(axs[0], "Distance", "Goal Error", error_means[:,0], error_stddevs[:,0])
+            self.plot_mean_stddev(axs[1], "Angle", "Goal Error", error_means[:,1], error_stddevs[:,1])
         else:
             fig, axs = plt.subplots(1, 1, figsize=(14, 6))
             for i in range(len(indices)):
-                self.plot_mean_variance(axs, f"{reality_id} {indices[i]}", "Goal Error", error_means[:,i], error_variances[:,i])
+                self.plot_mean_stddev(axs, f"{reality_id} {indices[i]}", "Goal Error", error_means[:,i], error_stddevs[:,i])
 
         if save_path is not None:
             if not save_path.endswith('/'):
@@ -146,8 +145,8 @@ class AICONLogger:
 
         errors = np.array(errors)
         error_norms = np.array(error_norms)
-        error_means, error_variances = self.compute_mean_and_variance(errors)
-        norm_means, norm_variances = self.compute_mean_and_variance(error_norms)
+        error_means, error_stddevs = self.compute_mean_and_stddev(errors)
+        norm_means, norm_stddevs = self.compute_mean_and_stddev(error_norms)
 
         plt.figure(figsize=(14, 6))
 
@@ -159,9 +158,9 @@ class AICONLogger:
                 plt.plot(error_means[:, index], label=f"{label} Mean")
                 plt.fill_between(
                     range(len(error_means)), 
-                    error_means[:, index] - error_variances[:, index], 
-                    error_means[:, index] + error_variances[:, index], 
-                    alpha=0.2, label=f"{label} Variance"
+                    error_means[:, index] - error_stddevs[:, index], 
+                    error_means[:, index] + error_stddevs[:, index], 
+                    alpha=0.2, label=f"{label} Stddev"
                 )
             plt.title(f'Estimation Error for {estimator_id}')
             plt.xlabel('Time step')
@@ -173,9 +172,9 @@ class AICONLogger:
             plt.plot(norm_means, label='Norm Mean')
             plt.fill_between(
                 range(len(norm_means)), 
-                norm_means - norm_variances, 
-                norm_means + norm_variances, 
-                alpha=0.2, label='Norm Variance'
+                norm_means - norm_stddevs, 
+                norm_means + norm_stddevs, 
+                alpha=0.2, label='Norm Stddev'
             )
             plt.title(f'Norm of Estimation Error for {estimator_id}')
             plt.xlabel('Time step')
@@ -188,18 +187,18 @@ class AICONLogger:
                 plt.plot(error_means, label='Error Mean')
                 plt.fill_between(
                     range(len(error_means)), 
-                    error_means - error_variances, 
-                    error_means + error_variances, 
-                    alpha=0.2, label='Error Variance'
+                    error_means - error_stddevs, 
+                    error_means + error_stddevs, 
+                    alpha=0.2, label='Error Stddevce'
                 )
             else:
                 index = value_indices.keys()[0]
                 plt.plot(error_means[index], label=f'{value_indices.values()[0]} Error Mean')
                 plt.fill_between(
                     range(len(error_means)), 
-                    error_means[index] - error_variances[index],
-                    error_means[index] + error_variances[index], 
-                    alpha=0.2, label=f'{value_indices.values()[0]} Error Variance'
+                    error_means[index] - error_stddevs[index],
+                    error_means[index] + error_stddevs[index], 
+                    alpha=0.2, label=f'{value_indices.values()[0]} Error Stddevce'
                 )
             plt.title(f'Estimation Error for {estimator_id}')
             plt.xlabel('Time step')

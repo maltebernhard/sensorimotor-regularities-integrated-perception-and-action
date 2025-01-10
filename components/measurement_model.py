@@ -22,7 +22,7 @@ class ImplicitMeasurementModel(Module):
                  outlier_rejection_enabled=False,
                  outlier_threshold=1.0,
                  regularize_kalman_gain=False,
-                 dtype=torch.float64) -> None:
+                 dtype=None) -> None:
         """
         Args: 
             state_dim: Dimension of the state this measurement model will be attached to
@@ -31,7 +31,7 @@ class ImplicitMeasurementModel(Module):
         """
         super().__init__()
         self.device = device if device is not None else torch.get_default_device()
-        self.dtype = dtype
+        self.dtype = dtype if dtype is not None else torch.get_default_dtype()
 
         self.required_states: List[str] = required_states
         self.connected_states: Dict[str, Type[State]] = None

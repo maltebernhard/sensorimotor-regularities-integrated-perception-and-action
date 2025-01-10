@@ -15,7 +15,8 @@ class State(Module):
         self.device = device
         self.dtype = dtype
 
-        self.update_uncertainty: torch.Tensor = 1e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
+        # TODO: figure out how to use this properly
+        self.update_uncertainty: torch.Tensor = 1e-2 * torch.eye(self.state_dim, dtype=dtype, device=device)
 
         self.register_buffer('state_mean', torch.zeros(self.state_dim, dtype=dtype))
         self.register_buffer('state_cov', torch.eye(self.state_dim, dtype=dtype))
