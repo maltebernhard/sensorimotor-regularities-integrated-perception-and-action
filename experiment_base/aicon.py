@@ -58,17 +58,18 @@ class BaseAICON(AICON):
 
     def compute_action(self, gradients):
             decay = 0.98
-            return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
+            return decay * self.last_action - 0.2 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+            #return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     
-    def print_states(self, buffer_dict=None):
+    def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()
         print("--------------------------------------------------------------------")
-        self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
+        self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
         rtf_vel = rotate_vector_2d(env_state["target_offset_angle"], torch.tensor([env_state["vel_frontal"], env_state["vel_lateral"]]))
         print(f"True Global TargetVel: [{env_state['target_distance_dot']+rtf_vel[0]:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}]")
         print("--------------------------------------------------------------------")
-        self.print_state("RobotVel", buffer_dict=buffer_dict) 
+        self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
         print("--------------------------------------------------------------------")
 

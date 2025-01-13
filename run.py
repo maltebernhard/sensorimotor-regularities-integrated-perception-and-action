@@ -45,7 +45,7 @@ if __name__ == "__main__":
     }
 
     experiment_config = {
-        "num_runs":         10,
+        "num_runs":         20,
         "num_steps":        200,
         "initial_action":   [0.0, 0.0, 0.0],
         "seed":             1,

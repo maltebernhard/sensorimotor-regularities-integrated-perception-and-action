@@ -121,22 +121,22 @@ class GeneralTestAICON(AICON):
         #     action[2] = 0.05 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
         return action
 
-    def print_states(self, buffer_dict=None):
+    def print_estimators(self, buffer_dict=None):
         """
         print filter and environment states for debugging
         """
-        self.print_state("TargetVisibility", print_cov=2)
+        self.print_estimator("TargetVisibility", print_cov=2)
         obs = self.env.get_state()
         print("--------------------------------------------------------------------")
-        self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
+        self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         # TODO: observations can be None now
         print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
         print("--------------------------------------------------------------------")
-        self.print_state("RobotVel", buffer_dict=buffer_dict) 
+        self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
         print("--------------------------------------------------------------------")
         if self.num_obstacles > 0:
-            [self.print_state(f"CartesianObstacle{i}Pos", print_cov=3) for i in range(1, self.num_obstacles + 1)]
+            [self.print_estimator(f"CartesianObstacle{i}Pos", print_cov=3) for i in range(1, self.num_obstacles + 1)]
             actual_radii = [self.env.obstacles[i-1].radius for i in range(1, self.num_obstacles + 1)]
             print(f"True Obstacle Radius: {[f'{x:.3f}' for x in actual_radii]}")
             print("--------------------------------------------------------------------")

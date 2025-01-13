@@ -53,7 +53,14 @@ class Analysis:
 
     # TODO: implement general version
     def plot(self):
-        self.aicon.logger.plot_estimation_error("PolarTargetPos", {"distance": 0, "offset_angle": 1}, save_path=self.aicon.record_dir)
-        self.aicon.logger.plot_state("PolarTargetPos", save_path=self.aicon.record_dir)
-        self.aicon.logger.plot_estimation_error("RobotVel", save_path=self.aicon.record_dir)
-        self.aicon.logger.plot_state("RobotVel", save_path=self.aicon.record_dir)
+
+        state_dict ={
+            "PolarTargetPos": ([0,1,2,3],["Distance","Angle","DistanceDot","AngleDot"]),
+            "RobotVel":       ([0,1,2],["Frontal","Lateral","Rot"]),
+        }
+
+        self.aicon.logger.plot(state_dict, save_path=self.aicon.record_dir)
+
+        # self.aicon.logger.plot_estimation_error("PolarTargetPos", {"distance": 0, "offset_angle": 1}, save_path=self.aicon.record_dir)
+        # self.aicon.logger.plot_states(state_dict, avg=False, save_path=self.aicon.record_dir)
+        # self.aicon.logger.plot_estimation_error("RobotVel", save_path=self.aicon.record_dir)

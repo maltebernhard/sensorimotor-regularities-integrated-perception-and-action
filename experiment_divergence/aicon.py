@@ -69,20 +69,20 @@ class DivergenceAICON(AICON):
         decay = 0.9
         return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     
-    def print_states(self, buffer_dict=None):
+    def print_estimators(self, buffer_dict=None):
         obs = self.env.get_state()
         print("--------------------------------------------------------------------")
-        self.print_state("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
+        self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         # TODO: observations can be None now
         print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
         print("--------------------------------------------------------------------")
-        self.print_state("RobotVel", buffer_dict=buffer_dict) 
+        self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")
         print("--------------------------------------------------------------------")
-        self.print_state("TargetRad", buffer_dict=buffer_dict, print_cov=2)
+        self.print_estimator("TargetRad", buffer_dict=buffer_dict, print_cov=2)
         print(f"True TargetRad: 1.0")
         print("--------------------------------------------------------------------")
-        self.print_state("TargetVisAngle", buffer_dict=buffer_dict)
+        self.print_estimator("TargetVisAngle", buffer_dict=buffer_dict)
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance

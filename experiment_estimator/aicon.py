@@ -65,10 +65,10 @@ class ContingentEstimatorAICON(AICON):
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
-    def print_states(self, buffer_dict=None):
+    def print_estimators(self, buffer_dict=None):
         obs = self.env.get_state()
         print("--------------------------------------------------------------------")
-        self.print_state("RobotState", buffer_dict=buffer_dict)
+        self.print_estimator("RobotState", buffer_dict=buffer_dict)
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)

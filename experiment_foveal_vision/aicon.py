@@ -76,17 +76,17 @@ class FovealVisionAICON(AICON):
         action = 0.9 * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
         return action
 
-    def print_states(self, print_cov=False):
+    def print_estimators(self, print_cov=False):
         """
         print filter and environment states for debugging
         """
         obs = self.env.get_state()
-        self.print_state("RobotVel", print_cov=print_cov)
+        self.print_estimator("RobotVel", print_cov=print_cov)
         actual_vel = list(self.env.robot.vel)
         actual_vel.append(self.env.robot.vel_rot)
         print(f"True Robot Vel: {[f'{x:.3f}' for x in actual_vel]}")
         # print("--------------------------------------------------------------------")
-        self.print_state("PolarTargetPos", print_cov=print_cov)
+        self.print_estimator("PolarTargetPos", print_cov=print_cov)
         actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
         angle = np.arctan2(actual_pos[1], actual_pos[0])
         dist = np.linalg.norm(actual_pos)

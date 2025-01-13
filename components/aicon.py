@@ -58,7 +58,7 @@ class AICON(ABC):
         self.reset(seed=env_seed, video_path=self.record_dir+f"/run{self.run_number}.mp4" if record_data else None)
         if prints > 0:
             print(f"============================ Initial State ================================")
-            self.print_states()
+            self.print_estimators()
         if initial_action is not None:
             self.last_action = initial_action
         if render:
@@ -73,7 +73,7 @@ class AICON(ABC):
                     step = step,
                     time = self.env.time,
                     estimators = {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()},
-                    reality = self.env.get_state(),
+                    env_state = self.env.get_state(),
                     observation = {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()}
                 )
             if step_by_step:
@@ -84,7 +84,7 @@ class AICON(ABC):
             step += 1
             if prints > 0 and step % prints == 0:
                 print(f"============================ Step {step} ================================")
-                self.print_states()
+                self.print_estimators()
         if render and record_data:
             self.env.reset()
 
@@ -203,7 +203,7 @@ class AICON(ABC):
                     print(" ", end="")
             self.print_vector(matrix[i], trail="," if i < matrix.shape[0] - 1 else "]", use_scientific=use_scientific)
 
-    def print_state(self, id, print_cov: bool = False, buffer_dict=None):
+    def print_estimator(self, id, print_cov: bool = False, buffer_dict=None):
         if buffer_dict is None:
             mean = self.REs[id].state_mean if id in self.REs.keys() else self.obs[id].state_mean
         else:
@@ -308,12 +308,12 @@ class AICON(ABC):
         """
         return self.last_action - 1.0 * self.get_steepest_gradient(gradients)
 
-    def print_states(self):
+    def print_estimators(self):
         """
         CAN be implemented by user, only necessary if "prints" option is used in run()
         """
         for estimator in self.REs.values():
-            self.print_state(estimator.id, print_cov=True)
+            self.print_estimator(estimator.id, print_cov=True)
     
     def get_meas_dict(self, meas_model: MeasurementModel):
         return {
