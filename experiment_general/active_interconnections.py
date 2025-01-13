@@ -69,17 +69,3 @@ class Triangulation_Visibility_AI(ActiveInterconnection):
             torch.atleast_1d(triangulated_distance - meas_dict[f'Polar{self.object_name}Pos'][0]) * meas_dict[f'{self.object_name}Visibility'],
             torch.atleast_1d(- rtf_vel[0] - meas_dict[f'Polar{self.object_name}Pos'][2]) * meas_dict[f'{self.object_name}Visibility'],
         ]).squeeze()
-
-# TODO: making these two estimators update each other is stupid, it seems
-class Cartesian_Polar_AI(ActiveInterconnection):
-    def __init__(self, object_name:str="Target") -> None:
-        self.object_name = object_name
-        required_estimators = [f'Polar{object_name}Pos', f'Cartesian{object_name}Pos']
-        super().__init__(required_estimators)
-
-    def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
-        return torch.stack([
-            meas_dict[f'Polar{self.object_name}Pos'][0] - meas_dict[f'Cartesian{self.object_name}Pos'][:2].norm(),
-            meas_dict[f'Polar{self.object_name}Pos'][1] - torch.atan2(meas_dict[f'Cartesian{self.object_name}Pos'][1], meas_dict[f'Cartesian{self.object_name}Pos'][0]),
-            #TODO: add derivatives
-        ]).squeeze()

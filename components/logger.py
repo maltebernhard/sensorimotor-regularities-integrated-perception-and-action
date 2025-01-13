@@ -95,7 +95,6 @@ class AICONLogger:
             if state_key == "PolarTargetGlobalPos":
                 # NOTE: this is only valid IF target moves and IF the estimator represents global target velocity
                 # TODO: implement for decoupled PolarTargetDistance and PolarTargetAngle, IF I plan to use them
-                # TODO: generalize: maybe this should be part of plotting func
                 rtf_vel = rotate_vector_2d(task_state[2], real_state["RobotVel"][:2])
                 task_state[2] += rtf_vel[0]
                 task_state[3] += real_state["RobotVel"][2]
@@ -265,7 +264,4 @@ class AICONLogger:
         serializable_data = convert_to_serializable(self.data)
         with open(os.path.join(record_dir, "records/data.yaml"), 'w') as f:
             f.write(yaml.dump(serializable_data))
-
-
-    # TODO: tkinter plotting UI
     

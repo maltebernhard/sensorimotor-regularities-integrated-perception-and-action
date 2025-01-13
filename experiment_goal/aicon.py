@@ -65,14 +65,10 @@ class ContingentGoalAICON(AICON):
             return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     
     def print_estimators(self, buffer_dict=None):
-        obs = self.env.get_state()
+        env_state = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
-        actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
-        angle = np.arctan2(actual_pos[1], actual_pos[0])
-        dist = np.linalg.norm(actual_pos)
-        # TODO: observations can be None now
-        print(f"True PolarTargetPos: [{dist:.3f}, {angle:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
+        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}, {env_state['target_radius']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")

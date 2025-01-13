@@ -110,7 +110,7 @@ class ImplicitMeasurementModel(Module):
     def implicit_measurement_model_eval_and_jac(self, x, meas_dict):
         """Override to implement own jacobian"""
         # NOTE this check works correctly in Python 3+ only
-        # TODO: This dosn't work with current ActiveInterconnection implementation
+        # NOTE: This dosn't work with current ActiveInterconnection implementation
         # assert meas_dict.keys() == self.meas_config.keys(), (
         #     'All measurements must be provided as mentioned in meas_config')
         jacobians, implicit_measurement_model_eval = jacrev(

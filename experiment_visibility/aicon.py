@@ -108,12 +108,11 @@ class VisibilityAICON(AICON):
         print filter and environment states for debugging
         """
         self.print_estimator("TargetVisibility", print_cov=2)
-        obs = self.env.get_state()
+        env_state = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_estimator("PolarTargetDistance", buffer_dict=buffer_dict, print_cov=2)
         self.print_estimator("PolarTargetAngle", buffer_dict=buffer_dict, print_cov=2)
-        # TODO: observations can be None now
-        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
+        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")

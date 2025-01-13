@@ -80,10 +80,9 @@ class ContingentInterconnectionAICON(AICON):
         return action
     
     def print_estimators(self, buffer_dict=None):
-        obs = self.env.get_state()
+        env_state = self.env.get_state()
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict)
-        # TODO: observations can be None now
-        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
+        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
         self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
         print("--------------------------------------------------------------------")

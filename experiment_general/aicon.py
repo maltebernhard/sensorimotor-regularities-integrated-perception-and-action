@@ -23,7 +23,6 @@ class GeneralTestAICON(AICON):
     def define_estimators(self):
         REs: Dict[str, RecursiveEstimator] = {
             "RobotVel":         Robot_Vel_Estimator_Vel() if self.vel_control else Robot_Vel_Estimator_Acc(),
-            # TODO: use this or nah?
             #"CartesianTargetPos": Cartesian_Pos_Estimator(self.device, "CartesianTargetPos"),
             "PolarTargetPos":   Polar_Pos_Estimator_Vel() if self.vel_control else Polar_Pos_Estimator_Acc(),
             "TargetVisibility": Visibility_Estimator(),
@@ -125,12 +124,12 @@ class GeneralTestAICON(AICON):
         """
         print filter and environment states for debugging
         """
+        env_state = self.env.get_state()
         self.print_estimator("TargetVisibility", print_cov=2)
-        obs = self.env.get_state()
+        print(f"True TargetVisibility: {'target_offset_angle' in self.env.get_observation().keys()}")
         print("--------------------------------------------------------------------")
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
-        # TODO: observations can be None now
-        print(f"True PolarTargetPos: [{obs['target_distance']:.3f}, {obs['target_offset_angle']:.3f}, {obs['target_distance_dot']:.3f}, {obs['target_offset_angle_dot']:.3f}]")
+        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
         print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
@@ -140,7 +139,6 @@ class GeneralTestAICON(AICON):
             actual_radii = [self.env.obstacles[i-1].radius for i in range(1, self.num_obstacles + 1)]
             print(f"True Obstacle Radius: {[f'{x:.3f}' for x in actual_radii]}")
             print("--------------------------------------------------------------------")
-        #print("====================================================================")
     
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance

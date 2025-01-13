@@ -16,7 +16,7 @@ class State(Module):
         self.dtype = dtype
 
         # TODO: figure out how to use this properly
-        self.update_uncertainty: torch.Tensor = 1e-2 * torch.eye(self.state_dim, dtype=dtype, device=device)
+        self.update_uncertainty: torch.Tensor = 0.0 * 1e-2 * torch.eye(self.state_dim, dtype=dtype, device=device)
 
         self.register_buffer('state_mean', torch.zeros(self.state_dim, dtype=dtype))
         self.register_buffer('state_cov', torch.eye(self.state_dim, dtype=dtype))
@@ -123,7 +123,7 @@ class RecursiveEstimator(ABC, State):
     def update_with_specific_meas(self, meas_dict,
                                   implicit_meas_model,
                                   custom_measurement_noise: Optional[Dict] = None):
-        #TODO: this doesn't work with current ActiveInterconnection implementation
+        #NOTE: this doesn't work with current ActiveInterconnection implementation
         # assert meas_dict.keys() == implicit_meas_model.meas_config.keys(), (
         #     f'All measurements must be provided as mentioned in {implicit_meas_model} meas_config')
         if custom_measurement_noise is not None:
@@ -147,16 +147,6 @@ class RecursiveEstimator(ABC, State):
         K_part_1 = torch.matmul(self.state_cov, H_t.t())
         K_part_1_2 = torch.matmul(H_t, K_part_1)
         K_part_2 = K_part_1_2 # K_part_2 will get additional terms below
-
-        # TODO: These are for debugging. Remove later
-        # if self.id == "PolarTargetPos":
-        #     print(f"---------- F_t_dict: ----------")
-        #     for key, value in F_t_dict.items():
-        #         print(f"{key}:\n{value}")
-        # print(f"H_t: {H_t}")
-        # print(f"State Cov: {self.state_cov}")
-        # print(f"K_part_1: {K_part_1}")
-        # print(f"K_part_1_2: {K_part_1_2}")
 
         for key in meas_dict.keys():
             if custom_measurement_noise is None:
@@ -210,10 +200,8 @@ class RecursiveEstimator(ABC, State):
         try:
             K_part_2_inv = torch.inverse(K_part_2)
         except RuntimeError as e:
-            # TODO convert this to log() instead of print()            
             print(f"WARN: {self.id} - Kalman update was not possible.")# as {e}. Filter should (normally) recover soon.")
             # HACK resetting covariances. Maybe a more systematic approach is warranted
-            # TODO: No update on current state - does this make sense?
             #self.set_state(torch.zeros_like(self.state[0]))
             return
 
@@ -221,7 +209,6 @@ class RecursiveEstimator(ABC, State):
 
         kalman_gain = torch.atleast_2d(kalman_gain) # in case state is 1D
 
-        # TODO: Write down WHY MINUS instead of PLUS
         innovation = -residual
 
         innovation = torch.atleast_1d(innovation)

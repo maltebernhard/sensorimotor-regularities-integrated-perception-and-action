@@ -66,23 +66,10 @@ class ContingentEstimatorAICON(AICON):
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     def print_estimators(self, buffer_dict=None):
-        obs = self.env.get_state()
+        env_state = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_estimator("RobotState", buffer_dict=buffer_dict)
-        actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
-        angle = np.arctan2(actual_pos[1], actual_pos[0])
-        dist = np.linalg.norm(actual_pos)
-        # TODO: observations can be None now
-        #print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot']]]}")
-        print(f"True Polar Target Position: {[f'{x:.3f}' for x in [dist, angle]]}")
-        actual_state = [self.env.robot.vel[0], self.env.robot.vel[1], self.env.robot.vel_rot]
-        actual_pos = self.env.rotation_matrix(-self.env.robot.orientation) @ (self.env.target.pos - self.env.robot.pos)
-        angle = np.arctan2(actual_pos[1], actual_pos[0])
-        dist = np.linalg.norm(actual_pos)
-        # TODO: observations can be None now
-        #actual_state += [dist, angle, obs['target_distance_dot'], obs['target_offset_angle_dot']]
-        actual_state += [dist, angle]
-        print(f"True State: {actual_state}")
+        print(f"True State: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}, {env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}, {env_state['target_radius']:.3f}")
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):

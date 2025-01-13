@@ -583,7 +583,6 @@ class GazeFixEnv(BaseEnv):
 
         self.render_grid()
         if reward_render_mode == 1 and self.reward_margin < 20.0:
-            # TODO: deal better with reward and penalty margins
             # draw target reward margin
             self.transparent_circle(self.target.pos, self.target.distance+self.reward_margin, GREEN)
         # draw target distance
@@ -599,7 +598,6 @@ class GazeFixEnv(BaseEnv):
         if self.use_obstacles:
             for o in self.obstacles:
                 pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
-                # TODO: deal better with reward and penalty margins
                 if reward_render_mode == 1 and self.penalty_margin < 20.0:
                     self.transparent_circle(o.pos, o.radius+self.penalty_margin, RED)
 

@@ -202,7 +202,7 @@ class AICON(ABC):
                     print(" ", end="")
             self.print_vector(matrix[i], trail="," if i < matrix.shape[0] - 1 else "]", use_scientific=use_scientific)
 
-    def print_estimator(self, id, print_cov: bool = False, buffer_dict=None):
+    def print_estimator(self, id, print_cov:bool=False, buffer_dict=None):
         if buffer_dict is None:
             mean = self.REs[id].state_mean if id in self.REs.keys() else self.obs[id].state_mean
         else:
@@ -214,7 +214,7 @@ class AICON(ABC):
             else:
                 cov = buffer_dict[id]["state_cov"]
             if type(print_cov) == int and print_cov == 2:
-                self.print_vector(cov.diag(), id + " Cov")
+                self.print_vector(torch.sqrt(cov.diag()), id + " UCT")
             else:
                 self.print_matrix(cov, f"{id} Cov")
 
