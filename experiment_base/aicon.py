@@ -21,7 +21,7 @@ class BaseAICON(AICON):
     def define_estimators(self):
         estimators = {
             "RobotVel":         Robot_Vel_Estimator_Vel(),
-            "PolarTargetPos":   Polar_Pos_Estimator_Vel(),
+            "PolarTargetGlobalPos":   Polar_Pos_Estimator_Vel(),
         }
         return estimators
 
@@ -47,12 +47,12 @@ class BaseAICON(AICON):
         u = self.get_control_input(action)
 
         self.REs["RobotVel"].call_predict(u, buffer_dict)
-        self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
+        self.REs["PolarTargetGlobalPos"].call_predict(u, buffer_dict)
 
         if new_step:
             self.meas_updates(buffer_dict)
         
-        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
+        self.REs["PolarTargetGlobalPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         
         return buffer_dict
 
@@ -64,8 +64,8 @@ class BaseAICON(AICON):
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()
         print("--------------------------------------------------------------------")
-        self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
-        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
+        self.print_estimator("PolarTargetGlobalPos", buffer_dict=buffer_dict, print_cov=2)
+        print(f"True PolarTargetGlobalPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
         rtf_vel = rotate_vector_2d(env_state["target_offset_angle"], torch.tensor([env_state["vel_frontal"], env_state["vel_lateral"]]))
         print(f"True Global TargetVel: [{env_state['target_distance_dot']+rtf_vel[0]:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}]")
         print("--------------------------------------------------------------------")

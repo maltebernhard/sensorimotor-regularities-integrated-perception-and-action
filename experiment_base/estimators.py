@@ -7,13 +7,13 @@ from components.helpers import rotate_vector_2d
 class Polar_Pos_Estimator_Vel(RecursiveEstimator):
     """
     Estimator for Target state x:
-    x[0]: target distance
-    x[1]: target offset angle
-    x[2]: del target distance
-    x[3]: del target offset angle
+    x[0]: target distance (robot frame)
+    x[1]: target offset angle (robot frame)
+    x[2]: radial vel (global frame)
+    x[3]: angular vel (global frame)
     """
     def __init__(self, object_name:str="Target"):
-        super().__init__(f'Polar{object_name}Pos', 4)
+        super().__init__(f'Polar{object_name}GlobalPos', 4)
         self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0])
         self.default_cov = 1e3 * torch.eye(4)
         self.default_motion_noise = torch.eye(4) * torch.tensor([1e0, 1e0, 1e0, 1e0])

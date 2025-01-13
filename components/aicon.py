@@ -36,9 +36,8 @@ class AICON(ABC):
         self.goals: Dict[str, Goal] = self.define_goals()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
         self.run_number = 0
-        self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.type}"
 
-    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_data:bool=False):
+    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_path:str=None):
         """
         Runs AICON on the environment for a given number of timesteps
         Args:
@@ -55,7 +54,7 @@ class AICON(ABC):
         assert self.goals is not None, "Goals not set"
         self.run_number += 1
         print(f"==================== AICON RUN NUMBER: {self.run_number} ======================")
-        self.reset(seed=env_seed, video_path=self.record_dir+f"/run{self.run_number}.mp4" if record_data else None)
+        self.reset(seed=env_seed, video_path=record_path+f"/records/run{self.run_number}.mp4" if record_path is not None else None)
         if prints > 0:
             print(f"============================ Initial State ================================")
             self.print_estimators()
@@ -68,13 +67,14 @@ class AICON(ABC):
             action = self.compute_action(action_gradients)
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
-            if record_data:
+            if record_path is not None:
                 self.logger.log(
                     step = step,
                     time = self.env.time,
-                    estimators = {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()},
+                    estimators = self.get_buffer_dict(),
                     env_state = self.env.get_state(),
-                    observation = {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()}
+                    observation = {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()},
+                    goal_loss = {key: goal.loss_function_from_buffer(self.get_buffer_dict()) for key, goal in self.goals.items()},
                 )
             if step_by_step:
                 input("Press Enter to continue...")
@@ -85,8 +85,7 @@ class AICON(ABC):
             if prints > 0 and step % prints == 0:
                 print(f"============================ Step {step} ================================")
                 self.print_estimators()
-        if render and record_data:
-            self.env.reset()
+        self.env.reset()
 
     def step(self, action):
         if action[:2].norm() > 1.0:
@@ -126,7 +125,7 @@ class AICON(ABC):
                     time = self.env.time
                 )
 
-    def _eval_goal_with_aux(self, action, goal):
+    def _eval_goal_with_aux(self, action: torch.Tensor, goal: Goal):
         buffer_dict = self.eval_step(action, new_step=False)
         loss = goal.loss_function_from_buffer(buffer_dict)
         return loss, loss
@@ -227,14 +226,6 @@ class AICON(ABC):
         self.update_observations()
         self.custom_reset()
 
-    def save(self):
-        self.logger.save(self.record_dir)
-
-    def load(self, file):
-        folder = os.path.dirname(file)
-        self.record_dir = folder
-        self.logger.load(file)
-
     def meas_updates(self, buffer_dict):
         for model_key, meas_model in self.MMs.items():
             meas_dict = self.get_meas_dict(self.MMs[model_key])
@@ -296,6 +287,12 @@ class AICON(ABC):
         """
         raise NotImplementedError
     
+    def render(self):
+        """
+        CAN be implemented by user. Renders the environment
+        """
+        return self.env.render()
+
     def custom_reset(self):
         """
         CAN be implemented by user. Custom reset function
@@ -321,6 +318,9 @@ class AICON(ABC):
             "covs": {key: obs.state_cov for key, obs in meas_model.connected_states.items() if obs.updated}
         }
     
+    def get_buffer_dict(self):
+        return {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()}
+    
 class DroneEnvAICON(AICON):
     def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0, timestep=0.05, observation_noise={}):
         self.moving_target = moving_target
@@ -342,11 +342,6 @@ class DroneEnvAICON(AICON):
             self.env_config["timestep"] = self.timestep
             self.env_config["observation_noise"] = self.config_observation_noise
         return GazeFixEnv(self.env_config)
-    
-    def save(self):
-        self.logger.save(self.record_dir)
-        with open(os.path.join(self.record_dir, 'env_config.yaml'), 'w') as file:
-            yaml.dump(self.env_config, file)
 
     def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):
         mean = torch.stack([
@@ -373,7 +368,7 @@ class DroneEnvAICON(AICON):
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
     
 
-    def visualize_graph(self):
+    def visualize_graph(self, save_path=None, show:bool=False):
         G = nx.DiGraph()
 
         pos = {}
@@ -393,7 +388,7 @@ class DroneEnvAICON(AICON):
                     G.add_node(estimator_node, shape='s', color='blue')
                     pos[estimator_node] = (len(estimator_nodes), 2)
                     estimator_nodes.append(estimator_node)
-                G.add_edge(estimator_node, ai_node)
+                G.add_edge(ai_node, estimator_node)
             pos[ai_node] = (sum([pos[f'RE_{est}'][0] for est in [state.id for state in ai.connected_states.values()]])/len(ai.connected_states), 3)
 
         # Add nodes and edges for Measurement Models
@@ -406,7 +401,7 @@ class DroneEnvAICON(AICON):
                 G.add_node(estimator_node, shape='s', color='blue')
                 estimator_nodes.append(estimator_node)
             pos[mm_node] = (pos[estimator_node][0], 1)
-            G.add_edge(estimator_node, mm_node)
+            G.add_edge(mm_node, estimator_node)
             for observation in mm.connected_states.values():
                 observation_node = f"OBS_{observation.id}"
                 if observation_node not in G:
@@ -427,8 +422,13 @@ class DroneEnvAICON(AICON):
         colors = nx.get_node_attributes(G, 'color')
 
         for shape in set(shapes.values()):
-            nx.draw_networkx_nodes(G, pos, nodelist=[sNode for sNode in shapes if shapes[sNode] == shape], node_shape=shape, node_color=[colors[sNode] for sNode in shapes if shapes[sNode] == shape])
+            nx.draw_networkx_nodes(G, pos, nodelist=[sNode for sNode in shapes if shapes[sNode] == shape], node_shape=shape, node_color=[colors[sNode] for sNode in shapes if shapes[sNode] == shape], node_size=500)
         nx.draw_networkx_edges(G, pos)
-        nx.draw_networkx_labels(G, pos)
-
-        plt.show()
+        nx.draw_networkx_labels(G, pos, font_size=8)
+        if save_path is not None:
+            if not save_path.endswith('/'):
+                    save_path += '/'
+            plt.savefig(save_path + "aicon_graph.png")
+        if show:
+            plt.show()
+            input("Press Enter to continue...")

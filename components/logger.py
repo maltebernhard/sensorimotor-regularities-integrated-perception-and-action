@@ -16,11 +16,42 @@ class AICONLogger:
 
     # ======================================== logging ==========================================
 
-    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]]):
+    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,torch.Tensor]):
+        # for new run, set up logging dict
+        if self.run not in self.data:
+            self.data[self.run] = {
+                "step":             [],     # time step
+                "time":             [],     # time in seconds
+                "estimators": {estimator_key: {
+                    "state_mean":   [],     # mean of state estimate
+                    "state_cov":    [],     # covariance of state estimate
+                    "uncertainty":  [],     # uncertainty of state estimate: sqrt(diag(covariance))
+                    "motion_noise": np.array(estimators[estimator_key]["forward_noise"].tolist()),     # static estimator motion noise
+                } for estimator_key in estimators.keys()},
+                "observation": {obs_key: {
+                    "measurement":  [],     # measurement
+                    "noise":        [],     # noise
+                } for obs_key in observation.keys()},
+                "env_state": {
+                    state_key:      []      # real state
+                for state_key in estimators.keys()},
+                "task_state": {
+                    state_key:      []      # task state: real state with subtracted offsets (like desired target distance)
+                for state_key in estimators.keys()},
+                "estimation_error": {
+                    state_key:      []      # estimation error: estimation - real state
+                for state_key in estimators.keys()},
+                "goal_loss": {
+                    goal_key:       []      # goal loss function value
+                for goal_key in goal_loss.keys()},
+                "desired_distance": env_state["desired_target_distance"],
+            }
+
+        # extract real state from env_state, matching to estimator structure
         real_state = {}
         for key in estimators.keys():
             if key[:5] == "Polar" and key[-3:] == "Pos":
-                obj = key[5:-3].lower()
+                obj = key[5:-9].lower() if "Global" in key else key[5:-3].lower()
                 real_state[key] = np.array([
                     env_state[f"{obj}_distance"],
                     env_state[f"{obj}_offset_angle"],
@@ -48,33 +79,46 @@ class AICONLogger:
                     env_state[f"{obj}_radius"]
                 ])
 
-        if self.run not in self.data:
-            self.data[self.run] = {
-                "data": [],
-                "desired_distance": env_state["desired_target_distance"],
-                # more run information, like num obstacles?
-            }
-
-        self.data[self.run]["data"].append({
-            "step": step,
-            "time": time,
-            "estimators": {
-                estimator_key: {
-                    "state_mean":   np.array(estimators[estimator_key]["state_mean"].tolist()),
-                    "state_cov":    np.array(estimators[estimator_key]["state_cov"].tolist()),
-                    "motion_noise": np.array(estimators[estimator_key]["forward_noise"].tolist()),
-                } for estimator_key in estimators.keys()
-            },
-            "observation": {
-                key: {
-                    "measurement":  val["measurement"],
-                    "noise":        val["noise"],
-                } for key, val in observation.items()
-            },
-            "env_state": real_state
-        })
+        # log data
+        self.data[self.run]["step"].append(step)
+        self.data[self.run]["time"].append(time)
+        for state_key in estimators.keys():
+            # log estimator values
+            estimator_mean = np.array(estimators[state_key]["state_mean"].tolist())
+            estimator_cov = np.array(estimators[state_key]["state_cov"].tolist())
+            self.data[self.run]["estimators"][state_key]["state_mean"].append(estimator_mean)
+            self.data[self.run]["estimators"][state_key]["state_cov"].append(estimator_cov)
+            self.data[self.run]["estimators"][state_key]["uncertainty"].append(np.sqrt(np.diag(estimator_cov)))
+            # log env_state
+            self.data[self.run]["env_state"][state_key].append(real_state[state_key])
+            task_state = real_state[state_key]
+            if state_key == "PolarTargetGlobalPos":
+                # NOTE: this is only valid IF target moves and IF the estimator represents global target velocity
+                # TODO: implement for decoupled PolarTargetDistance and PolarTargetAngle, IF I plan to use them
+                # TODO: generalize: maybe this should be part of plotting func
+                rtf_vel = rotate_vector_2d(task_state[2], real_state["RobotVel"][:2])
+                task_state[2] += rtf_vel[0]
+                task_state[3] += real_state["RobotVel"][2]
+            self.data[self.run]["estimation_error"][state_key].append(task_state - estimator_mean)
+            if state_key in ["PolarTargetPos", "PolarTargetGlobalPos", "PolarTargetDistance"]:
+                task_state[0] -= self.data[self.run]["desired_distance"]
+            self.data[self.run]["task_state"][state_key].append(task_state)
+        for obs_key in observation.keys():
+            self.data[self.run]["observation"][obs_key]["measurement"].append(observation[obs_key]["measurement"])
+            self.data[self.run]["observation"][obs_key]["noise"].append(observation[obs_key]["noise"])
+        for goal_key in goal_loss.keys():
+            self.data[self.run]["goal_loss"][goal_key].append(np.array(goal_loss[goal_key].tolist()))
 
     # ======================================= plotting ==========================================
+
+    @staticmethod
+    def convert_to_numpy(obj):
+        if isinstance(obj, list):
+            return np.array(obj)
+        elif isinstance(obj, dict):
+            return {k: AICONLogger.convert_to_numpy(v) for k, v in obj.items()}
+        else:
+            return obj
 
     @staticmethod
     def compute_mean_and_stddev(data) -> Tuple[np.ndarray, np.ndarray]:
@@ -93,230 +137,114 @@ class AICONLogger:
             axs = [axs]
         return fig, axs
 
-    def plot_mean_stddev(self, subplot: plt.Axes, label: str, plot_type: str, error_means: np.ndarray, error_stddevs: np.ndarray):
-        subplot.plot(error_means, label=f'{label} Mean')
+    def plot_mean_stddev(self, subplot: plt.Axes, error_means: np.ndarray, error_stddevs: np.ndarray, title:str=None, y_label:str=None, x_label:str=None, legend=False):
+        subplot.plot(error_means, label='Mean')
         subplot.fill_between(
             range(len(error_means)), 
             error_means - error_stddevs,
             error_means + error_stddevs,
-            alpha=0.2, label=f'{label} Stddev'
+            alpha=0.2, label='Stddev'
         )
-        subplot.set_title(f'{plot_type} for {label}')
-        subplot.set_xlabel('Time Step')
-        subplot.set_ylabel(plot_type)
+        if title is not None:
+            subplot.set_title(title)
+        if x_label is not None:
+            subplot.set_xlabel(x_label)
+        if y_label is not None:
+            subplot.set_ylabel(y_label)
         subplot.grid()
-        subplot.legend()
+        subplot.legend() if legend else None
 
-    def plot_runs(self, subplot: plt.Axes, state_index:int, label:str, plot_type:str, data:List[np.ndarray]):
-        for run_state in data:
-            subplot.plot(run_state[:, state_index])
-        subplot.set_title(f'{plot_type} for {label}')
-        subplot.set_xlabel('Time Step')
-        subplot.set_ylabel(plot_type)
+    def plot_runs(self, subplot: plt.Axes, data:List[np.ndarray], state_index:int=None, title:str=None, y_label:str=None, x_label:str=None, legend=False):
+        if state_index is None:
+            for i, run in enumerate(data):
+                subplot.plot(run[:], label=f'{i}')
+        else:
+            for i, run in enumerate(data):
+                subplot.plot(run[:, state_index], label=f'{i+1}')
+        if title is not None:
+            subplot.set_title(title)
+        if x_label is not None:
+            subplot.set_xlabel(x_label)
+        if y_label is not None:
+            subplot.set_ylabel(y_label)
         subplot.grid()
-        subplot.legend()
+        subplot.legend() if legend else None
 
-    def plot_states(self, state_dict:Dict[str,Tuple[List[int],List[str]]], avg=True, save_path:str=None):
-        """
-        Example state_dict:
-        {
-            "PolarTargetPos": ([0,1],["Distance","Angle"])
-            "RobotVel":       ([0,1,2],["Frontal","Lateral","Rot"])
-        }
-        """
+    def save_fig(self, fig:plt.Figure, save_path:str=None, show:bool=False):
+        if save_path is not None:
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            fig.savefig(save_path)
+        if show:
+            fig.show()
+            input("Press Enter to continue...")
+        plt.close('all')
+
+    def plot_states(self, state_dict:Dict[str,Tuple[List[int],List[str]]], save_path:str=None, show:bool=False):
+        figure = 0
         for state_id, config in state_dict.items():
-            states = [[] for _ in range(len(self.data))]
-            indices = config[0]
+            indices = np.array(config[0])
             labels = config[1]
 
-            for i, run in enumerate(self.data.values()):
-                for entry in run["data"]:
-                    state = entry["env_state"][state_id][indices]
-                    # subtract desired distance from target distance
-                    if state_id in ["PolarTargetPos", "PolarTargetDistance"] and 0 in indices:
-                        state[indices.index(0)] -= run["desired_distance"]
-                    # make sure angles are positive
-                    # for idx in [i for i, label in enumerate(labels) if "Angle" in label]:
-                    #     state[idx] = abs(state[idx])
-                    states[i].append(state)
-
-            fig, axs = self.create_subplots(len(indices))
-
-            if avg:
-                error_means, error_stddevs = self.compute_mean_and_stddev(np.array(states))
-                for i in range(len(indices)):
-                    self.plot_mean_stddev(axs[i], f"{state_id} {labels[i]}", "Goal Error", error_means[:, i], error_stddevs[:, i])
-            else:
-                for i in range(len(indices)):
-                    self.plot_runs(axs[i], i, f"{state_id} {labels[i]}", "Goal Error", np.array(states))
-
-            if save_path is not None:
-                if not save_path.endswith('/'):
-                    save_path += '/'
-                os.makedirs(save_path, exist_ok=True)
-                fig.savefig(save_path + f"goal_error_{state_id}.png")
-            else:
-                plt.show()
-
-    def plot(self, state_dict:Dict[str,Tuple[List[int],List[str]]], save_path:str=None):
-        for state_id, config in state_dict.items():
-            # initialize lists for plotting
-            states = [[] for _ in range(len(self.data))]
-            #estimates = [[] for _ in range(len(self.data))]
-            uncertainties = [[] for _ in range(len(self.data))]
-            errors = [[] for _ in range(len(self.data))]
-            indices = config[0]
-            labels = config[1]
-            # fill lists for plotting
-            for i, run in enumerate(self.data.values()):
-                for entry in run["data"]:
-                    estimate = entry["estimators"][state_id]["state_mean"][indices]
-                    #estimates.append(estimate)
-                    uncertainties[i].append(np.sqrt(np.diag(entry["estimators"][state_id]["state_cov"])[indices]))
-                    state = entry["env_state"][state_id][indices]
-                    if state_id == "PolarTargetPos":
-                        # NOTE: this is only valid if the estimator represents global target velocity
-                        if 2 in indices:
-                            rtf_vel = rotate_vector_2d(entry["env_state"][state_id][2], entry["env_state"]["RobotVel"][:2])
-                            state[indices.index(2)] += rtf_vel[0]
-                        if 3 in indices:
-                            state[indices.index(3)] += entry["env_state"]["RobotVel"][2]
-                    # TODO: the same might get relevant for decoupled PolarTargetDistance and PolarTargetAngle, but not for now
-                    errors[i].append(estimate-state)
-                    if state_id in ["PolarTargetPos", "PolarTargetDistance"]:
-                        if 0 in indices:
-                            state[indices.index(0)] -= run["desired_distance"]
-                    states[i].append(state)
+            states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.data.values()])
+            ucttys = np.array([run["estimators"][state_id]["uncertainty"][:,indices] for run in self.data.values()])
+            errors = np.array([run["estimation_error"][state_id][:,indices] for run in self.data.values()])
 
             # PLOT:
             # - state (goal error)
             # - estimation error: estimation - state
             # - uncertainty
+            figure += 1
             fig_avg, axs_avg = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
             fig_runs, axs_runs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
-            state_means, state_stddevs = self.compute_mean_and_stddev(np.array(states))
-            est_error_means, est_error_stddevs = self.compute_mean_and_stddev(np.array(errors))
-            uncertainty_means, uncertainty_stddevs = self.compute_mean_and_stddev(np.array(uncertainties))
-            for i in range(len(indices)):
-                self.plot_mean_stddev(axs_avg[0][i], f"{state_id} {labels[i]}", "State", state_means[:, i], state_stddevs[:, i])
-                self.plot_mean_stddev(axs_avg[1][i], f"{state_id} {labels[i]}", "Estimation Error", est_error_means[:, i], est_error_stddevs[:, i])
-                self.plot_mean_stddev(axs_avg[2][i], f"{state_id} {labels[i]}", "Estimation Uncertainty", uncertainty_means[:, i], uncertainty_stddevs[:, i])
-                self.plot_runs(axs_runs[0][i], i, f"{state_id} {labels[i]}", "State", np.array(states))
-                self.plot_runs(axs_runs[1][i], i, f"{state_id} {labels[i]}", "Estimation Error", np.array(errors))
-                self.plot_runs(axs_runs[2][i], i, f"{state_id} {labels[i]}", "Estimation Uncertainty", np.array(uncertainties))
-
-
-            # save that sheeeeeet
-            if save_path is not None:
-                if not save_path.endswith('/'):
-                    save_path += '/'
-                os.makedirs(save_path, exist_ok=True)
-                fig_avg.savefig(save_path + f"avg_{state_id}.png")
-                fig_runs.savefig(save_path + f"runs_{state_id}.png")
-            else:
-                fig_avg.show()
-                fig_runs.show()
             
+            state_means, state_stddevs = self.compute_mean_and_stddev(states)
+            error_means, error_stddevs = self.compute_mean_and_stddev(np.array(errors))
+            uctty_means, uctty_stddevs = self.compute_mean_and_stddev(np.array(ucttys))
+            for i in range(len(indices)):
+                self.plot_mean_stddev(axs_avg[0][i], state_means[:, i], state_stddevs[:, i], f"{state_id} {labels[i]}", "State" if i==0 else None, None, i==0)
+                self.plot_mean_stddev(axs_avg[1][i], error_means[:, i], error_stddevs[:, i], None, "Estimation Error" if i==0 else None, None)
+                self.plot_mean_stddev(axs_avg[2][i], uctty_means[:, i], uctty_stddevs[:, i], None, "Estimation Uncertainty" if i==0 else None, "Time Step")    
+                self.plot_runs(axs_runs[0][i], np.array(states), i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, i==0)
+                self.plot_runs(axs_runs[1][i], np.array(errors), i, None, "Estimation Error" if i==0 else None, None)
+                self.plot_runs(axs_runs[2][i], np.array(ucttys), i, None, "Estimation Uncertainty" if i==0 else None, "Time Step")
+                if state_id in ["PolarTargetPos", "PolarTargetGlobalPos"]:
+                    if indices[i] in [0,2]:
+                        axs_avg[2][i].set_ylim(0, 10)
+                        axs_runs[2][i].set_ylim(0, 10)
+                    elif indices[i] in [1,3]:
+                        axs_avg[2][i].set_ylim(0, 0.5)
+                        axs_runs[2][i].set_ylim(0, 0.5)
+            axs_runs[0][0].legend()
 
-    def plot_estimation_error(self, estimator_id:str, value_indices:Dict[int,str]=None, save_path:str=None):
-        errors = [[] for _ in range(len(self.data))]
-        error_norms = [[] for _ in range(len(self.data))]
+            # save / show
+            avg_path = os.path.join(save_path, f"records/{state_id}_avg.png") if save_path is not None else None
+            runs_path = os.path.join(save_path, f"records/{state_id}_runs.png") if save_path is not None else None
+            self.save_fig(fig_avg, avg_path, show)
+            self.save_fig(fig_runs, runs_path, show)
 
-        for i, run in enumerate(self.data.values()):
-            for entry in run["data"]:
-                error = entry["estimators"][estimator_id]["state_mean"] - entry["env_state"][estimator_id]
-                errors[i].append(error)
-                error_norms[i].append(np.linalg.norm(error).item())
-
-        errors = np.array(errors)
-        error_norms = np.array(error_norms)
-        error_means, error_stddevs = self.compute_mean_and_stddev(errors)
-        norm_means, norm_stddevs = self.compute_mean_and_stddev(error_norms)
-
-        plt.figure(figsize=(14, 6))
-
-        if error_means.shape[1] > 1 and (value_indices is None or len(value_indices) > 1):
-            plt.subplot(1, 2, 1)
-            indices = value_indices.values() if value_indices else range(error_means.shape[1])
-            labels = value_indices.keys() if value_indices else [f"State {i}" for i in range(error_means.shape[1])]
-            for index, label in zip(indices, labels):
-                plt.plot(error_means[:, index], label=f"{label} Mean")
-                plt.fill_between(
-                    range(len(error_means)), 
-                    error_means[:, index] - error_stddevs[:, index], 
-                    error_means[:, index] + error_stddevs[:, index], 
-                    alpha=0.2, label=f"{label} Stddev"
-                )
-            plt.title(f'Estimation Error for {estimator_id}')
-            plt.xlabel('Time step')
-            plt.ylabel('Error')
-            plt.grid()
-            plt.legend()
-
-            plt.subplot(1, 2, 2)
-            plt.plot(norm_means, label='Norm Mean')
-            plt.fill_between(
-                range(len(norm_means)), 
-                norm_means - norm_stddevs, 
-                norm_means + norm_stddevs, 
-                alpha=0.2, label='Norm Stddev'
-            )
-            plt.title(f'Norm of Estimation Error for {estimator_id}')
-            plt.xlabel('Time step')
-            plt.ylabel('Norm of Error')
-            plt.grid()
-            plt.legend()
-
-        else:
-            if value_indices is None:
-                plt.plot(error_means, label='Error Mean')
-                plt.fill_between(
-                    range(len(error_means)), 
-                    error_means - error_stddevs, 
-                    error_means + error_stddevs, 
-                    alpha=0.2, label='Error Stddevce'
-                )
-            else:
-                index = value_indices.keys()[0]
-                plt.plot(error_means[index], label=f'{value_indices.values()[0]} Error Mean')
-                plt.fill_between(
-                    range(len(error_means)), 
-                    error_means[index] - error_stddevs[index],
-                    error_means[index] + error_stddevs[index], 
-                    alpha=0.2, label=f'{value_indices.values()[0]} Error Stddevce'
-                )
-            plt.title(f'Estimation Error for {estimator_id}')
-            plt.xlabel('Time step')
-            plt.ylabel('Error')
-            plt.grid()
-            plt.legend()
-
-        if save_path is not None:
-            if not save_path.endswith('/'):
-                save_path += '/'
-            os.makedirs(save_path, exist_ok=True)
-            plt.savefig(save_path+f"/estimation_error_{estimator_id}.png")
-        else:
-            plt.show()
+    def plot_goal_losses(self, save_path:str=None, show:bool=False):
+        # Plot goal losses
+        goal_losses = {goal_key: np.array([run["goal_loss"][goal_key] for run in self.data.values()]) for goal_key in self.data[1]["goal_loss"].keys()}
+        fig_goal, axs_goal = plt.subplots(2, len(goal_losses), figsize=(12, 10*len(goal_losses)))
+        if len(goal_losses) == 1:
+            axs_goal = [[axs_goal[0]], [axs_goal[1]]]
+        for i, (goal_key, losses) in enumerate(goal_losses.items()):
+            goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(losses)
+            self.plot_mean_stddev(axs_goal[0][i], goal_loss_means, goal_loss_stddevs, f"Goal Loss for {goal_key}", "Loss Mean and Stddev", None)
+            self.plot_runs(axs_goal[1][i], losses, None, None, "Loss", "Time Step")
+            axs_goal[0][i].set_ylim(0, 500)
+            axs_goal[1][i].set_ylim(0, 500)
+        # save / show
+        loss_path = os.path.join(save_path, "records/goal_losses.png") if save_path is not None else None
+        self.save_fig(fig_goal, loss_path, show)
+        
 
     # ================================ saving & loading ================================
 
     def load(self, file):
-        def convert_to_numpy(obj):
-            if isinstance(obj, list):
-                return np.array(obj)
-            elif isinstance(obj, dict):
-                return {k: convert_to_numpy(v) for k, v in obj.items()}
-            else:
-                return obj
-
         with open(file, 'r') as f:
             loaded_data = yaml.safe_load(f)
-
-        self.data = {int(k): {
-            "desired_distance": v["desired_distance"],
-            "data": [convert_to_numpy(item) for item in v["data"]]
-        } for k, v in loaded_data.items()}
+        self.data = self.convert_to_numpy(loaded_data)
         print(f"Loaded {len(self.data)} runs")
 
     def save(self, record_dir):
@@ -333,10 +261,9 @@ class AICONLogger:
                 return obj.item()
             else:
                 return obj
-
+        self.data = self.convert_to_numpy(self.data)
         serializable_data = convert_to_serializable(self.data)
-        os.makedirs(record_dir, exist_ok=True)
-        with open(os.path.join(record_dir, "data.yaml"), 'w') as f:
+        with open(os.path.join(record_dir, "records/data.yaml"), 'w') as f:
             f.write(yaml.dump(serializable_data))
 
 
