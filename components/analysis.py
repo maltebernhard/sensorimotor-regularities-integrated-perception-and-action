@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import sys
 from typing import Dict, List, Tuple, Type
 import torch
 from tqdm import tqdm
@@ -29,6 +30,7 @@ class Runner:
         self.initial_action = run_config['initial_action']
 
         self.render = run_config['render']
+        self.video_record_path = None
         self.prints = run_config['prints']
         self.step_by_step = run_config['step_by_step']
         
@@ -49,6 +51,7 @@ class Runner:
             prints=self.prints,
             step_by_step=self.step_by_step,
             logger=self.logger,
+            video_path=self.video_record_path,
         )
     
     def select_aicon_type(self, typestring:str):
@@ -82,18 +85,18 @@ class Analysis:
         self.observation_loss_config: List[Dict[str,Tuple[float,float]]] = experiment_config["observation_loss_config"]
         
         self.logger = AICONLogger()
-        self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
+        self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}/"
 
     def run_analysis(self):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
         total_runs = len(self.aicon_type_config) * len(self.sensor_noise_config) * len(self.moving_target_config) * len(self.observation_loss_config) * self.num_runs
-        with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar:
+        with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar, \
+             tqdm.external_write_mode(file=sys.stdout):
             for aicon_type in self.aicon_type_config:
                 for sensor_noise in self.sensor_noise_config:
                     for moving_target in self.moving_target_config:
                         for observation_loss in self.observation_loss_config:
-                            # TODO: maybe observation_loss tuples can't be configured in logger
                             self.logger.set_config(aicon_type, sensor_noise, moving_target, observation_loss)
                             env_config = self.base_env_config.copy()
                             env_config["observation_noise"] = sensor_noise
@@ -102,6 +105,11 @@ class Analysis:
 
                             runner = Runner(aicon_type, self.base_run_config, env_config, self.logger)
                             for run in range(self.num_runs):
+                                if run == self.num_runs-1:
+                                    runner.render = True
+                                    video_path = self.record_dir + f"/records/{self.logger.get_config_id("aicon_types",aicon_type)}_{self.logger.get_config_id("sensor_noises",sensor_noise)}_{self.logger.get_config_id("target_movements",moving_target)}_{self.logger.get_config_id("observation_losses",observation_loss)}.mp4"
+                                    print(f"Recording video to {video_path}")
+                                    runner.video_record_path = video_path
                                 runner.run()
                                 pbar.update(1)
             self.visualize_graph(aicon=runner.aicon, save=True, show=False)

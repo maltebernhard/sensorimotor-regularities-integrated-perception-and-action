@@ -49,12 +49,6 @@ class ContingentGoalAICON(AICON):
 
         if new_step:
             self.meas_updates(buffer_dict)
-            # self.REs["RobotVel"].call_update_with_meas_model(self.MMs["VelMM"], buffer_dict, self.get_meas_dict(self.MMs["VelMM"]))
-            # meas_dict = self.get_meas_dict(self.MMs["AngleMeasMM"])
-            # if len(meas_dict["means"]) == len(self.MMs["AngleMeasMM"].observations):
-            #     self.REs["PolarTargetPos"].call_update_with_meas_model(self.MMs["AngleMeasMM"], buffer_dict, meas_dict)
-            # else:
-            #     print("No angle measurement.")
         
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         

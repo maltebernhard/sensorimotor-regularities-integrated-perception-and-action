@@ -2,12 +2,10 @@ from typing import Dict, List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import yaml
 import pickle
 import os
 
 from components.helpers import rotate_vector_2d
-from tqdm import tqdm
 
 # ==================================================================================
 
@@ -54,7 +52,8 @@ class AICONLogger:
         }
         self.run = 0
 
-    def assign_id(self, target_dict: Dict[str,str], target_value):
+    def get_config_id(self, target_config: str, target_value):
+        target_dict = self.data["configs"][target_config]
         if len(target_dict) > 0:
             if target_value not in target_dict.values():
                 new_id = max([key_int for key_int in target_dict.keys()]) + 1
@@ -63,14 +62,14 @@ class AICONLogger:
             else:
                 return [key_int for key_int, value in target_dict.items() if value == target_value][0]
         else:
-            target_dict[0] = target_value
+            target_dict[1] = target_value
             return 1
 
     def set_config(self, aicon_type: str, sensor_noise: Dict[str,float], target_movement: str, observation_loss: Dict[str,float]):
-        self.aicon_type = self.assign_id(self.data["configs"]["aicon_types"], aicon_type)
-        self.sensor_noise = self.assign_id(self.data["configs"]["sensor_noises"], sensor_noise)
-        self.target_movement = self.assign_id(self.data["configs"]["target_movements"], target_movement)
-        self.observation_loss = self.assign_id(self.data["configs"]["observation_losses"], observation_loss)
+        self.aicon_type = self.get_config_id("aicon_types", aicon_type)
+        self.sensor_noise = self.get_config_id("sensor_noises", sensor_noise)
+        self.target_movement = self.get_config_id("target_movements", target_movement)
+        self.observation_loss = self.get_config_id("observation_losses", observation_loss)
 
         self.config = (self.aicon_type, (self.sensor_noise, self.target_movement, self.observation_loss))
         self.data["records"][self.config] = {}
@@ -206,7 +205,8 @@ class AICONLogger:
             range(len(error_means)), 
             error_means - error_stddevs,
             error_means + error_stddevs,
-            alpha=0.2, label='Stddev'
+            alpha=0.2,
+            #label='Stddev'
         )
         if title is not None:
             subplot.set_title(title)
@@ -242,24 +242,21 @@ class AICONLogger:
             input("Press Enter to continue...")
         plt.close('all')
 
-    def plot_states(self, state_dict:Dict[str,Tuple[List[int],List[str]]], save_path:str=None, show:bool=False):
-        figure = 0
-        for state_id, config in state_dict.items():
+    def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str]]]], save_path:str=None, show:bool=False):
+        for state_id, config in plotting_config["states"].items():
             indices = np.array(config[0])
             labels = config[1]
-
-            states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.current_data.values()])
-            ucttys = np.array([np.array(run["estimators"][state_id]["uncertainty"])[:,indices] for run in self.current_data.values()])
-            errors = np.array([np.array(run["estimation_error"][state_id])[:,indices] for run in self.current_data.values()])
+            fig_avg, axs_avg = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
+            fig_runs, axs_runs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
 
             # PLOT:
             # - state (goal error)
             # - estimation error: estimation - state
             # - uncertainty
-            figure += 1
-            fig_avg, axs_avg = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
-            fig_runs, axs_runs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
-            
+            states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.current_data.values()])
+            ucttys = np.array([np.array(run["estimators"][state_id]["uncertainty"])[:,indices] for run in self.current_data.values()])
+            errors = np.array([np.array(run["estimation_error"][state_id])[:,indices] for run in self.current_data.values()])
+
             state_means, state_stddevs = self.compute_mean_and_stddev(states)
             error_means, error_stddevs = self.compute_mean_and_stddev(np.array(errors))
             uctty_means, uctty_stddevs = self.compute_mean_and_stddev(np.array(ucttys))

@@ -52,20 +52,12 @@ class FovealVisionAICON(AICON):
         self.REs["RobotVel"].call_predict(u, buffer_dict)
         self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
 
-        print("------------------- Post Predict -------------------")
-        print(buffer_dict['PolarTargetPos']['state_mean'])
-        print(buffer_dict['PolarTargetPos']['state_cov'])
-
         # ----------------------------- active interconnections -------------------------------------
         
         if new_step:
             self.meas_updates(buffer_dict)
 
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["PolarDistance"], buffer_dict)
-
-        print("------------------- Post Update -------------------")
-        print(buffer_dict['PolarTargetPos']['state_mean'])
-        print(buffer_dict['PolarTargetPos']['state_cov'])
 
         # ----------------------------- measurements -------------------------------------
 

@@ -80,10 +80,10 @@ double_loss = {
 if __name__ == "__main__":
     # --------------------- config ---------------------
 
-    #aicon_type_config = [2, 3, 4, 5]
-    aicon_type_config = [2]
-    observation_noise_config = [small_noise, large_noise]
-    #observation_noise_config = [small_noise]
+    aicon_type_config = [2, 3, 4, 5]
+    #aicon_type_config = [2]
+    #observation_noise_config = [small_noise, large_noise]
+    observation_noise_config = [small_noise]
     moving_target_config = ["false"]
     observation_loss_config = [{}]
 
@@ -92,8 +92,7 @@ if __name__ == "__main__":
     use_observation_loss = False
 
     experiment_config = {
-        "num_runs":                2,
-        "num_steps":               10,
+        "num_runs":                10,
         "initial_action":          [0.0, 0.0, 0.0],
         "base_env_config":         base_env_config,
         "base_run_config":         base_run_config,
@@ -104,12 +103,18 @@ if __name__ == "__main__":
     }
 
     plotting_config = {
-        "PolarTargetPos": [[0,1,2,3], ["Distance","Angle","DistanceDot","AngleDot"]],
+        "states": {
+            "PolarTargetPos": [[0,1,2,3], ["Distance","Angle","DistanceDot","AngleDot"]],
+        },
+        "aicon_types": [],
+        "moving_target": [],
+        "sensor_noise": [],
+        "observation_loss": [],
     }
 
     # --------------------- run ---------------------
 
     analysis = Analysis(experiment_config)
     analysis.run_analysis()
-    analysis.plot_states(plotting_config, save=True, show=False)
-    analysis.plot_goal_losses(save=True, show=False)
+    # analysis.plot_states(plotting_config, save=True, show=False)
+    # analysis.plot_goal_losses(save=True, show=False)

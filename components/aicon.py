@@ -36,7 +36,7 @@ class AICON(ABC):
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
         self.run_number = 0
 
-    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, logger:AICONLogger=None):
+    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, logger:AICONLogger=None, video_path=None):
         """
         Runs AICON on the environment for a given number of timesteps
         Args:
@@ -53,7 +53,7 @@ class AICON(ABC):
         assert self.goals is not None, "Goals not set"
         self.run_number += 1
         print(f"==================== AICON RUN NUMBER: {self.run_number} ======================")
-        self.reset(seed=env_seed, video_path=logger.record_path+f"/records/run{self.run_number}.mp4" if (render and (logger is not None)) else None)
+        self.reset(seed=env_seed, video_path=video_path)
         if prints > 0:
             print(f"============================ Initial State ================================")
             self.print_estimators()
