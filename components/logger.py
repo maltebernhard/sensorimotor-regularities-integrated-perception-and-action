@@ -3,23 +3,85 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import yaml
+import pickle
 import os
 
 from components.helpers import rotate_vector_2d
+from tqdm import tqdm
 
 # ==================================================================================
 
 class AICONLogger:
     def __init__(self):
-        self.data: Dict[int,dict] = {}
+        """
+        Initializes the logger with default values for task variation, AICON type, and data storage.
+
+        Attributes:
+            task_variation (str): The type of task variation. Possible values include:
+                - "SensorNoise"
+                    - "Lvl0"
+                    - "Lvl1"
+                    - "Lvl2"
+                - "TargetMovement"
+                    - "None"
+                    - "RunAway"
+                    - "Sine"
+                    - "Linear"
+                - "ObservationLoss"
+                    - "0Sec"
+                    - "3Sec"
+                    - "5Sec"
+            aicon_type (str): The type of AICON. Possible values:
+                - "Control"
+                - "Goal"
+                - "FovealVision"
+                - "Interconnection"
+                - "Divergence"
+            data (Dict[int, dict]): A dictionary to store data, where the key is an integer and the value is another dictionary.
+            run (int): The current run number, initialized to 0.
+        """
+        self.task_variation: Tuple[int,int,int] = None
+        self.aicon_type: int = None
+        self.config = (None, None)
+        self.data: Dict[Tuple[int,Tuple[int,int,int]], Dict[int,dict]] = {
+            "records": {},
+            "configs": {
+                "aicon_types":        {},
+                "sensor_noises":      {},
+                "target_movements":   {},
+                "observation_losses": {},
+            },
+        }
         self.run = 0
+
+    def assign_id(self, target_dict: Dict[str,str], target_value):
+        if len(target_dict) > 0:
+            if target_value not in target_dict.values():
+                new_id = max([key_int for key_int in target_dict.keys()]) + 1
+                target_dict[new_id] = target_value
+                return new_id
+            else:
+                return [key_int for key_int, value in target_dict.items() if value == target_value][0]
+        else:
+            target_dict[0] = target_value
+            return 1
+
+    def set_config(self, aicon_type: str, sensor_noise: Dict[str,float], target_movement: str, observation_loss: Dict[str,float]):
+        self.aicon_type = self.assign_id(self.data["configs"]["aicon_types"], aicon_type)
+        self.sensor_noise = self.assign_id(self.data["configs"]["sensor_noises"], sensor_noise)
+        self.target_movement = self.assign_id(self.data["configs"]["target_movements"], target_movement)
+        self.observation_loss = self.assign_id(self.data["configs"]["observation_losses"], observation_loss)
+
+        self.config = (self.aicon_type, (self.sensor_noise, self.target_movement, self.observation_loss))
+        self.data["records"][self.config] = {}
+        self.current_data = self.data["records"][self.config]
 
     # ======================================== logging ==========================================
 
     def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,torch.Tensor]):
         # for new run, set up logging dict
-        if self.run not in self.data:
-            self.data[self.run] = {
+        if self.run not in self.current_data:
+            self.current_data[self.run] = {
                 "step":             [],     # time step
                 "time":             [],     # time in seconds
                 "estimators": {estimator_key: {
@@ -80,17 +142,19 @@ class AICONLogger:
                 ])
 
         # log data
-        self.data[self.run]["step"].append(step)
-        self.data[self.run]["time"].append(time)
+        self.current_data[self.run]["step"].append(step)
+        self.current_data[self.run]["time"].append(time)
         for state_key in estimators.keys():
             # log estimator values
             estimator_mean = np.array(estimators[state_key]["state_mean"].tolist())
             estimator_cov = np.array(estimators[state_key]["state_cov"].tolist())
-            self.data[self.run]["estimators"][state_key]["state_mean"].append(estimator_mean)
-            self.data[self.run]["estimators"][state_key]["state_cov"].append(estimator_cov)
-            self.data[self.run]["estimators"][state_key]["uncertainty"].append(np.sqrt(np.diag(estimator_cov)))
+            self.current_data[self.run]["estimators"][state_key]["state_mean"].append(estimator_mean)
+            self.current_data[self.run]["estimators"][state_key]["state_cov"].append(estimator_cov)
+            # TODO: remove this hack once noise is always on
+            estimator_cov[estimator_cov < 0] = 0
+            self.current_data[self.run]["estimators"][state_key]["uncertainty"].append(np.sqrt(np.diag(estimator_cov)))
             # log env_state
-            self.data[self.run]["env_state"][state_key].append(real_state[state_key])
+            self.current_data[self.run]["env_state"][state_key].append(real_state[state_key])
             task_state = real_state[state_key]
             if state_key == "PolarTargetGlobalPos":
                 # NOTE: this is only valid IF target moves and IF the estimator represents global target velocity
@@ -98,15 +162,15 @@ class AICONLogger:
                 rtf_vel = rotate_vector_2d(task_state[2], real_state["RobotVel"][:2])
                 task_state[2] += rtf_vel[0]
                 task_state[3] += real_state["RobotVel"][2]
-            self.data[self.run]["estimation_error"][state_key].append(task_state - estimator_mean)
+            self.current_data[self.run]["estimation_error"][state_key].append(task_state - estimator_mean)
             if state_key in ["PolarTargetPos", "PolarTargetGlobalPos", "PolarTargetDistance"]:
-                task_state[0] -= self.data[self.run]["desired_distance"]
-            self.data[self.run]["task_state"][state_key].append(task_state)
+                task_state[0] -= self.current_data[self.run]["desired_distance"]
+            self.current_data[self.run]["task_state"][state_key].append(task_state)
         for obs_key in observation.keys():
-            self.data[self.run]["observation"][obs_key]["measurement"].append(observation[obs_key]["measurement"])
-            self.data[self.run]["observation"][obs_key]["noise"].append(observation[obs_key]["noise"])
+            self.current_data[self.run]["observation"][obs_key]["measurement"].append(observation[obs_key]["measurement"])
+            self.current_data[self.run]["observation"][obs_key]["noise"].append(observation[obs_key]["noise"])
         for goal_key in goal_loss.keys():
-            self.data[self.run]["goal_loss"][goal_key].append(np.array(goal_loss[goal_key].tolist()))
+            self.current_data[self.run]["goal_loss"][goal_key].append(np.array(goal_loss[goal_key].tolist()))
 
     # ======================================= plotting ==========================================
 
@@ -184,9 +248,9 @@ class AICONLogger:
             indices = np.array(config[0])
             labels = config[1]
 
-            states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.data.values()])
-            ucttys = np.array([run["estimators"][state_id]["uncertainty"][:,indices] for run in self.data.values()])
-            errors = np.array([run["estimation_error"][state_id][:,indices] for run in self.data.values()])
+            states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.current_data.values()])
+            ucttys = np.array([np.array(run["estimators"][state_id]["uncertainty"])[:,indices] for run in self.current_data.values()])
+            errors = np.array([np.array(run["estimation_error"][state_id])[:,indices] for run in self.current_data.values()])
 
             # PLOT:
             # - state (goal error)
@@ -223,7 +287,7 @@ class AICONLogger:
 
     def plot_goal_losses(self, save_path:str=None, show:bool=False):
         # Plot goal losses
-        goal_losses = {goal_key: np.array([run["goal_loss"][goal_key] for run in self.data.values()]) for goal_key in self.data[1]["goal_loss"].keys()}
+        goal_losses = {goal_key: np.array([run["goal_loss"][goal_key] for run in self.current_data.values()]) for goal_key in self.current_data[1]["goal_loss"].keys()}
         fig_goal, axs_goal = plt.subplots(2, len(goal_losses), figsize=(12, 10*len(goal_losses)))
         if len(goal_losses) == 1:
             axs_goal = [[axs_goal[0]], [axs_goal[1]]]
@@ -240,28 +304,12 @@ class AICONLogger:
 
     # ================================ saving & loading ================================
 
-    def load(self, file):
-        with open(file, 'r') as f:
-            loaded_data = yaml.safe_load(f)
-        self.data = self.convert_to_numpy(loaded_data)
-        print(f"Loaded {len(self.data)} runs")
-
     def save(self, record_dir):
-        def convert_to_serializable(obj):
-            # if isinstance(obj, torch.Tensor):
-            #     return obj.tolist()
-            if isinstance(obj, dict):
-                return {k: convert_to_serializable(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [convert_to_serializable(i) for i in obj]
-            elif isinstance(obj, np.ndarray):
-                return obj.tolist()
-            elif isinstance(obj, np.generic):
-                return obj.item()
-            else:
-                return obj
         self.data = self.convert_to_numpy(self.data)
-        serializable_data = convert_to_serializable(self.data)
-        with open(os.path.join(record_dir, "records/data.yaml"), 'w') as f:
-            f.write(yaml.dump(serializable_data))
+        with open(os.path.join(record_dir, "records/data.pkl"), 'wb') as f:
+            pickle.dump(self.data, f)
+
+    def load(self, folder):
+        with open(os.path.join(folder, 'records/data.pkl'), 'rb') as f:
+            self.data = pickle.load(f)
     

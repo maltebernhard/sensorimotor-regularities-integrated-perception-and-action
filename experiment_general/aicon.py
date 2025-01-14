@@ -18,7 +18,7 @@ from experiment_general.measurement_models import Visibility_MM
 class GeneralTestAICON(AICON):
     def __init__(self, env_config):
         self.type = "GeneralTest"
-        super().__init__(**env_config)
+        super().__init__(env_config)
 
     def define_estimators(self):
         REs: Dict[str, RecursiveEstimator] = {

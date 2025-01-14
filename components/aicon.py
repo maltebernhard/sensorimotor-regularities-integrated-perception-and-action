@@ -26,7 +26,6 @@ class AICON(ABC):
         self.dtype = torch.float64
         torch.set_default_device(self.device)
         torch.set_default_dtype(self.dtype)
-        self.logger = AICONLogger()
         self.env: GazeFixEnv = self.define_env()
         self.REs: Dict[str, RecursiveEstimator] = self.define_estimators()
         self.MMs: Dict[str, MeasurementModel] = self.define_measurement_models()
@@ -37,7 +36,7 @@ class AICON(ABC):
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
         self.run_number = 0
 
-    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, record_path:str=None):
+    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, logger:AICONLogger=None):
         """
         Runs AICON on the environment for a given number of timesteps
         Args:
@@ -54,7 +53,7 @@ class AICON(ABC):
         assert self.goals is not None, "Goals not set"
         self.run_number += 1
         print(f"==================== AICON RUN NUMBER: {self.run_number} ======================")
-        self.reset(seed=env_seed, video_path=record_path+f"/records/run{self.run_number}.mp4" if record_path is not None else None)
+        self.reset(seed=env_seed, video_path=logger.record_path+f"/records/run{self.run_number}.mp4" if (render and (logger is not None)) else None)
         if prints > 0:
             print(f"============================ Initial State ================================")
             self.print_estimators()
@@ -67,8 +66,8 @@ class AICON(ABC):
             action = self.compute_action(action_gradients)
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
-            if record_path is not None:
-                self.logger.log(
+            if logger is not None:
+                logger.log(
                     step = step,
                     time = self.env.time,
                     estimators = self.get_buffer_dict(),
@@ -222,7 +221,6 @@ class AICON(ABC):
         for estimator in self.REs.values():
             estimator.reset()
         obs, _ = self.env.reset(seed, video_path)
-        self.logger.run = self.run_number
         self.update_observations()
         self.custom_reset()
 
@@ -234,6 +232,71 @@ class AICON(ABC):
             else:
                 #print(f"Missing measurements for {model_key}")
                 pass
+
+    def visualize_graph(self, save_path=None, show:bool=False):
+        G = nx.DiGraph()
+
+        pos = {}
+        ai_nodes=[]
+        estimator_nodes=[]
+        measurement_model_nodes=[]
+        observation_nodes=[]
+
+        # Add nodes and edges for Active Interconnections
+        for ai_key, ai in self.AIs.items():
+            ai_node = f"AI_{ai_key}"
+            ai_nodes.append(ai_node)
+            G.add_node(ai_node, shape='o', color='red')
+            for estimator in ai.connected_states.values():
+                estimator_node = f"RE_{estimator.id}"
+                if estimator_node not in G:
+                    G.add_node(estimator_node, shape='s', color='blue')
+                    pos[estimator_node] = (len(estimator_nodes), 2)
+                    estimator_nodes.append(estimator_node)
+                G.add_edge(ai_node, estimator_node)
+            pos[ai_node] = (sum([pos[f'RE_{est}'][0] for est in [state.id for state in ai.connected_states.values()]])/len(ai.connected_states), 3)
+
+        # Add nodes and edges for Measurement Models
+        for mm_key, mm in self.MMs.items():
+            mm_node = f"MM_{mm_key}"
+            G.add_node(mm_node, shape='o', color='green')
+            measurement_model_nodes.append(mm_node)
+            estimator_node = f"RE_{mm.estimator_id}"
+            if estimator_node not in G:
+                G.add_node(estimator_node, shape='s', color='blue')
+                estimator_nodes.append(estimator_node)
+            pos[mm_node] = (pos[estimator_node][0], 1)
+            G.add_edge(mm_node, estimator_node)
+            for observation in mm.connected_states.values():
+                observation_node = f"OBS_{observation.id}"
+                if observation_node not in G:
+                    G.add_node(observation_node, shape='^', color='orange')
+                    observation_nodes.append(observation_node)
+                G.add_edge(observation_node, mm_node)
+        
+        # set x spacing for observation nodes
+        min = 0
+        max = 0
+        for p in pos.values():
+            if p[0] > max:
+                max = p[0]
+        for i,obs in enumerate(observation_nodes):
+            pos[obs] = ((min+max-len(observation_nodes))/2+i, 0)
+
+        shapes = nx.get_node_attributes(G, 'shape')
+        colors = nx.get_node_attributes(G, 'color')
+
+        for shape in set(shapes.values()):
+            nx.draw_networkx_nodes(G, pos, nodelist=[sNode for sNode in shapes if shapes[sNode] == shape], node_shape=shape, node_color=[colors[sNode] for sNode in shapes if shapes[sNode] == shape], node_size=500)
+        nx.draw_networkx_edges(G, pos)
+        nx.draw_networkx_labels(G, pos, font_size=8)
+        if save_path is not None:
+            if not save_path.endswith('/'):
+                    save_path += '/'
+            plt.savefig(save_path + f"{self.type}_graph.png")
+        if show:
+            plt.show()
+            input("Press Enter to continue...")
 
     @abstractmethod
     def define_env(self) -> BaseEnv:
@@ -322,13 +385,22 @@ class AICON(ABC):
         return {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()}
     
 class DroneEnvAICON(AICON):
-    def __init__(self, vel_control=True, moving_target=False, sensor_angle_deg=360, num_obstacles=0, timestep=0.05, observation_noise={}):
-        self.moving_target = moving_target
-        self.vel_control = vel_control
-        self.sensor_angle_deg = sensor_angle_deg
-        self.num_obstacles = num_obstacles
-        self.timestep = timestep
-        self.config_observation_noise = observation_noise
+    def __init__(self, env_config:dict={
+        "vel_control": True,
+        "moving_target": False,
+        "sensor_angle_deg": 360,
+        "num_obstacles": 0,
+        "timestep": 0.05,
+        "observation_noise": {},
+        "observation_loss": {}
+    }):
+        self.moving_target = env_config["moving_target"]
+        self.vel_control = env_config["vel_control"]
+        self.sensor_angle_deg = env_config["sensor_angle_deg"]
+        self.num_obstacles = env_config["num_obstacles"]
+        self.timestep = env_config["timestep"]
+        self.config_observation_noise = env_config["observation_noise"]
+        self.config_observation_loss = env_config["observation_loss"]
         super().__init__()
 
     def define_env(self):
@@ -341,6 +413,7 @@ class DroneEnvAICON(AICON):
             self.env_config["robot_sensor_angle"] = self.sensor_angle_deg / 180 * np.pi
             self.env_config["timestep"] = self.timestep
             self.env_config["observation_noise"] = self.config_observation_noise
+            self.env_config["observation_loss"] = self.config_observation_loss
         return GazeFixEnv(self.env_config)
 
     def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):
@@ -366,69 +439,3 @@ class DroneEnvAICON(AICON):
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
-    
-
-    def visualize_graph(self, save_path=None, show:bool=False):
-        G = nx.DiGraph()
-
-        pos = {}
-        ai_nodes=[]
-        estimator_nodes=[]
-        measurement_model_nodes=[]
-        observation_nodes=[]
-
-        # Add nodes and edges for Active Interconnections
-        for ai_key, ai in self.AIs.items():
-            ai_node = f"AI_{ai_key}"
-            ai_nodes.append(ai_node)
-            G.add_node(ai_node, shape='o', color='red')
-            for estimator in ai.connected_states.values():
-                estimator_node = f"RE_{estimator.id}"
-                if estimator_node not in G:
-                    G.add_node(estimator_node, shape='s', color='blue')
-                    pos[estimator_node] = (len(estimator_nodes), 2)
-                    estimator_nodes.append(estimator_node)
-                G.add_edge(ai_node, estimator_node)
-            pos[ai_node] = (sum([pos[f'RE_{est}'][0] for est in [state.id for state in ai.connected_states.values()]])/len(ai.connected_states), 3)
-
-        # Add nodes and edges for Measurement Models
-        for mm_key, mm in self.MMs.items():
-            mm_node = f"MM_{mm_key}"
-            G.add_node(mm_node, shape='o', color='green')
-            measurement_model_nodes.append(mm_node)
-            estimator_node = f"RE_{mm.estimator_id}"
-            if estimator_node not in G:
-                G.add_node(estimator_node, shape='s', color='blue')
-                estimator_nodes.append(estimator_node)
-            pos[mm_node] = (pos[estimator_node][0], 1)
-            G.add_edge(mm_node, estimator_node)
-            for observation in mm.connected_states.values():
-                observation_node = f"OBS_{observation.id}"
-                if observation_node not in G:
-                    G.add_node(observation_node, shape='^', color='orange')
-                    observation_nodes.append(observation_node)
-                G.add_edge(observation_node, mm_node)
-        
-        # set x spacing for observation nodes
-        min = 0
-        max = 0
-        for p in pos.values():
-            if p[0] > max:
-                max = p[0]
-        for i,obs in enumerate(observation_nodes):
-            pos[obs] = ((min+max-len(observation_nodes))/2+i, 0)
-
-        shapes = nx.get_node_attributes(G, 'shape')
-        colors = nx.get_node_attributes(G, 'color')
-
-        for shape in set(shapes.values()):
-            nx.draw_networkx_nodes(G, pos, nodelist=[sNode for sNode in shapes if shapes[sNode] == shape], node_shape=shape, node_color=[colors[sNode] for sNode in shapes if shapes[sNode] == shape], node_size=500)
-        nx.draw_networkx_edges(G, pos)
-        nx.draw_networkx_labels(G, pos, font_size=8)
-        if save_path is not None:
-            if not save_path.endswith('/'):
-                    save_path += '/'
-            plt.savefig(save_path + "aicon_graph.png")
-        if show:
-            plt.show()
-            input("Press Enter to continue...")

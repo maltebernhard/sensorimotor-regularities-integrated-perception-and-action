@@ -18,7 +18,7 @@ from experiment_visibility.measurement_models import Visibility_MM, Angle_MM
 class VisibilityAICON(AICON):
     def __init__(self, env_config):
         self.type = "Visibility"
-        super().__init__(**env_config)
+        super().__init__(env_config)
 
     def define_estimators(self):
         REs: Dict[str, RecursiveEstimator] = {

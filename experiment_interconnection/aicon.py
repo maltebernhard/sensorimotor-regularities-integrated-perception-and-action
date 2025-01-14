@@ -20,7 +20,7 @@ from experiment_interconnection.active_interconnections import Gaze_Fixation_AI,
 class ContingentInterconnectionAICON(AICON):
     def __init__(self, env_config):
         self.type = "ContingentInterconnection"
-        super().__init__(**env_config)
+        super().__init__(env_config)
 
     def define_estimators(self):
         estimators = {}

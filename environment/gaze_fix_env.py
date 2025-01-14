@@ -82,9 +82,15 @@ class GazeFixEnv(BaseEnv):
         self.wall_collision: bool = config["wall_collision"]
         self.num_obstacles: int = config["num_obstacles"]
         self.use_obstacles: bool = config["use_obstacles"]
-        self.moving_target: bool = config["moving_target"]
+        # moving_target variations:
+        # "false"  - target is stationary
+        # "linear" - target moves linearly
+        # "sine"   - target moves in a sine wave
+        # "flight" - target moves in a flight pattern
+        self.moving_target: str = config["moving_target"]
         self.moving_obstacles: bool = config["moving_obstacles"]
         self.observation_noise: Dict[str,float] = config["observation_noise"]
+        self.observation_loss: Dict[str,float] = config["observation_loss"]
 
         # env dimensions
         self.world_size = config["world_size"]
@@ -121,7 +127,7 @@ class GazeFixEnv(BaseEnv):
         self.action = self.limit_action(action) # make sure acceleration / velocity vector is within bounds
         self.update_robot_velocity()
         self.move_robot()
-        if self.moving_target:
+        if self.moving_target != "false":
             self.move_target()
         if self.moving_obstacles:
             self.move_obstacles()
@@ -383,8 +389,12 @@ class GazeFixEnv(BaseEnv):
             self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
-        #self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
-        self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
+        if self.moving_target == "linear":
+            pass
+        elif self.moving_target == "sine":
+            self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
+        elif self.moving_target == "flight":
+            self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
         self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
     
     def move_obstacles(self):
@@ -449,7 +459,7 @@ class GazeFixEnv(BaseEnv):
         """Applies gaussion noise and occlusions to real state."""
         real_observation = observation.copy()
         # delete all observations not provided to any measurement model
-        keys_to_delete = [key for key in real_observation if key not in self.required_observations]
+        keys_to_delete = [key for key in real_observation if key not in self.required_observations] + [key for key, time_range in self.observation_loss.items() if self.time >= time_range[0] and self.time < time_range[1]]
         for key in keys_to_delete:
             del real_observation[key]
         # delete all occluded observations
@@ -485,7 +495,7 @@ class GazeFixEnv(BaseEnv):
         # angular vel due to robot's translation
         offset_angle_dot -= (self.rotation_matrix(-offset_angle) @ self.robot.vel)[1] / self.compute_distance(obj)
         # angular vel due to object's movement
-        if (type(obj) == Target and self.moving_target) or (type(obj) == EnvObject and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target != "false") or (type(obj) == EnvObject and self.moving_obstacles):
             offset_angle_dot += obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
         return offset_angle_dot
     
@@ -495,7 +505,7 @@ class GazeFixEnv(BaseEnv):
     def compute_distance_dot(self, obj: EnvObject):
         offset_angle = self.compute_offset_angle(obj)
         object_distance_dot = - (self.rotation_matrix(-offset_angle) @ self.robot.vel)[0]
-        if (type(obj) == Target and self.moving_target) or (type(obj) == EnvObject and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target != "false") or (type(obj) == EnvObject and self.moving_obstacles):
             object_distance_dot += obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
         return object_distance_dot
     
@@ -537,7 +547,7 @@ class GazeFixEnv(BaseEnv):
         if self.action_mode in [1,2]:
             # draw an arrow for the robot's velocity
             self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.robot.vel[1],self.robot.vel[0]), self.robot.size*10*(np.linalg.norm(self.robot.vel)/self.robot.max_vel), self.robot.size*1.5, BLUE)
-        if self.moving_target:
+        if self.moving_target != "false":
             # draw an arrow for the target's movement
             self.draw_arrow(self.target.pos, self.target.current_movement_direction, self.robot.size*10*self.target.vel/self.robot.max_vel, self.robot.size*1.5, DARK_GREEN)
 

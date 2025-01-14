@@ -16,7 +16,7 @@ from experiment_foveal_vision.estimators import Polar_Pos_Estimator_Vel
 class FovealVisionAICON(AICON):
     def __init__(self, env_config):
         self.type = "FovealVision"
-        super().__init__(**env_config)
+        super().__init__(env_config)
 
     def define_estimators(self):
         REs: Dict[str, RecursiveEstimator] = {

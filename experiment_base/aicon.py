@@ -16,7 +16,7 @@ from experiment_base.estimators import Polar_Pos_Estimator_Vel
 class BaseAICON(AICON):
     def __init__(self, env_config):
         self.type = "Base"
-        super().__init__(**env_config)
+        super().__init__(env_config)
 
     def define_estimators(self):
         estimators = {

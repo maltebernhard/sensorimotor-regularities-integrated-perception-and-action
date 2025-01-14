@@ -17,7 +17,7 @@ from experiment_divergence.measurement_models import Vis_Angle_MM, Angle_MM
 class DivergenceAICON(AICON):
     def __init__(self, env_config):
         self.type = "Divergence"
-        super().__init__(**env_config)
+        super().__init__(env_config)
 
     def define_estimators(self):
         estimators = {

@@ -1,4 +1,4 @@
-from components.analysis import Analysis
+from components.analysis import Runner
 
 # ========================================================================================================
 
@@ -32,41 +32,34 @@ if __name__ == "__main__":
         "vel_lateral":              0.1,
         "vel_rot":                  0.01
     }
+    use_observation_noise = False
 
-    use_observation_noise = True
+    observation_loss = {
+        "target_offset_angle":      (3.0, 5.0),
+        "target_offset_angle_dot":  (3.0, 5.0),
+    }
+    use_observation_loss = False
 
     env_config = {
         "vel_control":          True,
-        "moving_target":        False,
+        "moving_target":        "false",
         "sensor_angle_deg":     360,
         "num_obstacles":        0,
         "timestep":             0.05,
         "observation_noise":    observation_noise if use_observation_noise else {},
+        "observation_loss":     observation_loss if use_observation_loss else {},
     }
 
-    plotting_config = {
-        "PolarTargetPos": [[0,1,2,3], ["Distance","Angle","DistanceDot","AngleDot"]],
-        #"RobotVel":       [[0,1,2],   ["Frontal","Lateral","Rot"]],
-    }
-
-    experiment_config = {
-        "num_runs":         2,
-        "num_steps":        200,
+    run_config = {
+        "num_steps":        10,
         "initial_action":   [0.0, 0.0, 0.0],
         "seed":             1,
-        "render":           False,
-        "prints":           100,
+        "render":           True,
+        "prints":           1,
         "step_by_step":     False,
-        "record_data":      True,
-        "record_video":     False,
-        "aicon_type":       aicon_types[aicon_type],
-        "plotting_config":  plotting_config,
     }
 
     # --------------------- run ---------------------
 
-    analysis = Analysis(experiment_config=experiment_config, env_config=env_config)
-
-    analysis.run()
-
-    #analysis.plot_states()
+    runner = Runner(aicon_type=aicon_types[aicon_type], run_config=run_config, env_config=env_config)
+    runner.run()

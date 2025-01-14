@@ -14,7 +14,7 @@ from experiment_goal.goals import PolarGoToTargetGoal
 class ContingentGoalAICON(AICON):
     def __init__(self, env_config):
         self.type = "ContingentGoal"
-        super().__init__(**env_config)
+        super().__init__(env_config)
 
     def define_estimators(self):
         estimators = {

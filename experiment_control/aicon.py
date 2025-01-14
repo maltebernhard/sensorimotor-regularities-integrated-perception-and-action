@@ -12,7 +12,7 @@ from components.instances.goals import PolarGoToTargetGoal
 class ControlAICON(AICON):
     def __init__(self, env_config):
         self.type = "Control"
-        super().__init__(**env_config)
+        super().__init__(env_config)
 
     def define_estimators(self):
         estimators = {
@@ -56,8 +56,7 @@ class ControlAICON(AICON):
         decay = 0.9
         gradient_action = decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
         # control
-        obs = self.env.get_observation()
-        gradient_action[2] = 1.0 * obs["target_offset_angle"] + 0.01 * obs["target_offset_angle_dot"]
+        gradient_action[2] = 1.0 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):
