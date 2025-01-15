@@ -150,10 +150,7 @@ class GazeFixEnv(BaseEnv):
         if seed is not None:
             super().reset(seed=seed)
         if self.video is not None:
-            # dirs = self.video_path.split("/")
-            # if len(dirs) > 1:
-            #     os.makedirs("/".join(dirs[:-1]), exist_ok=True)
-            self.video.export(verbose=True)
+            self.video.export(verbose=False)
             self.video = None
         
         if video_path is not None:

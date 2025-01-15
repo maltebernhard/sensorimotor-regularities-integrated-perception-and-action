@@ -7,16 +7,16 @@ from tqdm import tqdm
 import yaml
 from components.aicon import AICON
 from components.logger import AICONLogger
-from experiment_base.aicon import BaseAICON
-from experiment_control.aicon import ControlAICON
-from experiment_divergence.aicon import DivergenceAICON
-from experiment_estimator.aicon import ContingentEstimatorAICON
-from experiment_foveal_vision.aicon import FovealVisionAICON
-from experiment_general.aicon import GeneralTestAICON
-from experiment_goal.aicon import ContingentGoalAICON
-from experiment_interconnection.aicon import ContingentInterconnectionAICON
-from experiment_foveal_vision.aicon import FovealVisionAICON
-from experiment_visibility.aicon import VisibilityAICON
+from models.base.aicon import BaseAICON
+from models.control.aicon import ControlAICON
+from models.goal.aicon import GoalAICON
+from models.foveal_vision.aicon import FovealVisionAICON
+from models.interconnection.aicon import InterconnectionAICON
+
+from models.old.experiment_divergence.aicon import DivergenceAICON
+from models.old.experiment_estimator.aicon import ContingentEstimatorAICON
+from models.old.experiment_general.aicon import GeneralTestAICON
+from models.old.experiment_visibility.aicon import VisibilityAICON
 
 # ========================================================================================================
 
@@ -59,9 +59,9 @@ class Runner:
         elif typestring == "GeneralTest":     return GeneralTestAICON
         elif typestring == "FovealVision":    return FovealVisionAICON
         elif typestring == "Divergence":      return DivergenceAICON
-        elif typestring == "Goal":            return ContingentGoalAICON
+        elif typestring == "Goal":            return GoalAICON
         elif typestring == "Estimator":       return ContingentEstimatorAICON
-        elif typestring == "Interconnection": return ContingentInterconnectionAICON
+        elif typestring == "Interconnection": return InterconnectionAICON
         elif typestring == "Control":         return ControlAICON
         elif typestring == "Visibility":      return VisibilityAICON
         else:
@@ -108,7 +108,6 @@ class Analysis:
                                 if run == self.num_runs-1:
                                     runner.render = True
                                     video_path = self.record_dir + f"/records/{self.logger.get_config_id("aicon_types",aicon_type)}_{self.logger.get_config_id("sensor_noises",sensor_noise)}_{self.logger.get_config_id("target_movements",moving_target)}_{self.logger.get_config_id("observation_losses",observation_loss)}.mp4"
-                                    print(f"Recording video to {video_path}")
                                     runner.video_record_path = video_path
                                 runner.run()
                                 pbar.update(1)

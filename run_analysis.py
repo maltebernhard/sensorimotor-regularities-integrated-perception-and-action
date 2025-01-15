@@ -144,9 +144,7 @@ if __name__ == "__main__":
 
     # --------------------- run ---------------------
 
-    # analysis = Analysis(experiment_config)
-    # analysis.run_analysis()
-
-    analysis = Analysis.load("records/2025_01_15_09_25")
+    analysis = Analysis(experiment_config)
+    analysis.run_analysis()
     analysis.plot_states(plotting_config, save=True, show=False)
     #analysis.plot_goal_losses(save=True, show=False)

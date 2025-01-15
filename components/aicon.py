@@ -52,10 +52,9 @@ class AICON(ABC):
         assert self.AIs is not None, "Active Interconnections not set"
         assert self.goals is not None, "Goals not set"
         self.run_number += 1
-        print(f"==================== AICON RUN NUMBER: {self.run_number} ======================")
         self.reset(seed=env_seed, video_path=video_path)
         if prints > 0:
-            print(f"============================ Initial State ================================")
+            print(f"======================= RUN No {self.run_number}: Initial State ===========================")
             self.print_estimators()
         if initial_action is not None:
             self.last_action = initial_action
