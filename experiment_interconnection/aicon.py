@@ -75,7 +75,6 @@ class ContingentInterconnectionAICON(AICON):
     def compute_action(self, gradients):
         #decay = 1.0
         decay = 0.8
-        #self.print_vector(gradients["PolarGoToTarget"], "GoToTarget Gradient")
         action = decay * self.last_action - 5e-2 * gradients["PolarGoToTarget"]
         return action
     

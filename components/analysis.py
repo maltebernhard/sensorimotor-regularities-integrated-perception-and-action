@@ -116,8 +116,6 @@ class Analysis:
         self.save()
     
     def save(self):
-        with open(os.path.join(self.record_dir, 'configs/env_config.yaml'), 'w') as file:
-            yaml.dump(self.base_env_config, file)
         with open(os.path.join(self.record_dir, 'configs/experiment_config.yaml'), 'w') as file:
             yaml.dump(self.experiment_config, file)
         self.logger.save(self.record_dir)
@@ -140,11 +138,9 @@ class Analysis:
 
     @staticmethod
     def load(folder: str):
-        with open(os.path.join(folder, 'configs/env_config.yaml'), 'r') as file:
-            env_config = yaml.safe_load(file)
         with open(os.path.join(folder, 'configs/experiment_config.yaml'), 'r') as file:
             experiment_config = yaml.safe_load(file)
-        analysis = Analysis(experiment_config, env_config)
+        analysis = Analysis(experiment_config)
         analysis.logger.load(folder)
         analysis.record_dir = folder
         return analysis

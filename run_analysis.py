@@ -80,8 +80,7 @@ double_loss = {
 if __name__ == "__main__":
     # --------------------- config ---------------------
 
-    aicon_type_config = [2, 3, 4, 5]
-    #aicon_type_config = [2]
+    aicon_type_config = ["Control", "Goal", "FovealVision", "Interconnection"]
     #observation_noise_config = [small_noise, large_noise]
     observation_noise_config = [small_noise]
     moving_target_config = ["false"]
@@ -96,25 +95,58 @@ if __name__ == "__main__":
         "initial_action":          [0.0, 0.0, 0.0],
         "base_env_config":         base_env_config,
         "base_run_config":         base_run_config,
-        "aicon_type_config":       [aicon_types[type_id] for type_id in aicon_type_config],
+        "aicon_type_config":       aicon_type_config,
         "moving_target_config":    moving_target_config if use_moving_target else ["false"],
         "sensor_noise_config":     observation_noise_config if use_observation_noise else [{}],
         "observation_loss_config": observation_loss_config if use_observation_loss else [{}],
     }
 
     plotting_config = {
+        "name": "all_aicon_types",
         "states": {
-            "PolarTargetPos": [[0,1,2,3], ["Distance","Angle","DistanceDot","AngleDot"]],
+            "PolarTargetPos": {
+                "indices": [0,1,2,3],
+                "labels" : ["Distance","Angle","DistanceDot","AngleDot"],
+                "ybounds": [
+                    [(0, 20), (-2, 2),     (-4, 4),     (-2, 2)],
+                    [(0, 10), (-0.1, 0.1), (-0.1, 0.1), (-0.05, 0.05)],
+                    [(0, 4),  (0, 0.1),    (-0.0, 0.5), (0, 0.05)],
+                ]
+            }
         },
-        "aicon_types": [],
-        "moving_target": [],
-        "sensor_noise": [],
-        "observation_loss": [],
+        "axes": {
+            "Control": {
+                "aicon_type": aicon_type_config[0],
+                "target_movement": moving_target_config[0],
+                "sensor_noise": observation_noise_config[0],
+                "observation_loss": observation_loss_config[0],
+            },
+            "Goal": {
+                "aicon_type": aicon_type_config[1],
+                "target_movement": moving_target_config[0],
+                "sensor_noise": observation_noise_config[0],
+                "observation_loss": observation_loss_config[0],
+            },
+            "FovealVision": {
+                "aicon_type": aicon_type_config[2],
+                "target_movement": moving_target_config[0],
+                "sensor_noise": observation_noise_config[0],
+                "observation_loss": observation_loss_config[0],
+            },
+            "Interconnection": {
+                "aicon_type": aicon_type_config[3],
+                "target_movement": moving_target_config[0],
+                "sensor_noise": observation_noise_config[0],
+                "observation_loss": observation_loss_config[0],
+            },
+        }
     }
 
     # --------------------- run ---------------------
 
-    analysis = Analysis(experiment_config)
-    analysis.run_analysis()
-    # analysis.plot_states(plotting_config, save=True, show=False)
-    # analysis.plot_goal_losses(save=True, show=False)
+    # analysis = Analysis(experiment_config)
+    # analysis.run_analysis()
+
+    analysis = Analysis.load("records/2025_01_15_09_25")
+    analysis.plot_states(plotting_config, save=True, show=False)
+    #analysis.plot_goal_losses(save=True, show=False)

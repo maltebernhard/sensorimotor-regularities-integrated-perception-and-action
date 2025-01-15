@@ -95,8 +95,6 @@ class VisibilityAICON(AICON):
 
     def compute_action(self, gradients):
         goal = "PolarGoToTarget"
-        for g in self.goals.keys():
-            print(f"{g} Gradient: ", gradients[g])
         if self.vel_control:
             action = 0.9 * self.last_action - 5e-3 * gradients[goal]
         else:

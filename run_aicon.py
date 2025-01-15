@@ -19,7 +19,7 @@ if __name__ == "__main__":
         8: "Visibility",
     }
 
-    aicon_type = 2
+    aicon_type = 4
 
     # --------------------- config ---------------------
 
@@ -32,7 +32,7 @@ if __name__ == "__main__":
         "vel_lateral":              0.1,
         "vel_rot":                  0.01
     }
-    use_observation_noise = False
+    use_observation_noise = True
 
     observation_loss = {
         "target_offset_angle":      (3.0, 5.0),
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     }
 
     run_config = {
-        "num_steps":        10,
+        "num_steps":        500,
         "initial_action":   [0.0, 0.0, 0.0],
         "seed":             1,
         "render":           True,

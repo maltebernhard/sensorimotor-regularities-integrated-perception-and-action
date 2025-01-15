@@ -64,8 +64,7 @@ class FovealVisionAICON(AICON):
         return buffer_dict
 
     def compute_action(self, gradients):
-        self.print_vector(gradients["PolarGoToTarget"], "GoToTarget Gradient")
-        action = 0.9 * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
+        action = 0.9 * self.last_action - 1e-1 * gradients["PolarGoToTarget"]
         return action
 
     def print_estimators(self, print_cov=False):
