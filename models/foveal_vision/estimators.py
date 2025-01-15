@@ -16,7 +16,7 @@ class Polar_Pos_Estimator_Vel(RecursiveEstimator):
         super().__init__(f'Polar{object_name}Pos', 4)
         self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0])
         self.default_cov = 1e3 * torch.eye(4)
-        self.default_motion_noise = torch.eye(4) * torch.tensor([1e0, 1e-1, 1e0, 1e-1])
+        self.default_motion_noise = torch.eye(4) * torch.tensor([1e0, 1e0, 1e0, 1e0])
 
     @staticmethod
     def smooth_abs(x, margin=1.0):

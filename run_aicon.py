@@ -19,7 +19,7 @@ if __name__ == "__main__":
         8: "Visibility",
     }
 
-    aicon_type = 5
+    aicon_type = 4
 
     # --------------------- config ---------------------
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
     run_config = {
         "num_steps":        400,
         "initial_action":   [0.0, 0.0, 0.0],
-        "seed":             1,
+        "seed":             10,
         "render":           True,
         "prints":           1,
         "step_by_step":     False,
