@@ -52,7 +52,7 @@ class GoalAICON(AICON):
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         return buffer_dict
 
-    def compute_action(self, gradients):
+    def compute_action_from_gradient(self, gradients):
         decay = 0.9
         gradient_action = decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
         return gradient_action

@@ -57,18 +57,18 @@ class ExperimantalAICON(AICON):
         
         return buffer_dict
 
-    # def compute_goal_action_gradient(self, goal):
-    #     action = torch.zeros(3)
-    #     jacobian, step_eval = jacrev(
-    #         self._eval_goal_with_aux,
-    #         argnums=0,
-    #         has_aux=True)(action, goal)
-    #     return jacobian
+#   def compute_goal_action_gradient(self, goal):
+#         action = torch.zeros(3)
+#         jacobian, step_eval = jacrev(
+#             self._eval_goal_with_aux,
+#             argnums=0,
+#             has_aux=True)(action, goal)
+#         return jacobian  
 
-    def compute_action(self, gradients):
+    def compute_action_from_gradient(self, gradients):
             decay = 0.98
             return decay * self.last_action - 0.2 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
-            #return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
+            #return - 2.0 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
     
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()

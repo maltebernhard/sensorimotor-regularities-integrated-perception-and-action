@@ -34,7 +34,6 @@ class AICON(ABC):
         self.connect_states()
         self.goals: Dict[str, Goal] = self.define_goals()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
-        self.run_number = 0
 
     def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, logger:AICONLogger=None, video_path=None):
         """
@@ -51,18 +50,16 @@ class AICON(ABC):
         assert self.MMs is not None, "Measurement Models not set"
         assert self.AIs is not None, "Active Interconnections not set"
         assert self.goals is not None, "Goals not set"
-        self.run_number += 1
         self.reset(seed=env_seed, video_path=video_path)
         if prints > 0:
-            print(f"======================= RUN No {self.run_number}: Initial State ===========================")
+            print(f"======================= Initial State ===========================")
             self.print_estimators()
         if initial_action is not None:
             self.last_action = initial_action
         if render:
             self.render()
         for step in range(timesteps):
-            action_gradients = self.compute_action_gradients()
-            action = self.compute_action(action_gradients)
+            action = self.compute_action()
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
             if logger is not None:
@@ -147,6 +144,10 @@ class AICON(ABC):
             argnums=0,
             has_aux=True)(action, estimator_id)
         return jacobian, step_eval
+
+    def compute_action(self):
+        gradients = self.compute_action_gradients()
+        return self.compute_action_from_gradient(gradients)
 
     def compute_action_gradients(self):
         gradients: Dict[str, torch.Tensor] = {}
@@ -361,7 +362,7 @@ class AICON(ABC):
         """
         pass
 
-    def compute_action(self, gradients):
+    def compute_action_from_gradient(self, gradients):
         """
         CAN be implemented by user. Computes the action based on the gradients
         """

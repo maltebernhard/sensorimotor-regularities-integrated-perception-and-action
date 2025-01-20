@@ -65,7 +65,7 @@ class DivergenceAICON(AICON):
         
         return buffer_dict
 
-    def compute_action(self, gradients):
+    def compute_action_from_gradient(self, gradients):
         decay = 0.9
         return decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
     

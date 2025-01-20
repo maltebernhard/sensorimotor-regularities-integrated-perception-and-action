@@ -8,17 +8,18 @@ if __name__ == "__main__":
         # ------ SANDBOX ------
         0: "Experimental",
         # ------ BEHAVIOR ------
-        1: "Control",
-        2: "Goal",
-        3: "FovealVision",
-        4: "Interconnection",
-        5: "Estimator",
+        1: "Baseline",
+        2: "Control",
+        3: "Goal",
+        4: "FovealVision",
+        5: "Interconnection",
+        6: "Estimator",
         # ---- ACTUAL SMCs ----
-        6: "Divergence",
-        7: "Visibility",
+        7: "Divergence",
+        8: "Visibility",
     }
 
-    aicon_type = 0
+    aicon_type = 1
 
     # --------------------- config ---------------------
 

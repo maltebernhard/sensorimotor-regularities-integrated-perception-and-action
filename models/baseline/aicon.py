@@ -2,18 +2,17 @@ from typing import Dict
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from components.instances.estimators import Robot_Vel_Estimator_Vel
+from components.helpers import rotate_vector_2d
+from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
 from components.instances.active_interconnections import Triangulation_AI
 from components.instances.measurement_models import Robot_Vel_MM, Angle_MM
 from components.instances.goals import PolarGoToTargetGoal
 
-from models.foveal_vision.estimators import Polar_Pos_Estimator_Vel
-
 # ========================================================================================================
 
-class FovealVisionAICON(AICON):
+class BaselineAICON(AICON):
     def __init__(self, env_config):
-        self.type = "FovealVision"
+        self.type = "Baseline"
         super().__init__(env_config)
 
     def define_estimators(self):
@@ -54,10 +53,16 @@ class FovealVisionAICON(AICON):
         
         return buffer_dict
 
-    def compute_action_from_gradient(self, gradients):
-        decay = 0.9
-        gradient_action = decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
-        return gradient_action
+    def compute_action(self):
+        action = torch.zeros(3)
+        # go to target control
+        vel_radial = 1.0 / 3.0 * (self.REs["PolarTargetPos"].state_mean[0] - self.goals["PolarGoToTarget"].desired_distance)
+        # tangential motion control
+        vel_tangential = 1.0 / 10.0 * self.REs["PolarTargetPos"].state_cov[0][0]
+        action[:2] = rotate_vector_2d(-self.REs["PolarTargetPos"].state_mean[1], torch.tensor([vel_radial, vel_tangential])).squeeze()
+        # rotation control
+        action[2] = 2.0 * self.REs["PolarTargetPos"].state_mean[1] #+ 0.01 * self.REs["PolarTargetPos"].state_mean[3]
+        return action
     
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()

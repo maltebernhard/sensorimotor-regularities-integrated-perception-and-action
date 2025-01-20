@@ -7,6 +7,7 @@ from tqdm import tqdm
 import yaml
 from components.aicon import AICON
 from components.logger import AICONLogger
+from models.baseline.aicon import BaselineAICON
 from models.experimental.aicon import ExperimantalAICON
 from models.control.aicon import ControlAICON
 from models.goal.aicon import GoalAICON
@@ -62,6 +63,7 @@ class Runner:
         elif typestring == "Interconnection": return InterconnectionAICON
         elif typestring == "Control":         return ControlAICON
         elif typestring == "Visibility":      return VisibilityAICON
+        elif typestring == "Baseline":        return BaselineAICON
         else:
             raise ValueError(f"AICON Type {typestring} not recognized")
 

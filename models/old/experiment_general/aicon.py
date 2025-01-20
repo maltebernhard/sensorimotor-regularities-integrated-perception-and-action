@@ -104,7 +104,7 @@ class GeneralTestAICON(AICON):
 
         return buffer_dict
 
-    def compute_action(self, gradients):
+    def compute_action_from_gradient(self, gradients):
         goal = "PolarGoToTarget"
         #goal = "GazeFixation"
         if self.vel_control:

@@ -53,7 +53,7 @@ class ContingentEstimatorAICON(AICON):
             pass
         return buffer_dict
 
-    def compute_action(self, gradients):
+    def compute_action_from_gradient(self, gradients):
         if not self.vel_control:
             return self.last_action - 1e0 * gradients["GoToTarget"]
         else:

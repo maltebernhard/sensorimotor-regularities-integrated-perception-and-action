@@ -11,8 +11,9 @@ from typing import Type
 
 class ImplicitMeasurementModel(Module):
     """
+    Code taken and adapted from Battaje, Aravind.
     Abstract interface to define a measurement model using implicit function and
-    optionally its Jacobian. This will be used by MIMEKF.
+    optionally its Jacobian.
 
     Notation as in Thrun et al., Probabilistic Robotics
     """

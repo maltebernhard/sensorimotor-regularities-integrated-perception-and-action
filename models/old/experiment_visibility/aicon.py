@@ -93,7 +93,7 @@ class VisibilityAICON(AICON):
 
         return buffer_dict
 
-    def compute_action(self, gradients):
+    def compute_action_from_gradient(self, gradients):
         goal = "PolarGoToTarget"
         if self.vel_control:
             action = 0.9 * self.last_action - 5e-3 * gradients[goal]
