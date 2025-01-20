@@ -126,7 +126,7 @@ class GeneralTestAICON(AICON):
         """
         env_state = self.env.get_state()
         self.print_estimator("TargetVisibility", print_cov=2)
-        print(f"True TargetVisibility: {'target_offset_angle' in self.env.get_observation().keys()}")
+        print(f"True TargetVisibility: {'target_offset_angle' in self.env.get_observation()[0].keys()}")
         print("--------------------------------------------------------------------")
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")

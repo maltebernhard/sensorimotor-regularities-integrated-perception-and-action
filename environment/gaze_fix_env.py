@@ -1,5 +1,5 @@
 import os
-from typing import Dict, List
+from typing import Dict, List, Tuple
 import gymnasium as gym
 import numpy as np
 import pygame
@@ -91,6 +91,7 @@ class GazeFixEnv(BaseEnv):
         self.moving_obstacles: bool = config["moving_obstacles"]
         self.observation_noise: Dict[str,float] = config["observation_noise"]
         self.observation_loss: Dict[str,float] = config["observation_loss"]
+        self.foveal_vision_noise: Dict[str,float] = config["foveal_vision_noise"]
 
         # env dimensions
         self.world_size = config["world_size"]
@@ -102,7 +103,7 @@ class GazeFixEnv(BaseEnv):
         self.generate_target()
         self.generate_obstacles()
 
-        self.observation_history: Dict[int,Dict[str,float]] = {}
+        self.observation_history: Dict[int,Tuple[Dict[str,float],Dict[str,float]]] = {}
         self.real_state_history: Dict[int,Dict[str,float]] = {}
 
         self.generate_observation_space()
@@ -132,11 +133,11 @@ class GazeFixEnv(BaseEnv):
         if self.moving_obstacles:
             self.move_obstacles()
         self.last_state, rewards, done, trun, info = self._get_state(), self.get_rewards(), self.get_terminated(), False, self.get_info()
-        self.last_observation = self.apply_noise(self.last_state.copy())
+        self.last_observation, noise = self.apply_noise(self.last_state.copy())
 
         # add observation to history
         self.real_state_history[self.current_step] = self.last_state.copy()
-        self.observation_history[self.current_step] = self.last_observation.copy()
+        self.observation_history[self.current_step] = (self.last_observation.copy(), noise.copy())
         if self.current_step - 2 in self.observation_history:
             del self.observation_history[self.current_step - 2]
             del self.real_state_history[self.current_step - 2]
@@ -144,7 +145,7 @@ class GazeFixEnv(BaseEnv):
         rew = np.sum(rewards)
         self.total_reward += rew
 
-        return np.array(list(self.apply_noise(self.last_state).values())), rewards, done, trun, info
+        return np.array(list(self.last_observation.values())), rewards, done, trun, info
     
     def reset(self, seed=None, video_path = None, **kwargs):
         if seed is not None:
@@ -171,11 +172,11 @@ class GazeFixEnv(BaseEnv):
         self.generate_obstacles()
 
         self.last_state, info = self._get_state(), self.get_info()
-        self.last_observation = self.apply_noise(self.last_state.copy())
+        self.last_observation, noise = self.apply_noise(self.last_state.copy())
         self.real_state_history[self.current_step] = self.last_state.copy()
-        self.observation_history[self.current_step] = self.last_observation.copy()
+        self.observation_history[self.current_step] = (self.last_observation.copy(), noise.copy())
 
-        return np.array(list(self.apply_noise(self.last_state).values())), info
+        return np.array(list(self.last_observation.values())), info
     
     def close(self):
         pygame.quit()
@@ -188,7 +189,7 @@ class GazeFixEnv(BaseEnv):
     def get_observation(self):
         """Return the current, unnormalized observation."""
         try:
-            obs = self.observation_history[self.current_step].copy()
+            obs = self.observation_history[self.current_step]
         except:
             raise Exception("I think this should never happen.")
             obs = self._get_state()
@@ -476,11 +477,16 @@ class GazeFixEnv(BaseEnv):
                         real_observation[key[:-12]+"visual_angle_dot"] = None                       # del visual angle   
 
         # apply sensor noise
+        observation_noise = {}
         for key, value in real_observation.items():
             if real_observation[key] is not None:
+                observation_noise[key] = 0.0
                 if key in self.observation_noise.keys():
-                    real_observation[key] = value + self.observation_noise[key] * np.random.randn()
-        return real_observation
+                    observation_noise[key] += self.observation_noise[key]
+                if key in self.foveal_vision_noise.keys():
+                    observation_noise[key] += self.foveal_vision_noise[key] * np.abs(self.compute_offset_angle(self.target) / (self.robot.sensor_angle/2))
+                real_observation[key] = value + observation_noise[key] * np.random.randn()
+        return real_observation, observation_noise
     
     def compute_offset_angle(self, obj: EnvObject) -> float:
         return self.normalize_angle(np.arctan2(obj.pos[1]-self.robot.pos[1], obj.pos[0]-self.robot.pos[0]) - self.robot.orientation)

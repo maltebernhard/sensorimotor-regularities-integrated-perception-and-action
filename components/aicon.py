@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.func import jacrev
 from abc import ABC, abstractmethod
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -68,7 +68,7 @@ class AICON(ABC):
                     time = self.env.time,
                     estimators = self.get_buffer_dict(),
                     env_state = self.env.get_state(),
-                    observation = {key: {"measurement": self.last_observation[key], "noise": (self.observation_noise[key])} for key in self.last_observation.keys()},
+                    observation = {key: {"measurement": self.last_observation[0][key], "noise": (self.last_observation[1][key])} for key in self.last_observation[0].keys()},
                     goal_loss = {key: goal.loss_function_from_buffer(self.get_buffer_dict()) for key, goal in self.goals.items()},
                 )
             if step_by_step:
@@ -99,10 +99,11 @@ class AICON(ABC):
     def set_observations(self):
         self.obs: Dict[str, Observation] = {}
         required_observations = [key for key in [obs for mm in self.MMs.values() for obs in mm.required_states] + [obs for ai in self.AIs.values() for obs in ai.required_states] if key in self.env.observations.keys()]
-        self.observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
+        #self.observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
             self.obs[key] = Observation(key, 1, self.device)
+        self.last_observation: Tuple[dict,dict] = None
 
     def connect_states(self):
         for ai in self.AIs.values():
@@ -111,12 +112,12 @@ class AICON(ABC):
             mm.set_connected_states([self.obs[obs_id] for obs_id in mm.required_states])
 
     def update_observations(self):
-        self.last_observation: dict = self.env.get_observation()
-        for key, value in self.last_observation.items():
+        self.last_observation = self.env.get_observation()
+        for key, value in self.last_observation[0].items():
             if value is not None:
                 self.obs[key].set_observation(
                     obs = torch.tensor([value]),
-                    obs_cov = torch.tensor([[self.observation_noise[key] if key in self.observation_noise.keys() else 0.0]]),
+                    obs_cov = torch.tensor([[self.last_observation[1][key]]]).pow(2),
                     time = self.env.time
                 )
 
@@ -226,12 +227,7 @@ class AICON(ABC):
 
     def meas_updates(self, buffer_dict):
         for model_key, meas_model in self.MMs.items():
-            meas_dict = self.get_meas_dict(self.MMs[model_key])
-            if len(meas_dict["means"]) == len(meas_model.connected_states):
-                self.REs[meas_model.estimator_id].call_update_with_meas_model(meas_model, buffer_dict, meas_dict)
-            else:
-                #print(f"Missing measurements for {model_key}")
-                pass
+            self.REs[meas_model.estimator_id].call_update_with_meas_model(meas_model, buffer_dict)
 
     def visualize_graph(self, save_path=None, show:bool=False):
         G = nx.DiGraph()
@@ -375,12 +371,6 @@ class AICON(ABC):
         for estimator in self.REs.values():
             self.print_estimator(estimator.id, print_cov=True)
     
-    def get_meas_dict(self, meas_model: MeasurementModel):
-        return {
-            "means": {key: obs.state_mean for key, obs in meas_model.connected_states.items() if obs.updated},
-            "covs": {key: obs.state_cov for key, obs in meas_model.connected_states.items() if obs.updated}
-        }
-    
     def get_buffer_dict(self):
         return {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()}
     
@@ -401,6 +391,7 @@ class DroneEnvAICON(AICON):
         self.timestep = env_config["timestep"]
         self.config_observation_noise = env_config["observation_noise"]
         self.config_observation_loss = env_config["observation_loss"]
+        self.config_foveal_vision_noise = env_config["foveal_vision_noise"]
         super().__init__()
 
     def define_env(self):
@@ -414,6 +405,7 @@ class DroneEnvAICON(AICON):
             self.env_config["timestep"] = self.timestep
             self.env_config["observation_noise"] = self.config_observation_noise
             self.env_config["observation_loss"] = self.config_observation_loss
+            self.env_config["foveal_vision_noise"] = self.config_foveal_vision_noise
         return GazeFixEnv(self.env_config)
 
     def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):

@@ -83,6 +83,7 @@ class Analysis:
         self.sensor_noise_config: List[dict] = experiment_config["sensor_noise_config"]
         self.moving_target_config: List[bool] = experiment_config["moving_target_config"]
         self.observation_loss_config: List[Dict[str,Tuple[float,float]]] = experiment_config["observation_loss_config"]
+        self.foveal_vision_noise_config: List[dict] = experiment_config["foveal_vision_noise_config"]
         
         self.logger = AICONLogger()
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}/"
@@ -97,20 +98,22 @@ class Analysis:
                 for sensor_noise in self.sensor_noise_config:
                     for moving_target in self.moving_target_config:
                         for observation_loss in self.observation_loss_config:
-                            self.logger.set_config(aicon_type, sensor_noise, moving_target, observation_loss)
-                            env_config = self.base_env_config.copy()
-                            env_config["observation_noise"] = sensor_noise
-                            env_config["moving_target"] = moving_target
-                            env_config["observation_loss"] = observation_loss
+                            for foveal_vision_noise in self.foveal_vision_noise_config:
+                                self.logger.set_config(aicon_type, sensor_noise, moving_target, observation_loss)
+                                env_config = self.base_env_config.copy()
+                                env_config["observation_noise"] = sensor_noise
+                                env_config["moving_target"] = moving_target
+                                env_config["observation_loss"] = observation_loss
+                                env_config["foveal_vision_noise"] = foveal_vision_noise
 
-                            runner = Runner(aicon_type, self.base_run_config, env_config, self.logger)
-                            for run in range(self.num_runs):
-                                if run == self.num_runs-1:
-                                    runner.render = True
-                                    video_path = self.record_dir + f"/records/{self.logger.get_config_id("aicon_types",aicon_type)}_{self.logger.get_config_id("sensor_noises",sensor_noise)}_{self.logger.get_config_id("target_movements",moving_target)}_{self.logger.get_config_id("observation_losses",observation_loss)}.mp4"
-                                    runner.video_record_path = video_path
-                                runner.run()
-                                pbar.update(1)
+                                runner = Runner(aicon_type, self.base_run_config, env_config, self.logger)
+                                for run in range(self.num_runs):
+                                    if run == self.num_runs-1:
+                                        runner.render = True
+                                        video_path = self.record_dir + f"/records/{self.logger.get_config_id("aicon_types",aicon_type)}_{self.logger.get_config_id("sensor_noises",sensor_noise)}_{self.logger.get_config_id("target_movements",moving_target)}_{self.logger.get_config_id("observation_losses",observation_loss)}.mp4"
+                                        runner.video_record_path = video_path
+                                    runner.run()
+                                    pbar.update(1)
             self.visualize_graph(aicon=runner.aicon, save=True, show=False)
         self.save()
     

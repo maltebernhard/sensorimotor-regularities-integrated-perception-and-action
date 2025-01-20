@@ -74,6 +74,17 @@ double_loss = {
     ],
 },
 
+# --------------------- foveal vision noise configs ---------------------
+
+small_fv_noise = {
+    "target_offset_angle":      0.1,
+    "target_offset_angle_dot":  0.1,
+}
+large_fv_noise = {
+    "target_offset_angle":      0.5,
+    "target_offset_angle_dot":  0.5,
+}
+
 # ==================================================================================
 
 if __name__ == "__main__":
@@ -84,20 +95,23 @@ if __name__ == "__main__":
     observation_noise_config = [small_noise]
     moving_target_config = ["false"]
     observation_loss_config = [{}]
+    foveal_vision_noise_config = [large_fv_noise]
 
     use_moving_target = False
     use_observation_noise = True
     use_observation_loss = False
+    use_foveal_vision_noise = True
 
     experiment_config = {
-        "num_runs":                10,
-        "initial_action":          [0.0, 0.0, 0.0],
-        "base_env_config":         base_env_config,
-        "base_run_config":         base_run_config,
-        "aicon_type_config":       aicon_type_config,
-        "moving_target_config":    moving_target_config if use_moving_target else ["false"],
-        "sensor_noise_config":     observation_noise_config if use_observation_noise else [{}],
-        "observation_loss_config": observation_loss_config if use_observation_loss else [{}],
+        "num_runs":                   10,
+        "initial_action":             [0.0, 0.0, 0.0],
+        "base_env_config":            base_env_config,
+        "base_run_config":            base_run_config,
+        "aicon_type_config":          aicon_type_config,
+        "moving_target_config":       moving_target_config if use_moving_target else ["false"],
+        "sensor_noise_config":        observation_noise_config if use_observation_noise else [{}],
+        "observation_loss_config":    observation_loss_config if use_observation_loss else [{}],
+        "foveal_vision_noise_config": foveal_vision_noise_config if use_foveal_vision_noise else [{}],
     }
 
     plotting_config = {

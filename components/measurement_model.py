@@ -72,8 +72,14 @@ class ImplicitMeasurementModel(Module):
     def get_state_dict(self, buffer_dict, estimator_id):
         return {id: buffer_dict[id]['state_mean'] for id in self.connected_states.keys() if id != estimator_id}
     
-    def get_uncertainty_dict(self, buffer_dict, estimator_id):
-        return {id: buffer_dict[id]['state_cov'] + self.connected_states[id].update_uncertainty for id in self.connected_states.keys() if id != estimator_id}
+    def get_cov_dict(self, buffer_dict, estimator_id):
+        return {id: buffer_dict[id]['state_cov'] + self.connected_states[id].update_uncertainty.pow(2) for id in self.connected_states.keys() if id != estimator_id}
+
+    def get_meas_dict(self):
+        return {
+            "means": {key: obs.state_mean for key, obs in self.connected_states.items() if obs.updated},
+            "covs": {key: obs.state_cov + self.connected_states[key].update_uncertainty.pow(2) for key, obs in self.connected_states.items() if obs.updated}
+        }
 
     @abstractmethod
     def implicit_measurement_model(self, x: torch.Tensor, meas_dict: torch.Tensor):

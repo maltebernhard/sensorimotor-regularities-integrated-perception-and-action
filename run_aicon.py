@@ -40,6 +40,12 @@ if __name__ == "__main__":
     }
     use_observation_loss = False
 
+    foveal_vision_noise = {
+        "target_offset_angle":      0.5,
+        "target_offset_angle_dot":  0.5,
+    }
+    use_foveal_vision_noise = False
+
     env_config = {
         "vel_control":          True,
         "moving_target":        "false",        #"sine", "linear", "flight", "false"
@@ -48,6 +54,7 @@ if __name__ == "__main__":
         "timestep":             0.05,
         "observation_noise":    observation_noise if use_observation_noise else {},
         "observation_loss":     observation_loss if use_observation_loss else {},
+        "foveal_vision_noise":  foveal_vision_noise if use_foveal_vision_noise else {},
     }
 
     run_config = {

@@ -71,7 +71,7 @@ class BaselineAICON(AICON):
         print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}, {env_state['target_radius']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
-        print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")
+        print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):
