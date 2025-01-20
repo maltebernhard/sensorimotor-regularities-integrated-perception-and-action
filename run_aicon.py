@@ -6,20 +6,19 @@ if __name__ == "__main__":
 
     aicon_types = {
         # ------ SANDBOX ------
-        0: "Base",
-        1: "GeneralTest",
+        0: "Experimental",
         # ------ BEHAVIOR ------
-        2: "Control",
-        3: "Goal",
-        4: "FovealVision",
-        5: "Interconnection",
-        6: "Estimator",
+        1: "Control",
+        2: "Goal",
+        3: "FovealVision",
+        4: "Interconnection",
+        5: "Estimator",
         # ---- ACTUAL SMCs ----
-        7: "Divergence",
-        8: "Visibility",
+        6: "Divergence",
+        7: "Visibility",
     }
 
-    aicon_type = 5
+    aicon_type = 0
 
     # --------------------- config ---------------------
 
@@ -42,7 +41,7 @@ if __name__ == "__main__":
 
     env_config = {
         "vel_control":          True,
-        "moving_target":        "false",
+        "moving_target":        "false",        #"sine", "linear", "flight", "false"
         "sensor_angle_deg":     360,
         "num_obstacles":        0,
         "timestep":             0.05,
@@ -56,7 +55,7 @@ if __name__ == "__main__":
         "seed":             1,
         "render":           True,
         "prints":           1,
-        "step_by_step":     False,
+        "step_by_step":     True,
     }
 
     # --------------------- run ---------------------
