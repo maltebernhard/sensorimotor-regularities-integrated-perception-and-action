@@ -19,17 +19,16 @@ base_run_config = {
 
 aicon_types = {
     # ------ SANDBOX ------
-    0: "Base",
-    1: "GeneralTest",
+    0: "Experimental",
     # ------ BEHAVIOR ------
-    2: "Control",
-    3: "Goal",
-    4: "FovealVision",
-    5: "Interconnection",
-    6: "Estimator",
+    1: "Control",
+    2: "Goal",
+    3: "FovealVision",
+    4: "Interconnection",
+    5: "Estimator",
     # ---- ACTUAL SMCs ----
-    7: "Divergence",
-    8: "Visibility",
+    6: "Divergence",
+    7: "Visibility",
 }
 
 # --------------------- moving target types -------------------------

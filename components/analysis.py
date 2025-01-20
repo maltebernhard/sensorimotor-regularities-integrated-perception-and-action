@@ -7,7 +7,7 @@ from tqdm import tqdm
 import yaml
 from components.aicon import AICON
 from components.logger import AICONLogger
-from models.base.aicon import BaseAICON
+from models.experimental.aicon import ExperimantalAICON
 from models.control.aicon import ControlAICON
 from models.goal.aicon import GoalAICON
 from models.foveal_vision.aicon import FovealVisionAICON
@@ -15,7 +15,6 @@ from models.interconnection.aicon import InterconnectionAICON
 
 from models.old.experiment_divergence.aicon import DivergenceAICON
 from models.old.experiment_estimator.aicon import ContingentEstimatorAICON
-from models.old.experiment_general.aicon import GeneralTestAICON
 from models.old.experiment_visibility.aicon import VisibilityAICON
 
 # ========================================================================================================
@@ -55,8 +54,7 @@ class Runner:
         )
     
     def select_aicon_type(self, typestring:str):
-        if   typestring == "Base":            return BaseAICON
-        elif typestring == "GeneralTest":     return GeneralTestAICON
+        if   typestring == "Experimental":    return ExperimantalAICON
         elif typestring == "FovealVision":    return FovealVisionAICON
         elif typestring == "Divergence":      return DivergenceAICON
         elif typestring == "Goal":            return GoalAICON

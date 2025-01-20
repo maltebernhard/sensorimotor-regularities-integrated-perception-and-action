@@ -1,19 +1,20 @@
 from typing import Dict
 import numpy as np
 import torch
+from torch.func import jacrev
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from components.instances.estimators import Robot_Vel_Estimator_Vel
-from components.instances.measurement_models import Robot_Vel_MM, Angle_MM
-from components.instances.goals import PolarGoToTargetGoal
+from components.instances.measurement_models import Robot_Vel_MM
 
-from models.base.active_interconnections import Triangulation_AI
-from models.base.estimators import Polar_Pos_Estimator_Vel
+from models.experimental.active_interconnections import Triangulation_AI
+from models.experimental.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
+from models.experimental.goals import PolarGoToTargetGoal
+from models.experimental.measurement_models import Angle_MM
 
 # ========================================================================================================
 
-class BaseAICON(AICON):
+class ExperimantalAICON(AICON):
     def __init__(self, env_config):
         self.type = "Base"
         super().__init__(env_config)
@@ -56,6 +57,14 @@ class BaseAICON(AICON):
         
         return buffer_dict
 
+    # def compute_goal_action_gradient(self, goal):
+    #     action = torch.zeros(3)
+    #     jacobian, step_eval = jacrev(
+    #         self._eval_goal_with_aux,
+    #         argnums=0,
+    #         has_aux=True)(action, goal)
+    #     return jacobian
+
     def compute_action(self, gradients):
             decay = 0.98
             return decay * self.last_action - 0.2 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
@@ -75,5 +84,11 @@ class BaseAICON(AICON):
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
+
+    def render(self):
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetGlobalPos"].state_mean, self.REs["PolarTargetGlobalPos"].state_cov)
+        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetGlobalPos": target_mean}
+        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetGlobalPos": target_cov}
+        return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     
