@@ -42,15 +42,8 @@ class ContingentEstimatorAICON(AICON):
         }
         return goals
 
-    def eval_update(self, action: torch.Tensor, new_step: bool, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        u = self.get_control_input(action)
-        
-        self.REs["RobotState"].call_predict(u, buffer_dict)
-        if new_step:
-            self.REs["RobotState"].call_update_with_meas_model(self.MMs["VelMM"], buffer_dict, self.get_meas_dict(self.MMs["VelMM"]))
-            self.REs["RobotState"].call_update_with_meas_model(self.MMs["AngleMeasMM"], buffer_dict, self.get_meas_dict(self.MMs["AngleMeasMM"]))
-        else:
-            pass
+    def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
+        # TODO: No AIs?
         return buffer_dict
 
     def compute_action_from_gradient(self, gradients):

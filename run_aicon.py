@@ -19,7 +19,7 @@ if __name__ == "__main__":
         8: "Visibility",
     }
 
-    aicon_type = 5
+    aicon_type = 3
 
     # --------------------- config ---------------------
 

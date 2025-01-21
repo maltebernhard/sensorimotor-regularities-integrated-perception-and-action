@@ -44,17 +44,8 @@ class ExperimantalAICON(AICON):
         }
         return goals
 
-    def eval_update(self, action: torch.Tensor, new_step: bool, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        u = self.get_control_input(action)
-
-        self.REs["RobotVel"].call_predict(u, buffer_dict)
-        self.REs["PolarTargetGlobalPos"].call_predict(u, buffer_dict)
-
-        if new_step:
-            self.meas_updates(buffer_dict)
-        
+    def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         self.REs["PolarTargetGlobalPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
-        
         return buffer_dict
 
 #   def compute_goal_action_gradient(self, goal):

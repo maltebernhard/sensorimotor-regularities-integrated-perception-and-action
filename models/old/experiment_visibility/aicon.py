@@ -4,7 +4,7 @@ from typing import Dict
 
 from components.aicon import DroneEnvAICON as AICON
 from components.estimator import RecursiveEstimator
-from components.instances.estimators import Rad_Estimator, Robot_Vel_Estimator_Vel, Robot_Vel_Estimator_Acc, Polar_Pos_Estimator_Vel, Polar_Pos_Estimator_Acc, Cartesian_Pos_Estimator
+from components.instances.estimators import Rad_Estimator, Robot_Vel_Estimator_Vel, Robot_Vel_Estimator_Acc, Polar_Pos_Estimator_Vel, Polar_Pos_Estimator_Acc
 from components.instances.measurement_models import Robot_Vel_MM, Pos_Angle_MM#, Angle_MM
 #from components.instances.active_interconnections import Triangulation_AI
 
@@ -69,28 +69,10 @@ class VisibilityAICON(AICON):
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
-    def eval_update(self, action: torch.Tensor, new_step: bool, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        u = self.get_control_input(action)
-
-        # ----------------------------- predicts -------------------------------------
-
-        self.REs["RobotVel"].call_predict(u, buffer_dict)
-        #self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-        self.REs["PolarTargetDistance"].call_predict(u, buffer_dict)
-        self.REs["PolarTargetAngle"].call_predict(u, buffer_dict)
-        self.REs["TargetVisibility"].call_predict(u, buffer_dict)
-
-        # ----------------------------- measurements -------------------------------------
-
-        if new_step:
-            self.meas_updates(buffer_dict)
-
-        # ----------------------------- active interconnections -------------------------------------
-        
+    def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         #self.REs["TargetVisibility"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
         self.REs["PolarTargetAngle"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
         self.REs["PolarTargetDistance"].call_update_with_active_interconnection(self.AIs["Triangulation"], buffer_dict)
-
         return buffer_dict
 
     def compute_action_from_gradient(self, gradients):

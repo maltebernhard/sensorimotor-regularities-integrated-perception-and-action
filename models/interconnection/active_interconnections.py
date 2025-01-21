@@ -17,6 +17,8 @@ from components.helpers import rotate_vector_2d
 #             torch.atleast_1d(meas_dict['PolarTargetPos'][1]),
 #         ]).squeeze()
     
+# TODO: which properties should be constrained? only angular_vel, or also angle?
+
 class Gaze_Fixation_AI(ActiveInterconnection):
     def __init__(self):
         required_estimators = ['PolarTargetPos', 'RobotVel']

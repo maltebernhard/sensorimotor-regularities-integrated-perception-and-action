@@ -333,16 +333,30 @@ class AICON(ABC):
         """
         Evaluates one step of the environment and returns the buffer_dict
         """
+        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items())}
+        # estimator forward models
+        u = self.get_control_input(action)
+        for estimator in self.REs.values():
+            estimator.call_predict(u, buffer_dict)
+        # measurement updates
         if new_step:
             self.update_observations()
-        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items())}
-
-        return self.eval_update(action, new_step, buffer_dict)
+            self.meas_updates(buffer_dict)
+        # interconnection updates
+        return self.eval_interconnections(buffer_dict)
 
     @abstractmethod
-    def eval_update(self, action, new_step, buffer_dict) -> Dict[str, Dict[str, torch.Tensor]]:
+    def eval_interconnections(self, buffer_dict) -> Dict[str, Dict[str, torch.Tensor]]:
         """
-        MUST be implemented by user. Evaluates one step of the environment and returns the buffer_dict
+        MUST be implemented by user. Evaluates the active interconnections between estimators
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    def get_control_input(self, action) -> torch.Tensor:
+        """
+        MUST be implemented by user. Returns the control input for the estimator forward models given an action.
+        As of now, control input is supposed to be the same for all forward models.
         """
         raise NotImplementedError
     

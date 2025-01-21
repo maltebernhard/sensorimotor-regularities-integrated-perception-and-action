@@ -73,35 +73,11 @@ class GeneralTestAICON(AICON):
             estimator_covs[f"CartesianObstacle{i}Pos"] = torch.tensor([[rad**2, 0], [0, rad**2]])
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
-    def eval_update(self, action: torch.Tensor, new_step: bool, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        u = self.get_control_input(action)
-
-        # ----------------------------- predicts -------------------------------------
-
-        self.REs["RobotVel"].call_predict(u, buffer_dict)
-        self.REs["PolarTargetPos"].call_predict(u, buffer_dict)
-        self.REs["TargetVisibility"].call_predict(u, buffer_dict)
-        # for i in range(1, self.num_obstacles + 1):
-        #     self.REs[f"PolarObstacle{i}Pos"].call_predict(u, buffer_dict)
-        #     self.REs[f"CartesianObstacle{i}Pos"].call_predict(u, buffer_dict)
-        #     self.REs[f"Obstacle{i}Rad"].call_predict(u, buffer_dict)
-
-        # ----------------------------- measurements -------------------------------------
-
-        if new_step:
-            self.meas_updates(buffer_dict)
-
-        # ----------------------------- active interconnections -------------------------------------
-
+    def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         self.REs["TargetVisibility"].call_update_with_active_interconnection(self.AIs["TargetVisibility"], buffer_dict)
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["Triangulation"], buffer_dict)
-        
         # for i in range(1, self.num_obstacles + 1):
         #     self.REs[f"Obstacle{i}Rad"].call_update_with_active_interconnection(self.AIs[f"Obstacle{i}Rad"], buffer_dict)
-
-        # print("------------------- Post Update -------------------")
-        # print(buffer_dict['PolarTargetPos']['state_mean'])
-
         return buffer_dict
 
     def compute_action_from_gradient(self, gradients):
