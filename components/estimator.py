@@ -16,7 +16,7 @@ class State(Module):
         self.dtype = dtype
 
         # TODO: make sure this does not remain set to default
-        self.update_uncertainty: torch.Tensor = 1e-1 * torch.eye(self.state_dim, dtype=dtype, device=device)
+        self.update_uncertainty: torch.Tensor = 0.0 * torch.eye(self.state_dim, dtype=dtype, device=device)
 
         self.register_buffer('state_mean', torch.zeros(self.state_dim, dtype=dtype))
         self.register_buffer('state_cov', torch.eye(self.state_dim, dtype=dtype))
@@ -52,11 +52,12 @@ class Observation(State):
         super().__init__(id, state_dim, device, dtype)
         self.updated = False
         self.last_updated = -1.0
+        
         # TODO: update uncertainty depending on observation type
-        if "angle" in self.id:
-            self.update_uncertainty: torch.Tensor = 1e-1 * torch.eye(self.state_dim, dtype=dtype, device=device)
+        if "angle" in self.id or "_rot" in self.id:
+            self.update_uncertainty: torch.Tensor = 5e-3 * torch.eye(self.state_dim, dtype=dtype, device=device)
         else:
-            self.update_uncertainty: torch.Tensor = 5e-1 * torch.eye(self.state_dim, dtype=dtype, device=device)
+            self.update_uncertainty: torch.Tensor = 1e-1 * torch.eye(self.state_dim, dtype=dtype, device=device)
 
     def set_observation(self, obs: torch.Tensor, obs_cov: torch.Tensor=None, time=None):
         self.set_state(obs, obs_cov)

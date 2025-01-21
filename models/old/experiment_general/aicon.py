@@ -4,8 +4,8 @@ from typing import Dict
 
 from components.aicon import DroneEnvAICON as AICON
 from components.estimator import RecursiveEstimator
-from components.instances.estimators import Robot_Vel_Estimator_Vel, Robot_Vel_Estimator_Acc, Polar_Pos_Estimator_Vel, Polar_Pos_Estimator_Acc, Cartesian_Pos_Estimator, Rad_Estimator
-from components.instances.measurement_models import Robot_Vel_MM, Pos_Angle_MM, Angle_MM
+from models.old.old_component_instances.estimators import Robot_Vel_Estimator_Vel, Robot_Vel_Estimator_Acc, Polar_Pos_Estimator_Vel, Polar_Pos_Estimator_Acc, Cartesian_Pos_Estimator, Rad_Estimator
+from models.old.old_component_instances.measurement_models import Robot_Vel_MM, Pos_Angle_MM, Angle_MM
 #from components.instances.active_interconnections import Triangulation_AI
 
 from models.old.experiment_general.estimators import Visibility_Estimator

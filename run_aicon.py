@@ -36,7 +36,7 @@ if __name__ == "__main__":
         "vel_lateral":              0.1,
         "vel_rot":                  0.01
     }
-    use_observation_noise = True
+    use_observation_noise = False
 
     observation_loss = {
         "target_offset_angle":      (3.0, 5.0),

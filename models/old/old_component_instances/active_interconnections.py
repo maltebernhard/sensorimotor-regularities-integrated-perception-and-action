@@ -1,6 +1,6 @@
 import torch
 from typing import Dict
-from components.active_interconnection import ActiveInterconnection
+from components.measurement_model import ActiveInterconnection
 from components.helpers import rotate_vector_2d
 
 # ========================================================================================================

@@ -3,10 +3,10 @@ import numpy as np
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel, Rad_Estimator
-from components.instances.measurement_models import Robot_Vel_MM
-from components.instances.active_interconnections import Triangulation_AI
-from components.instances.goals import PolarGoToTargetGoal
+from models.old.old_component_instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel, Rad_Estimator
+from models.old.old_component_instances.measurement_models import Robot_Vel_MM
+from models.old.old_component_instances.active_interconnections import Triangulation_AI
+from models.old.old_component_instances.goals import PolarGoToTargetGoal
 
 from models.old.experiment_divergence.active_interconnections import VisAngle_Rad_AI
 from models.old.experiment_divergence.estimators import Vis_Angle_Estimator

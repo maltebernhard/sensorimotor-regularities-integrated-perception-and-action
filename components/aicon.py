@@ -11,7 +11,7 @@ import yaml
 from components.estimator import Observation, RecursiveEstimator
 from components.logger import AICONLogger
 from components.measurement_model import MeasurementModel
-from components.active_interconnection import ActiveInterconnection
+from components.measurement_model import ActiveInterconnection
 from components.goal import Goal
 from environment.base_env import BaseEnv
 from environment.gaze_fix_env import GazeFixEnv

@@ -3,13 +3,10 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from components.instances.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
-from components.instances.active_interconnections import Triangulation_AI
-from components.instances.measurement_models import Robot_Vel_MM, Angle_MM
-from components.instances.goals import PolarGoToTargetGoal
-from models.experiment1.active_interconnections import Gaze_Fixation_AI
-from models.experiment1.estimators import Polar_Pos_FovealVision_Estimator_Vel
-from models.experiment1.goals import PolarGoToTargetFovealVisionGoal, PolarGoToTargetGazeFixationGoal
+from models.experiment1.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel, Polar_Pos_FovealVision_Estimator_Vel
+from models.experiment1.active_interconnections import Triangulation_AI, Gaze_Fixation_AI
+from models.experiment1.measurement_models import Robot_Vel_MM, Angle_MM
+from models.experiment1.goals import PolarGoToTargetGoal, PolarGoToTargetFovealVisionGoal, PolarGoToTargetGazeFixationGoal
 
 # ========================================================================================================
 
@@ -71,12 +68,13 @@ class Experiment1AICON(AICON):
             vel_tangential = 1.0 / 10.0 * self.REs["PolarTargetPos"].state_cov[0][0]
             action[:2] = rotate_vector_2d(-self.REs["PolarTargetPos"].state_mean[1], torch.tensor([vel_radial, vel_tangential])).squeeze()
             # rotation control
-            action[2] = 2.0 * self.REs["PolarTargetPos"].state_mean[1] #+ 0.01 * self.REs["PolarTargetPos"].state_mean[3]
+            action[2] = 3.0 * self.REs["PolarTargetPos"].state_mean[1]
             return action
 
     def compute_action_from_gradient(self, gradients):
-        decay = 0.9
-        gradient_action = decay * self.last_action - 3e-2 * gradients["PolarGoToTarget"]
+        # TODO: improve timestep scaling of action generation
+        decay = 0.9 ** (self.env_config["timestep"] / 0.05)
+        gradient_action = decay * self.last_action - 6e-1*self.env_config["timestep"] * gradients["PolarGoToTarget"]
         # control
         if self.type == "Control":
             gradient_action[2] = 2.0 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]

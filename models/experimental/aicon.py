@@ -4,12 +4,11 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from components.instances.measurement_models import Robot_Vel_MM
 
 from models.experimental.active_interconnections import Triangulation_AI
 from models.experimental.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
 from models.experimental.goals import PolarGoToTargetGoal
-from models.experimental.measurement_models import Angle_MM
+from models.experimental.measurement_models import Angle_MM, Robot_Vel_MM
 
 # ========================================================================================================
 
