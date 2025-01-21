@@ -1,7 +1,6 @@
 from typing import Dict
 import numpy as np
 import torch
-from torch.func import jacrev
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
@@ -16,12 +15,12 @@ from models.experimental.measurement_models import Angle_MM
 
 class ExperimantalAICON(AICON):
     def __init__(self, env_config):
-        self.type = "Base"
+        self.type = "Experimental"
         super().__init__(env_config)
 
     def define_estimators(self):
         estimators = {
-            "RobotVel":         Robot_Vel_Estimator_Vel(),
+            "RobotVel":               Robot_Vel_Estimator_Vel(),
             "PolarTargetGlobalPos":   Polar_Pos_Estimator_Vel(),
         }
         return estimators
@@ -46,20 +45,11 @@ class ExperimantalAICON(AICON):
 
     def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         self.REs["PolarTargetGlobalPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
-        return buffer_dict
-
-#   def compute_goal_action_gradient(self, goal):
-#         action = torch.zeros(3)
-#         jacobian, step_eval = jacrev(
-#             self._eval_goal_with_aux,
-#             argnums=0,
-#             has_aux=True)(action, goal)
-#         return jacobian  
+        return buffer_dict 
 
     def compute_action_from_gradient(self, gradients):
-            decay = 0.98
-            return decay * self.last_action - 0.2 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
-            #return - 2.0 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+        decay = 0.9
+        return decay * self.last_action - 0.6 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
     
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()

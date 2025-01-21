@@ -1,5 +1,3 @@
-
-from typing import Dict
 from abc import ABC, abstractmethod
 import torch
 from torch.nn import Module

@@ -4,7 +4,7 @@ from typing import Dict
 
 # ==================================================================================
 
-class PolarGoToTargetGoal(Goal):
+class PolarGoToTargetGazeFixationGoal(Goal):
     def __init__(self):
         super().__init__()
         self.desired_distance = 0.0

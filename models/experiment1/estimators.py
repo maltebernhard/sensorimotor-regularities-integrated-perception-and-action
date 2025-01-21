@@ -4,7 +4,7 @@ from components.helpers import rotate_vector_2d
 
 # ==================================== Specific Implementations ==============================================
 
-class Polar_Pos_Estimator_Vel(RecursiveEstimator):
+class Polar_Pos_FovealVision_Estimator_Vel(RecursiveEstimator):
     """
     Estimator for Target state x:
     x[0]: target distance

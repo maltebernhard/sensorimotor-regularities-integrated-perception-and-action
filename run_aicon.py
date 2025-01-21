@@ -4,22 +4,26 @@ from components.analysis import Runner
 
 if __name__ == "__main__":
 
-    aicon_types = {
+    model_types = {
         # ------ SANDBOX ------
-        0: "Experimental",
-        # ------ BEHAVIOR ------
-        1: "Baseline",
-        2: "Control",
-        3: "Goal",
-        4: "FovealVision",
-        5: "Interconnection",
-        6: "Estimator",
-        # ---- ACTUAL SMCs ----
-        7: "Divergence",
-        8: "Visibility",
+        "Experimental": {},
+        # ------ Experiment 1 ------
+        "Experiment1": {
+            1: "Baseline",
+            2: "Control",
+            3: "Goal",
+            4: "FovealVision",
+            5: "Interconnection",
+        }
+
+        # 6: "Estimator",
+        # # ---- ACTUAL SMCs ----
+        # 7: "Divergence",
+        # 8: "Visibility",
     }
 
-    aicon_type = 3
+    model_type = "Experimental"
+    aicon_type = 4
 
     # --------------------- config ---------------------
 
@@ -44,7 +48,7 @@ if __name__ == "__main__":
         "target_offset_angle":      0.5,
         "target_offset_angle_dot":  0.5,
     }
-    use_foveal_vision_noise = True
+    use_foveal_vision_noise = False
 
     env_config = {
         "vel_control":          True,
@@ -68,5 +72,10 @@ if __name__ == "__main__":
 
     # --------------------- run ---------------------
 
-    runner = Runner(aicon_type=aicon_types[aicon_type], run_config=run_config, env_config=env_config)
+    runner = Runner(
+        model=model_type,
+        run_config=run_config,
+        env_config=env_config,
+        aicon_type=model_types[model_type][aicon_type] if len(model_types[model_type]) > 0 else None,
+    )
     runner.run()

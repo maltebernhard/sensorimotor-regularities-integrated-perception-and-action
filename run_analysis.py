@@ -89,7 +89,8 @@ large_fv_noise = {
 
 if __name__ == "__main__":
     # --------------------- config ---------------------
-
+    num_runs_per_config = 10
+    model_type = "Experiment1"
     aicon_type_config = ["Control", "Goal", "FovealVision", "Interconnection"]
     #observation_noise_config = [small_noise, large_noise]
     observation_noise_config = [small_noise]
@@ -102,17 +103,7 @@ if __name__ == "__main__":
     use_observation_loss = False
     use_foveal_vision_noise = True
 
-    experiment_config = {
-        "num_runs":                   10,
-        "initial_action":             [0.0, 0.0, 0.0],
-        "base_env_config":            base_env_config,
-        "base_run_config":            base_run_config,
-        "aicon_type_config":          aicon_type_config,
-        "moving_target_config":       moving_target_config if use_moving_target else ["false"],
-        "sensor_noise_config":        observation_noise_config if use_observation_noise else [{}],
-        "observation_loss_config":    observation_loss_config if use_observation_loss else [{}],
-        "foveal_vision_noise_config": foveal_vision_noise_config if use_foveal_vision_noise else [{}],
-    }
+    # ------------------- plotting config -----------------------
 
     plotting_config = {
         "name": "all_aicon_types",
@@ -157,7 +148,17 @@ if __name__ == "__main__":
 
     # --------------------- run ---------------------
 
-    analysis = Analysis(experiment_config)
+    analysis = Analysis({
+        "num_runs":                   num_runs_per_config,
+        "model_type":                 model_type,
+        "base_env_config":            base_env_config,
+        "base_run_config":            base_run_config,
+        "aicon_type_config":          aicon_type_config,
+        "moving_target_config":       moving_target_config if use_moving_target else ["false"],
+        "sensor_noise_config":        observation_noise_config if use_observation_noise else [{}],
+        "observation_loss_config":    observation_loss_config if use_observation_loss else [{}],
+        "foveal_vision_noise_config": foveal_vision_noise_config if use_foveal_vision_noise else [{}],
+    })
     analysis.run_analysis()
     analysis.plot_states(plotting_config, save=True, show=False)
     #analysis.plot_goal_losses(save=True, show=False)

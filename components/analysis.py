@@ -7,12 +7,8 @@ from tqdm import tqdm
 import yaml
 from components.aicon import AICON
 from components.logger import AICONLogger
-from models.baseline.aicon import BaselineAICON
+from models.experiment1.aicon import Experiment1AICON
 from models.experimental.aicon import ExperimantalAICON
-from models.control.aicon import ControlAICON
-from models.goal.aicon import GoalAICON
-from models.foveal_vision.aicon import FovealVisionAICON
-from models.interconnection.aicon import InterconnectionAICON
 
 from models.old.experiment_divergence.aicon import DivergenceAICON
 from models.old.experiment_estimator.aicon import ContingentEstimatorAICON
@@ -21,8 +17,10 @@ from models.old.experiment_visibility.aicon import VisibilityAICON
 # ========================================================================================================
 
 class Runner:
-    def __init__(self, aicon_type: str, run_config: dict, env_config: dict, logger:AICONLogger = None):
-        self.aicon_type = aicon_type
+    def __init__(self, model: str, run_config: dict, env_config: dict, aicon_type: str = None, logger: AICONLogger = None):
+        self.model = model
+        if aicon_type is not None:
+            self.aicon_type = aicon_type
         self.env_config = env_config
 
         self.num_steps = run_config['num_steps']
@@ -35,7 +33,7 @@ class Runner:
         self.step_by_step = run_config['step_by_step']
         
         self.logger = logger
-        self.aicon = self.select_aicon_type(self.aicon_type)(env_config)
+        self.aicon = self.create_model()
 
         self.num_run = 0
 
@@ -54,18 +52,15 @@ class Runner:
             video_path=self.video_record_path,
         )
     
-    def select_aicon_type(self, typestring:str):
-        if   typestring == "Experimental":    return ExperimantalAICON
-        elif typestring == "FovealVision":    return FovealVisionAICON
-        elif typestring == "Divergence":      return DivergenceAICON
-        elif typestring == "Goal":            return GoalAICON
-        elif typestring == "Estimator":       return ContingentEstimatorAICON
-        elif typestring == "Interconnection": return InterconnectionAICON
-        elif typestring == "Control":         return ControlAICON
-        elif typestring == "Visibility":      return VisibilityAICON
-        elif typestring == "Baseline":        return BaselineAICON
+    def create_model(self):
+        if   self.model == "Experiment1":    return Experiment1AICON(self.env_config, self.aicon_type)
+
+        elif self.model == "Experimental":    return ExperimantalAICON(self.env_config)
+        elif self.model == "Divergence":      return DivergenceAICON(self.env_config)
+        elif self.model == "Estimator":       return ContingentEstimatorAICON(self.env_config)
+        elif self.model == "Visibility":      return VisibilityAICON(self.env_config)
         else:
-            raise ValueError(f"AICON Type {typestring} not recognized")
+            raise ValueError(f"Model Type {self.model} not recognized")
 
 class Analysis:
     def __init__(self, experiment_config: dict):
@@ -76,6 +71,7 @@ class Analysis:
         self.base_run_config['step_by_step'] = False
 
         self.experiment_config = experiment_config
+        self.model = experiment_config["model_type"]
         self.num_runs = experiment_config["num_runs"]
 
         # Variations
@@ -105,8 +101,13 @@ class Analysis:
                                 env_config["moving_target"] = moving_target
                                 env_config["observation_loss"] = observation_loss
                                 env_config["foveal_vision_noise"] = foveal_vision_noise
-
-                                runner = Runner(aicon_type, self.base_run_config, env_config, self.logger)
+                                runner = Runner(
+                                    model = self.model,
+                                    aicon_type = aicon_type,
+                                    run_config = self.base_run_config,
+                                    env_config = env_config,
+                                    logger = self.logger
+                                )
                                 for run in range(self.num_runs):
                                     if run == self.num_runs-1:
                                         runner.render = True
