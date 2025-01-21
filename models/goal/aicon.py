@@ -54,7 +54,7 @@ class GoalAICON(AICON):
 
     def compute_action_from_gradient(self, gradients):
         decay = 0.9
-        gradient_action = decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
+        gradient_action = decay * self.last_action - 3e-2 * gradients["PolarGoToTarget"]
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):

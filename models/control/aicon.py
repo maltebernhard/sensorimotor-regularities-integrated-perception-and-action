@@ -54,7 +54,7 @@ class ControlAICON(AICON):
 
     def compute_action_from_gradient(self, gradients):
         decay = 0.9
-        gradient_action = decay * self.last_action - 1e-2 * gradients["PolarGoToTarget"]
+        gradient_action = decay * self.last_action - 3e-2 * gradients["PolarGoToTarget"]
         # control
         gradient_action[2] = 2.0 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
         return gradient_action

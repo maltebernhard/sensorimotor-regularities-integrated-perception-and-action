@@ -9,8 +9,8 @@ class Robot_Vel_Estimator_Vel(RecursiveEstimator):
         super().__init__("RobotVel", 3)
         self.default_state = torch.tensor([0.0, 0.0, 0.0])
         self.default_cov = 1e1 * torch.eye(3)
-        self.default_motion_noise = 1e0 * torch.eye(3)
-        self.update_uncertainty: torch.Tensor = torch.tensor([2e-1, 2e-1, 1e-1]) * torch.eye(self.state_dim)
+        self.default_motion_noise = torch.eye(3) * torch.tensor([3e-1, 3e-1, 1e-1])
+        self.update_uncertainty: torch.Tensor = torch.eye(self.state_dim) * torch.tensor([2e-1, 2e-1, 1e-1])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """
@@ -104,8 +104,10 @@ class Polar_Pos_Estimator_Vel(RecursiveEstimator):
         super().__init__(f'Polar{object_name}Pos', 4)
         self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0])
         self.default_cov = 1e3 * torch.eye(4)
-        self.default_motion_noise = torch.eye(4) * torch.tensor([1e0, 1e0, 1e0, 1e0])
-        self.update_uncertainty = torch.eye(4) * torch.tensor([3e-1, 1e-1, 3e-1, 1e-1])
+        # NOTE: Unfortunately, Triangulation behavior only works well when angle uncertainty goes up faster than distance uncertainty, otherwise strong oscillation
+        #       Can't tackle this with update uncertainty as it is not used when updating the estimator itself w/ Triangulation AI
+        self.default_motion_noise = torch.eye(4) * torch.tensor([1e-1, 5e-1, 1e-1, 5e-1])
+        self.update_uncertainty = torch.eye(4) * torch.tensor([1e-1, 1e-2, 1e-1, 1e-2])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]

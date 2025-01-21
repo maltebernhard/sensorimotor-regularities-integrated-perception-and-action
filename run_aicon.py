@@ -19,7 +19,7 @@ if __name__ == "__main__":
         8: "Visibility",
     }
 
-    aicon_type = 1
+    aicon_type = 5
 
     # --------------------- config ---------------------
 
@@ -44,7 +44,7 @@ if __name__ == "__main__":
         "target_offset_angle":      0.5,
         "target_offset_angle_dot":  0.5,
     }
-    use_foveal_vision_noise = False
+    use_foveal_vision_noise = True
 
     env_config = {
         "vel_control":          True,
@@ -58,9 +58,9 @@ if __name__ == "__main__":
     }
 
     run_config = {
-        "num_steps":        400,
+        "num_steps":        500,
         "initial_action":   [0.0, 0.0, 0.0],
-        "seed":             10,
+        "seed":             1,
         "render":           True,
         "prints":           1,
         "step_by_step":     True,
