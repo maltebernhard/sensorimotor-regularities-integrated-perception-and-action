@@ -12,12 +12,14 @@ class Polar_Pos_FovealVision_Estimator_Vel(RecursiveEstimator):
     x[2]: del target distance
     x[3]: del target offset angle
     """
-    def __init__(self, object_name:str="Target"):
+    def __init__(self, object_name:str="Target", foveal_vision_noise:dict={}, sensor_angle:float=2*torch.pi):
         super().__init__(f'Polar{object_name}Pos', 4)
         self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0])
         self.default_cov = 1e3 * torch.eye(4)
         self.default_motion_noise = torch.eye(4) * torch.tensor([1e-1, 5e-1, 1e-1, 5e-1])
         self.update_uncertainty = torch.eye(4) * torch.tensor([1e-1, 1e-2, 1e-1, 1e-2])
+        self.foveal_vision_noise = foveal_vision_noise
+        self.sensor_angle = sensor_angle
 
     @staticmethod
     def smooth_abs(x, margin=1.0):
@@ -36,6 +38,10 @@ class Polar_Pos_FovealVision_Estimator_Vel(RecursiveEstimator):
         ret_mean[2] = - rtf_vel[0]
         ret_mean[3] = - rtf_vel[1]/x_mean[0] - u[3]
         ret_cov = cov.clone()
-        ret_cov[1,1] = 1e0 * self.smooth_abs(ret_mean[1], margin=1e-2)
-        ret_cov[3,3] = 1e0 * self.smooth_abs(ret_mean[1], margin=1e-2)
+
+        if ret_mean[1].clone().abs() < self.sensor_angle/2:
+            #ret_cov[1,1] = (self.foveal_vision_noise["target_offset_angle"] * self.smooth_abs(ret_mean[1]/(self.sensor_angle/2), margin=1e-3)).pow(2)
+            #ret_cov[3,3] = (self.foveal_vision_noise["target_offset_angle_dot"] * self.smooth_abs(ret_mean[1]/(self.sensor_angle/2), margin=1e-3)).pow(2)
+            ret_cov[1,1] = self.smooth_abs(ret_mean[1], margin=1e-3)
+            ret_cov[3,3] = self.smooth_abs(ret_mean[1], margin=1e-3)
         return ret_mean, ret_cov

@@ -9,7 +9,7 @@ from components.instances.measurement_models import Robot_Vel_MM, Angle_MM
 from components.instances.goals import PolarGoToTargetGoal
 from models.experiment1.active_interconnections import Gaze_Fixation_AI
 from models.experiment1.estimators import Polar_Pos_FovealVision_Estimator_Vel
-from models.experiment1.goals import PolarGoToTargetGazeFixationGoal
+from models.experiment1.goals import PolarGoToTargetFovealVisionGoal, PolarGoToTargetGazeFixationGoal
 
 # ========================================================================================================
 
@@ -22,7 +22,7 @@ class Experiment1AICON(AICON):
     def define_estimators(self):
         estimators = {
             "RobotVel":         Robot_Vel_Estimator_Vel(),
-            "PolarTargetPos":   Polar_Pos_Estimator_Vel() if self.type != "FovealVision" else Polar_Pos_FovealVision_Estimator_Vel(),
+            "PolarTargetPos":   Polar_Pos_Estimator_Vel() if self.type != "FovealVision" else Polar_Pos_FovealVision_Estimator_Vel(foveal_vision_noise=self.env_config["foveal_vision_noise"], sensor_angle=self.env_config["robot_sensor_angle"]),
         }
         return estimators
 
@@ -41,9 +41,17 @@ class Experiment1AICON(AICON):
         return active_interconnections
 
     def define_goals(self):
+        def select_goal():
+            if self.type == "Goal":
+                return PolarGoToTargetGazeFixationGoal()
+            elif self.type == "FovealVision":
+                return PolarGoToTargetFovealVisionGoal()
+            else:
+                return PolarGoToTargetGoal()
         goals = {
-            "PolarGoToTarget": PolarGoToTargetGoal() if self.type != "Goal" else PolarGoToTargetGazeFixationGoal(),
+            "PolarGoToTarget": select_goal(),
         }
+        
         return goals
 
     def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
