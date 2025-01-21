@@ -38,16 +38,17 @@ class AICONLogger:
             data (Dict[int, dict]): A dictionary to store data, where the key is an integer and the value is another dictionary.
             run (int): The current run number, initialized to 0.
         """
-        self.task_variation: Tuple[int,int,int] = None
+        self.task_variation: Tuple[int,int,int,int] = None
         self.aicon_type: int = None
         self.config = (None, None)
-        self.data: Dict[Tuple[int,Tuple[int,int,int]], Dict[int,dict]] = {
+        self.data: Dict[Tuple[int,Tuple[int,int,int,int]], Dict[int,dict]] = {
             "records": {},
             "configs": {
-                "aicon_types":        {},
-                "sensor_noises":      {},
-                "target_movements":   {},
-                "observation_losses": {},
+                "aicon_types":          {},
+                "sensor_noises":        {},
+                "target_movements":     {},
+                "observation_losses":   {},
+                "foveal_vision_noises": {},
             },
         }
         self.run = 0
@@ -65,13 +66,14 @@ class AICONLogger:
             target_dict[1] = target_value
             return 1
 
-    def set_config(self, aicon_type: str, sensor_noise: Dict[str,float], target_movement: str, observation_loss: Dict[str,float]):
+    def set_config(self, aicon_type: str, sensor_noise: Dict[str,float], target_movement: str, observation_loss: Dict[str,float], foveal_vision_noise: Dict[str,float]):
         self.aicon_type = self.get_config_id("aicon_types", aicon_type)
         self.sensor_noise = self.get_config_id("sensor_noises", sensor_noise)
         self.target_movement = self.get_config_id("target_movements", target_movement)
         self.observation_loss = self.get_config_id("observation_losses", observation_loss)
+        self.foveal_vision_noise = self.get_config_id("foveal_vision_noises", foveal_vision_noise)
 
-        self.config = (self.aicon_type, (self.sensor_noise, self.target_movement, self.observation_loss))
+        self.config = (self.aicon_type, (self.sensor_noise, self.target_movement, self.observation_loss, self.foveal_vision_noise))
         if self.config not in self.data["records"]:
             self.data["records"][self.config] = {}
         self.current_data = self.data["records"][self.config]
@@ -210,11 +212,11 @@ class AICONLogger:
             #label='Stddev'
         )
         if title is not None:
-            subplot.set_title(title)
+            subplot.set_title(title, fontsize=16)
         if x_label is not None:
             subplot.set_xlabel(x_label)
         if y_label is not None:
-            subplot.set_ylabel(y_label)
+            subplot.set_ylabel(y_label, fontsize=16)
         subplot.grid(True)
         subplot.legend() if legend else None
 
@@ -248,14 +250,9 @@ class AICONLogger:
             indices = np.array(config["indices"])
             labels = config["labels"]
             ybounds = config["ybounds"]
-            fig_avg, axs_avg = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
-            fig_runs, axs_runs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
+            fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
 
             for label, config in plotting_config["axes"].items():
-                # PLOT:
-                # - state (goal error)
-                # - estimation error: estimation - state
-                # - uncertainty
                 self.set_config(**config)
                 states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.current_data.values()])
                 ucttys = np.array([np.array(run["estimators"][state_id]["uncertainty"])[:,indices] for run in self.current_data.values()])
@@ -265,34 +262,54 @@ class AICONLogger:
                 error_means, error_stddevs = self.compute_mean_and_stddev(errors)
                 uctty_means, uctty_stddevs = self.compute_mean_and_stddev(ucttys)
                 for i in range(len(indices)):
-                    self.plot_mean_stddev(axs_avg[0][i], state_means[:, i], state_stddevs[:, i], f"{state_id} {labels[i]}", label, "State" if i==0 else None, None, True)
-                    self.plot_mean_stddev(axs_avg[1][i], error_means[:, i], error_stddevs[:, i], None, label, "Estimation Error" if i==0 else None, None, True)
-                    self.plot_mean_stddev(axs_avg[2][i], uctty_means[:, i], uctty_stddevs[:, i], None, label, "Estimation Uncertainty" if i==0 else None, "Time Step", True)    
-                    # self.plot_runs(axs_runs[0][i], states, i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, i==0)
-                    # self.plot_runs(axs_runs[1][i], errors, i, None, "Estimation Error" if i==0 else None, None)
-                    # self.plot_runs(axs_runs[2][i], ucttys, i, None, "Estimation Uncertainty" if i==0 else None, "Time Step")
-                    axs_avg[0][i].set_ylim(ybounds[0][i])
-                    axs_avg[1][i].set_ylim(ybounds[1][i])
-                    axs_avg[2][i].set_ylim(ybounds[2][i])
-
+                    self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], f"{state_id} {labels[i]}", label, "State" if i==0 else None, None, True)
+                    self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], None, label, "Estimation Error" if i==0 else None, None, True)
+                    self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], None, label, "Estimation Uncertainty" if i==0 else None, "Time Step", True)    
+                    axs[0][i].set_ylim(ybounds[0][i])
+                    axs[1][i].set_ylim(ybounds[1][i])
+                    axs[2][i].set_ylim(ybounds[2][i])
             # save / show
-            avg_path = os.path.join(save_path, f"records/{state_id}_{plotting_config["name"]}.png") if save_path is not None else None
-            #runs_path = os.path.join(save_path, f"records/{state_id}_runs.png") if save_path is not None else None
-            self.save_fig(fig_avg, avg_path, show)
-            #self.save_fig(fig_runs, runs_path, show)
+            path = os.path.join(save_path, f"records/{state_id}_{plotting_config["name"]}.png") if save_path is not None else None
+            self.save_fig(fig, path, show)
 
-    def plot_goal_losses(self, save_path:str=None, show:bool=False):
+    def plot_state_runs(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], axs_id: str, save_path:str=None, show:bool=False):
+        for state_id, config in plotting_config["states"].items():
+            indices = np.array(config["indices"])
+            labels = config["labels"]
+            ybounds = config["ybounds"]
+            fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
+            config = plotting_config["axes"][axs_id]
+            self.set_config(**config)
+            states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.current_data.values()])
+            ucttys = np.array([np.array(run["estimators"][state_id]["uncertainty"])[:,indices] for run in self.current_data.values()])
+            errors = np.array([np.array(run["estimation_error"][state_id])[:,indices] for run in self.current_data.values()])
+            for i in range(len(indices)):   
+                self.plot_runs(axs[0][i], states, i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, True)
+                self.plot_runs(axs[1][i], errors, i, None, "Estimation Error" if i==0 else None, None, True)
+                self.plot_runs(axs[2][i], ucttys, i, None, "Estimation Uncertainty" if i==0 else None, "Time Step", True)
+                axs[0][i].set_ylim(ybounds[0][i])
+                axs[1][i].set_ylim(ybounds[1][i])
+                axs[2][i].set_ylim(ybounds[2][i])
+            # save / show
+            path = os.path.join(save_path, f"records/{state_id}_{plotting_config["name"]}_{axs_id}_runs.png") if save_path is not None else None
+            self.save_fig(fig, path, show)
+
+    def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+        num_goals = len(plotting_config["goals"])
         # Plot goal losses
-        goal_losses = {goal_key: np.array([run["goal_loss"][goal_key] for run in self.current_data.values()]) for goal_key in self.current_data[1]["goal_loss"].keys()}
-        fig_goal, axs_goal = plt.subplots(2, len(goal_losses), figsize=(12, 10*len(goal_losses)))
-        if len(goal_losses) == 1:
-            axs_goal = [[axs_goal[0]], [axs_goal[1]]]
-        for i, (goal_key, losses) in enumerate(goal_losses.items()):
-            goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(losses)
-            self.plot_mean_stddev(axs_goal[0][i], goal_loss_means, goal_loss_stddevs, f"Goal Loss for {goal_key}", "Loss Mean and Stddev", None)
-            self.plot_runs(axs_goal[1][i], losses, None, None, "Loss", "Time Step")
-            axs_goal[0][i].set_ylim(0, 500)
-            axs_goal[1][i].set_ylim(0, 500)
+        fig_goal, axs_goal = plt.subplots(1, num_goals, figsize=(12, 10*num_goals))
+        if num_goals == 1:
+            axs_goal = [axs_goal]
+        for i, (goal_id, config) in enumerate(plotting_config["goals"].items()):
+            ybounds = config["ybounds"]
+
+            for label, config in plotting_config["axes"].items():
+                self.set_config(**config)
+                goal_losses = np.array([run["goal_loss"][goal_id] for run in self.current_data.values()])
+                goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
+                self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"Goal Loss for {goal_id}", label, "Loss Mean and Stddev", "Timestep", True)
+                axs_goal[i].set_ylim(ybounds[0], ybounds[1])
+
         # save / show
         loss_path = os.path.join(save_path, "records/goal_losses.png") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)
