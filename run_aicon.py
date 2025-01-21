@@ -23,7 +23,7 @@ if __name__ == "__main__":
     }
 
     model_type = "Experiment1"
-    aicon_type = 4
+    aicon_type = 5
 
     # --------------------- config ---------------------
 
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         "seed":             1,
         "render":           True,
         "prints":           1,
-        "step_by_step":     True,
+        "step_by_step":     False,
     }
 
     # --------------------- run ---------------------

@@ -53,7 +53,8 @@ class Experiment1AICON(AICON):
 
     def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         if self.type == "Interconnection":
-            self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+            self.REs["RobotVel"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+            #self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         return buffer_dict
 
@@ -74,7 +75,7 @@ class Experiment1AICON(AICON):
     def compute_action_from_gradient(self, gradients):
         # TODO: improve timestep scaling of action generation
         decay = 0.9 ** (self.env_config["timestep"] / 0.05)
-        gradient_action = decay * self.last_action - 6e-1*self.env_config["timestep"] * gradients["PolarGoToTarget"]
+        gradient_action = decay * self.last_action - 6e-1 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
         # control
         if self.type == "Control":
             gradient_action[2] = 2.0 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]

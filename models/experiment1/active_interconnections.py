@@ -49,4 +49,10 @@ class Gaze_Fixation_AI(ActiveInterconnection):
 
     def implicit_interconnection_model(self, meas_dict):
         rtf_vel = rotate_vector_2d(meas_dict['PolarTargetPos'][1], meas_dict['RobotVel'][:2])
-        return torch.atleast_1d(rtf_vel[1] / meas_dict['PolarTargetPos'][0] + meas_dict['RobotVel'][2])
+        #return torch.atleast_1d(rtf_vel[1] / meas_dict['PolarTargetPos'][0] + meas_dict['RobotVel'][2])
+        return torch.atleast_1d(torch.stack([
+            # lateral vel should match angular vel * distance
+            rtf_vel[1] / meas_dict['PolarTargetPos'][0] + meas_dict['RobotVel'][2],
+            # angle should be 0
+            meas_dict['PolarTargetPos'][1],
+        ]).squeeze())

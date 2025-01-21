@@ -83,6 +83,7 @@ class Analysis:
         
         self.logger = AICONLogger()
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}/"
+        self.record_videos = experiment_config["record_videos"]
 
     def run_analysis(self):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
@@ -109,7 +110,7 @@ class Analysis:
                                     logger = self.logger
                                 )
                                 for run in range(self.num_runs):
-                                    if run == self.num_runs-1:
+                                    if self.record_videos and run == self.num_runs-1:
                                         runner.render = True
                                         video_path = self.record_dir + f"/records/{config_id[0]}_{config_id[1][0]}_{config_id[1][1]}_{config_id[1][2]}_{config_id[1][3]}.mp4"
                                         runner.video_record_path = video_path
@@ -123,7 +124,7 @@ class Analysis:
             yaml.dump(self.experiment_config, file)
         self.logger.save(self.record_dir)
 
-    def run_demo(self, aicon_type: str, sensor_noise: dict, moving_target: bool, observation_loss: dict, foveal_vision_noise: dict, run_number):
+    def run_demo(self, aicon_type: str, sensor_noise: dict, moving_target: bool, observation_loss: dict, foveal_vision_noise: dict, run_number, record_video=False):
         env_config = self.base_env_config.copy()
         env_config["observation_noise"] = sensor_noise
         env_config["moving_target"] = moving_target
@@ -140,6 +141,11 @@ class Analysis:
             env_config = env_config
         )
         runner.num_run = run_number-1
+        if record_video:
+            self.logger.set_config(aicon_type, sensor_noise, moving_target, observation_loss, foveal_vision_noise)
+            config_id = self.logger.config
+            video_path = self.record_dir + f"/records/{config_id[0]}_{config_id[1][0]}_{config_id[1][1]}_{config_id[1][2]}_{config_id[1][3]}.mp4"
+            runner.video_record_path = video_path
         runner.run()
 
     def plot_states(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], save: bool=False, show: bool=True):

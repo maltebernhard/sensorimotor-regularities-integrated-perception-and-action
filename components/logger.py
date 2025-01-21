@@ -240,6 +240,7 @@ class AICONLogger:
         if save_path is not None:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             fig.savefig(save_path)
+            print("Saving...")
         if show:
             fig.show()
             input("Press Enter to continue...")
@@ -309,9 +310,8 @@ class AICONLogger:
                 goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
                 self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"Goal Loss for {goal_id}", label, "Loss Mean and Stddev", "Timestep", True)
                 axs_goal[i].set_ylim(ybounds[0], ybounds[1])
-
         # save / show
-        loss_path = os.path.join(save_path, "records/goal_losses.png") if save_path is not None else None
+        loss_path = os.path.join(save_path, f"records/goal_losses_{plotting_config["name"]}.png") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)
         
 

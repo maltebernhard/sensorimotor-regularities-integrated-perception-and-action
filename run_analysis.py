@@ -92,15 +92,14 @@ if __name__ == "__main__":
     num_runs_per_config = 10
     model_type = "Experiment1"
     aicon_type_config = ["Baseline", "Control", "Goal", "FovealVision", "Interconnection"]
-    #observation_noise_config = [small_noise, large_noise]
     observation_noise_config = [small_noise]
     moving_target_config = ["false"]
     observation_loss_config = [{}]
     foveal_vision_noise_config = [large_fv_noise]
 
-    use_moving_target = False
+    use_moving_target = True
     use_observation_noise = True
-    use_observation_loss = False
+    use_observation_loss = True
     use_foveal_vision_noise = True
 
     # ------------------- plotting config -----------------------
@@ -165,7 +164,7 @@ if __name__ == "__main__":
     # --------------------- run ---------------------
 
     analysis = Analysis({
-         "num_runs":                  num_runs_per_config,
+        "num_runs":                   num_runs_per_config,
         "model_type":                 model_type,
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
@@ -174,20 +173,23 @@ if __name__ == "__main__":
         "sensor_noise_config":        observation_noise_config if use_observation_noise else [{}],
         "observation_loss_config":    observation_loss_config if use_observation_loss else [{}],
         "foveal_vision_noise_config": foveal_vision_noise_config if use_foveal_vision_noise else [{}],
+        "record_videos":              False,
     })
     analysis.run_analysis()
-
-    # analysis = Analysis.load("records/2025_01_21_11_44")
-    
     analysis.plot_states(plotting_config, save=True, show=False)
-    analysis.plot_state_runs(plotting_config, "Control", save=True, show=False)
     analysis.plot_goal_losses(plotting_config, save=True, show=False)
     
+    # analysis = Analysis.load("records/2025_01_21_11_44")
+    # analysis.plot_states(plotting_config, save=True, show=False)
+    # analysis.plot_goal_losses(plotting_config, save=True, show=False)
+    # analysis.plot_state_runs(plotting_config, "Control", save=True, show=False)
+
     # analysis.run_demo(
     #     "Control",
     #     observation_noise_config[0],
     #     moving_target_config[0],
     #     observation_loss_config[0],
     #     foveal_vision_noise_config[0],
-    #     run_number = 6
+    #     run_number = 6,
+    #     record_video = True,
     # )
