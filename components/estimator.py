@@ -48,11 +48,11 @@ class State(Module):
 # =========================================================================================
 
 class Observation(State):
-    def __init__(self, id, state_dim, update_uncertainty, device=None, dtype=None):
+    def __init__(self, id, state_dim, sensor_uncertainty, update_uncertainty, device=None, dtype=None):
         super().__init__(id, state_dim, device, dtype)
         self.updated = False
         self.last_updated = -1.0
-        
+        self.sensor_uncertainty = sensor_uncertainty
         self.update_uncertainty = update_uncertainty
 
     def set_observation(self, obs: torch.Tensor, obs_cov: torch.Tensor=None, time=None):

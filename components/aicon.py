@@ -100,7 +100,7 @@ class AICON(ABC):
         #self.observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
-            obs[key] = Observation(key, 1, self.get_observation_update_uncertainty(key))
+            obs[key] = Observation(key, 1, self.env_config["observation_noise"][key] if key in self.env_config["observation_noise"].keys() else 0.0, self.get_observation_update_uncertainty(key))
         self.last_observation: Tuple[dict,dict] = None
         return obs
 
@@ -114,7 +114,7 @@ class AICON(ABC):
             if value is not None:
                 self.obs[key].set_observation(
                     obs = torch.tensor([value]),
-                    obs_cov = torch.tensor([[self.last_observation[1][key]]]).pow(2),
+                    obs_cov = torch.tensor([[self.obs[key].sensor_uncertainty]]).pow(2),
                     time = self.env.time
                 )
 
