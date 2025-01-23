@@ -3,7 +3,7 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from models.experiment1.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel, Polar_Pos_FovealVision_Estimator_Vel
+from models.experiment1.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator, Polar_Pos_FovealVision_Estimator
 from models.experiment1.active_interconnections import Triangulation_AI, Gaze_Fixation_AI
 from models.experiment1.measurement_models import Robot_Vel_MM, Angle_MM
 from models.experiment1.goals import PolarGoToTargetGoal, PolarGoToTargetFovealVisionGoal, PolarGoToTargetGazeFixationGoal
@@ -18,8 +18,8 @@ class Experiment1AICON(AICON):
 
     def define_estimators(self):
         estimators = {
-            "RobotVel":         Robot_Vel_Estimator_Vel(),
-            "PolarTargetPos":   Polar_Pos_Estimator_Vel() if self.type != "FovealVision" else Polar_Pos_FovealVision_Estimator_Vel(foveal_vision_noise=self.env_config["foveal_vision_noise"], sensor_angle=self.env_config["robot_sensor_angle"]),
+            "RobotVel":         Robot_Vel_Estimator(),
+            "PolarTargetPos":   Polar_Pos_Estimator() if self.type != "FovealVision" else Polar_Pos_FovealVision_Estimator(foveal_vision_noise=self.env_config["foveal_vision_noise"], sensor_angle=self.env_config["robot_sensor_angle"]),
         }
         return estimators
 
@@ -55,7 +55,10 @@ class Experiment1AICON(AICON):
         if self.type == "Interconnection":
             self.REs["RobotVel"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
             #self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["GazeFixation"], buffer_dict)
+        
+        print("Pre Triangulation:"), self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
+        print("Post Triangulation:"), self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         return buffer_dict
 
     def compute_action(self):
@@ -88,7 +91,7 @@ class Experiment1AICON(AICON):
         print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}, {env_state['target_radius']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
-        print(f"True RobotVel: [{self.env.robot.vel[0]}, {self.env.robot.vel[1]}, {self.env.robot.vel_rot}]")
+        print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):
@@ -96,7 +99,7 @@ class Experiment1AICON(AICON):
 
     def get_observation_update_uncertainty(self, key):
         if "angle" in key or "_rot" in key:
-            update_uncertainty: torch.Tensor = 2e-1 * torch.eye(1)
+            update_uncertainty: torch.Tensor = 3e-1 * torch.eye(1)
         else:
             update_uncertainty: torch.Tensor = 5e-1 * torch.eye(1)
         return update_uncertainty

@@ -14,27 +14,30 @@ if __name__ == "__main__":
             3: "Goal",
             4: "FovealVision",
             5: "Interconnection",
-        }
-
+        },
+        "ExperimentFovealVision": {},
         # 6: "Estimator",
         # # ---- ACTUAL SMCs ----
         # 7: "Divergence",
         # 8: "Visibility",
     }
 
-    model_type = "Experimental"
-    aicon_type = 5
+    model_type = "Experiment1"
+    aicon_type = 2
 
     # --------------------- config ---------------------
 
     observation_noise = {
         "target_offset_angle":      0.01,
         "target_offset_angle_dot":  0.01,
+        "obstacle1_offset_angle":      0.01,
+        "obstacle1_offset_angle_dot":  0.01,
         "target_visual_angle":      0.01,
         "target_visual_angle_dot":  0.01,
-        "vel_frontal":              0.1,
-        "vel_lateral":              0.1,
-        "vel_rot":                  0.01
+        "target_distance":          1.0,
+        "vel_frontal":              0.01,
+        "vel_lateral":              0.01,
+        "vel_rot":                  0.001
     }
     use_observation_noise = True
 
@@ -45,8 +48,10 @@ if __name__ == "__main__":
     use_observation_loss = False
 
     foveal_vision_noise = {
-        "target_offset_angle":      0.5,
-        "target_offset_angle_dot":  0.5,
+        "target_offset_angle":        0.5,
+        "target_offset_angle_dot":    0.5,
+        "obstacle1_offset_angle":     0.5,
+        "obstacle1_offset_angle_dot": 0.5,
     }
     use_foveal_vision_noise = False
 
@@ -54,7 +59,7 @@ if __name__ == "__main__":
         "vel_control":          True,
         "moving_target":        "false",        #"sine", "linear", "flight", "false"
         "sensor_angle_deg":     360,
-        "num_obstacles":        0,
+        "num_obstacles":        1,
         "timestep":             0.05,
         "observation_noise":    observation_noise if use_observation_noise else {},
         "observation_loss":     observation_loss if use_observation_loss else {},
@@ -67,7 +72,7 @@ if __name__ == "__main__":
         "seed":             1,
         "render":           True,
         "prints":           1,
-        "step_by_step":     False,
+        "step_by_step":     True,
     }
 
     # --------------------- run ---------------------

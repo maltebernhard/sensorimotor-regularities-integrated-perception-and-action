@@ -48,11 +48,17 @@ class AICON(ABC):
         assert self.AIs is not None, "Active Interconnections not set"
         assert self.goals is not None, "Goals not set"
         self.reset(seed=env_seed, video_path=video_path)
+        if initial_action is not None:
+            self.last_action = initial_action
+        self.update_observations()
+        buffer_dict = self.get_buffer_dict()
+        self.meas_updates(buffer_dict)
+        self.eval_interconnections(buffer_dict)
+        for key, state_buffer_dict in buffer_dict.items():
+            self.REs[key].load_state_dict(state_buffer_dict) if key in self.REs.keys() else None
         if prints > 0:
             print(f"======================= Initial State ===========================")
             self.print_estimators()
-        if initial_action is not None:
-            self.last_action = initial_action
         if render:
             self.render()
         for step in range(timesteps):
@@ -93,14 +99,30 @@ class AICON(ABC):
         for key, buffer_dict in buffers.items():
             self.REs[key].load_state_dict(buffer_dict) if key in self.REs.keys() else None
 
+    def eval_step(self, action, new_step = False) -> Dict[str, Dict[str, torch.Tensor]]:
+        """
+        Evaluates one step of the environment and returns the buffer_dict
+        """
+        if new_step:
+            self.update_observations()
+        buffer_dict = self.get_buffer_dict()
+        # estimator forward models
+        u = self.get_control_input(action)
+        for estimator in self.REs.values():
+            estimator.call_predict(u, buffer_dict)
+        # measurement updates
+        if new_step:
+            self.meas_updates(buffer_dict)
+        # interconnection updates
+        return self.eval_interconnections(buffer_dict)
+
     def set_observations(self):
         obs: Dict[str, Observation] = {}
         required_observations = [key for key in [obs for mm in [val[0] for val in self.MMs.values()] for obs in mm.required_observations] + [obs for ai in self.AIs.values() for obs in ai.required_observations] if key in self.env.observations.keys()]
-        # TODO: change this back! How would the model know the varying noise applied by the environment?
-        #self.observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
+        observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
-            obs[key] = Observation(key, 1, self.env_config["observation_noise"][key] if key in self.env_config["observation_noise"].keys() else 0.0, self.get_observation_update_uncertainty(key))
+            obs[key] = Observation(key, 1, torch.eye(1)*observation_noise[key], self.get_observation_update_uncertainty(key))
         self.last_observation: Tuple[dict,dict] = None
         return obs
 
@@ -110,12 +132,13 @@ class AICON(ABC):
 
     def update_observations(self):
         self.last_observation = self.env.get_observation()
+        custom_observation_noise = self.get_custom_observation_noise(self.last_observation[0])
         for key, value in self.last_observation[0].items():
             if value is not None:
                 self.obs[key].set_observation(
                     obs = torch.tensor([value]),
-                    obs_cov = torch.tensor([[self.obs[key].sensor_uncertainty]]).pow(2),
-                    time = self.env.time
+                    custom_obs_noise = custom_observation_noise[key],
+                    time = self.env.time,
                 )
 
     def _eval_goal_with_aux(self, action: torch.Tensor, goal: Goal):
@@ -328,23 +351,6 @@ class AICON(ABC):
         """
         raise NotImplementedError
 
-    def eval_step(self, action, new_step = False) -> Dict[str, Dict[str, torch.Tensor]]:
-        """
-        Evaluates one step of the environment and returns the buffer_dict
-        """
-        if new_step:
-            self.update_observations()
-        buffer_dict = self.get_buffer_dict()
-        # estimator forward models
-        u = self.get_control_input(action)
-        for estimator in self.REs.values():
-            estimator.call_predict(u, buffer_dict)
-        # measurement updates
-        if new_step:
-            self.meas_updates(buffer_dict)
-        # interconnection updates
-        return self.eval_interconnections(buffer_dict)
-
     @abstractmethod
     def eval_interconnections(self, buffer_dict) -> Dict[str, Dict[str, torch.Tensor]]:
         """
@@ -394,10 +400,17 @@ class AICON(ABC):
     
     def get_observation_update_uncertainty(self, key):
         """
-        Returns the uncertainty to be added to a sensor measurement's known noise for updates.
-        This is done to increase Kalman Filter stability. SHOULD be overwritten by user to add custom uncertainty.
+        Returns the uncertainty to be added to inflate observation covariances for updates.
+        This is done to increase Kalman Filter stability. SHOULD be overwritten by user.
         """
-        return 0.0
+        return 0.0 * torch.eye(1)
+    
+    def get_custom_observation_noise(self, obs: dict):
+        """
+        Returns noise based on the model's knowledge of environment properties (e.g. foveal vision), which is added to static sensor noise.
+        Only to be implemented if there is any noise depending on the state.
+        """
+        return {key: 0.0 * torch.eye(1) for key in obs.keys()}
     
 class DroneEnvAICON(AICON):
     def __init__(self, env_config:dict={

@@ -9,6 +9,7 @@ from components.aicon import AICON
 from components.logger import AICONLogger
 from models.experiment1.aicon import Experiment1AICON
 from models.experimental.aicon import ExperimantalAICON
+from models.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
 
 from models.old.experiment_divergence.aicon import DivergenceAICON
 from models.old.experiment_estimator.aicon import ContingentEstimatorAICON
@@ -53,9 +54,10 @@ class Runner:
         )
     
     def create_model(self):
-        if   self.model == "Experiment1":    return Experiment1AICON(self.env_config, self.aicon_type)
-
+        if   self.model == "Experiment1":     return Experiment1AICON(self.env_config, self.aicon_type)
         elif self.model == "Experimental":    return ExperimantalAICON(self.env_config)
+        elif self.model == "ExperimentFovealVision": return ExperimentFovealVisionAICON(self.env_config)
+
         elif self.model == "Divergence":      return DivergenceAICON(self.env_config)
         elif self.model == "Estimator":       return ContingentEstimatorAICON(self.env_config)
         elif self.model == "Visibility":      return VisibilityAICON(self.env_config)

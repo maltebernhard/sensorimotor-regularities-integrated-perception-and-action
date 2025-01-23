@@ -13,7 +13,8 @@ class PolarGoToTargetGoal(Goal):
         loss_mean = torch.concat([
             1e0 * torch.atleast_1d(buffer_dict['PolarTargetPos']['state_mean'][0] - self.desired_distance),
         ]).pow(2).sum()
-        loss_cov = 2e0 * torch.trace(buffer_dict['PolarTargetPos']['state_cov'])
+        cov = buffer_dict['PolarTargetPos']['state_cov'].diag()
+        loss_cov = 1e0 * (cov[0] + cov[2]) + 1e1 * (cov[1] + cov[3])
         return loss_mean + loss_cov
 
 class PolarGoToTargetGazeFixationGoal(Goal):

@@ -477,10 +477,8 @@ class GazeFixEnv(BaseEnv):
                     if key+"_dot" in real_observation.keys():
                         real_observation[key+"_dot"] = None                                         # del angle
                     if key[:-12] + "visual_angle" in real_observation.keys():
-                        print("TEST: HOORAY", observation)
                         real_observation[key[:-12] + "visual_angle"] = None                         # visual angle
                     if key[:-12] + "visual_angle_dot" in real_observation.keys():
-                        print("TEST2: HOORAY", observation)
                         real_observation[key[:-12]+"visual_angle_dot"] = None                       # del visual angle   
 
         # apply sensor noise
@@ -489,7 +487,14 @@ class GazeFixEnv(BaseEnv):
             if real_observation[key] is not None:
                 observation_noise[key] = 0.0
                 if key in self.observation_noise.keys():
-                    observation_noise[key] += self.observation_noise[key]
+                    if key == "vel_frontal":
+                        observation_noise[key] += self.observation_noise[key] * np.abs(self.robot.vel[0]) / self.robot.max_vel
+                    elif key == "vel_lateral":
+                        observation_noise[key] += self.observation_noise[key] * np.abs(self.robot.vel[1]) / self.robot.max_vel
+                    elif key == "vel_rot":
+                        observation_noise[key] += self.observation_noise[key] * np.abs(self.robot.vel_rot) / self.robot.max_vel_rot
+                    else:
+                        observation_noise[key] += self.observation_noise[key]
                 if key in self.foveal_vision_noise.keys():
                     if "target" in key: obj = self.target
                     elif "obstacle1" in key: obj = self.obstacles[0]

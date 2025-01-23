@@ -50,7 +50,7 @@ class ImplicitMeasurementModel(Module):
         self.to(device)
     
     def set_connected_states(self, connected_states: List[State]) -> None:
-        assert set(state.id for state in connected_states) == set(self.required_estimators + self.required_observations), f"Estimators should be {self.required_estimators} and Observations should be {self.required_observations}"
+        assert set(state.id for state in connected_states) == set(self.required_estimators + self.required_observations), f"Estimators should be {self.required_estimators} and Observations should be {self.required_observations}, but are {[state.id for state in connected_states]}"
         self.connected_states: Dict[str, State] = {state.id: state for state in connected_states}
         self.meas_config = {state.id: state.state_dim for state in connected_states}
         # Initialize static measurement noise to identity for each measurement
@@ -81,7 +81,7 @@ class ImplicitMeasurementModel(Module):
         return {id: buffer_dict[id]['state_mean'] for id in self.connected_states.keys() if id != estimator_id}
     
     def get_cov_dict(self, buffer_dict: dict, estimator_id):
-        return {id: buffer_dict[id]['state_cov'] + self.connected_states[id].update_uncertainty.pow(2) for id in self.connected_states.keys() if id != estimator_id}
+        return {id: buffer_dict[id]['state_cov'] + buffer_dict[id]['update_uncertainty'] for id in self.connected_states.keys() if id != estimator_id}
 
     @abstractmethod
     def implicit_measurement_model(self, x: torch.Tensor, meas_dict: torch.Tensor):

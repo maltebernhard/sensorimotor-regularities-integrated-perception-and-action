@@ -15,11 +15,9 @@ class State(Module):
         self.device = device if device is not None else torch.get_default_device()
         self.dtype = dtype if dtype is not None else torch.get_default_dtype()
 
-        # TODO: make sure this does not remain set to default
-        self.update_uncertainty: torch.Tensor = 0.0 * torch.eye(self.state_dim, dtype=dtype, device=device)
-
-        self.register_buffer('state_mean', torch.zeros(self.state_dim, dtype=dtype))
-        self.register_buffer('state_cov', torch.eye(self.state_dim, dtype=dtype))
+        self.register_buffer('state_mean', torch.zeros(self.state_dim))
+        self.register_buffer('state_cov', torch.eye(self.state_dim))
+        self.register_buffer('update_uncertainty', 0.0 * torch.eye(self.state_dim))
 
         self.to(device)
         self.get_buffer_dict()
@@ -48,15 +46,15 @@ class State(Module):
 # =========================================================================================
 
 class Observation(State):
-    def __init__(self, id, state_dim, sensor_uncertainty, update_uncertainty, device=None, dtype=None):
+    def __init__(self, id, state_dim, sensor_noise, update_uncertainty, device=None, dtype=None):
         super().__init__(id, state_dim, device, dtype)
         self.updated = False
         self.last_updated = -1.0
-        self.sensor_uncertainty = sensor_uncertainty
-        self.update_uncertainty = update_uncertainty
+        self.sensor_noise: torch.Tensor = sensor_noise
+        self.update_uncertainty: torch.Tensor = update_uncertainty
 
-    def set_observation(self, obs: torch.Tensor, obs_cov: torch.Tensor=None, time=None):
-        self.set_state(obs, obs_cov)
+    def set_observation(self, obs: torch.Tensor, custom_obs_noise: torch.Tensor=None, time=None):
+        self.set_state(obs, (self.sensor_noise.pow(2) + custom_obs_noise.pow(2)) if custom_obs_noise is not None else self.sensor_noise.pow(2))
         self.updated = True
         self.last_updated = time
 
@@ -141,6 +139,9 @@ class RecursiveEstimator(ABC, State):
         # But to save computation, we can use the auxillary 
         # outputs of jacrev() and both eval and compute Jacobian in one go
         H_t, F_t_dict, residual = implicit_meas_model.implicit_measurement_model_eval_and_jac(self.state_mean, meas_dict)
+
+        if self.id == 'PolarTargetPos':
+            print(F_t_dict)
 
         # Below assert is not needed as F_t_dict should be produced from meas_dict
         # Still retaining in case in the future, F_t_dict is produced from some other source
