@@ -265,6 +265,7 @@ class GazeFixEnv(BaseEnv):
         }
         for o in range(self.num_obstacles):
             self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_offset_angle_dot"] = Observation(-np.inf, np.inf, lambda o=o: self.compute_offset_angle_dot(self.obstacles[o]))
             self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: self.compute_distance(self.obstacles[o]))
             self.observations[f"obstacle{o+1}_distance_dot"] = Observation(-1.0, 1.0, lambda o=o: self.compute_distance_dot(self.obstacles[o]))
             self.observations[f"obstacle{o+1}_radius"] = Observation(0.0, np.inf, lambda o=o: self.obstacles[o].radius)
@@ -319,7 +320,13 @@ class GazeFixEnv(BaseEnv):
         for _ in range(self.num_obstacles):
             while True:
                 radius = self.world_size / 10
-                pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
+
+                # TODO: adapt obstacle generation according to desired experiment
+                #pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
+                distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
+                angle = np.random.uniform(-np.pi, np.pi)
+                pos = (distance * np.cos(angle), distance * np.sin(angle))
+
                 # Ensure the obstacle doesn't spawn too close to robot
                 if np.linalg.norm(pos-self.robot.pos) > radius + 5 * self.robot.size:
                     self.obstacles.append(EnvObject(
@@ -484,7 +491,12 @@ class GazeFixEnv(BaseEnv):
                 if key in self.observation_noise.keys():
                     observation_noise[key] += self.observation_noise[key]
                 if key in self.foveal_vision_noise.keys():
-                    observation_noise[key] += self.foveal_vision_noise[key] * np.abs(self.compute_offset_angle(self.target) / (self.robot.sensor_angle/2))
+                    if "target" in key: obj = self.target
+                    elif "obstacle1" in key: obj = self.obstacles[0]
+                    elif "obstacle2" in key: obj = self.obstacles[1]
+                    else:
+                        raise NotImplementedError
+                    observation_noise[key] += self.foveal_vision_noise[key] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
                 real_observation[key] = value + observation_noise[key] * np.random.randn()
         return real_observation, observation_noise
     
