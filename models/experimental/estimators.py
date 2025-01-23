@@ -56,11 +56,13 @@ class Polar_Pos_Estimator(RecursiveEstimator):
         self.update_uncertainty = torch.eye(4) * torch.tensor([1e-1, 1e-2, 1e-1, 1e-2])
 
     # TODO: Problem: Angular vel is used for Triangulation, but is not updated by control input
-    # Angular Vel currently reflects the global angular velocity gut to target movement
+    # Angular Vel currently reflects the global angular velocity due to target movement
     # Measurement model however does not reflect that, it only updates to perceived angular vel
         # I can equip measurement update to account for robot rotation, but then it still mixes target translation and robot translation
     # Solution: I need to separately account for the target's own velocity (pure estimate, no direct measurement) and the angular vel caused by robot translation
-        # If I calculate the angular vel caused by robot translation from the estimated distance, and then update the estimated distance with that estimate, is that redundancy or AI?
+        # If I calculate the angular vel caused by robot translation from the estimated distance, and then update the estimated distance with that estimate, is that redundant or an AI?
+            # ANSWER: Redundant
+    
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
         rtf_vel = rotate_vector_2d(x_mean[1], u[1:3])

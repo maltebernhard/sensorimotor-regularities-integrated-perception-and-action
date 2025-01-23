@@ -34,9 +34,9 @@ class VisibilityAICON(AICON):
 
     def define_measurement_models(self):
         MMs = {
-            "RobotVel":         Robot_Vel_MM(),
-            "PolarTargetAngle": Angle_MM(),
-            "TargetVisiblity":  Visibility_MM(),
+            "RobotVel":         (Robot_Vel_MM(),  ["RobotVel"]),
+            "PolarTargetAngle": (Angle_MM(),      ["PolarTargetAngle"]),
+            "TargetVisiblity":  (Visibility_MM(), ["TargetVisibility"]),
         }
         return MMs
 

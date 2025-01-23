@@ -30,9 +30,9 @@ class DivergenceAICON(AICON):
 
     def define_measurement_models(self):
         return {
-            "VelMM":            Robot_Vel_MM(),
-            "AngleMeasMM":      Angle_MM(),
-            "VisAngleMM":       Vis_Angle_MM(),
+            "VelMM":            (Robot_Vel_MM(), ["RobotVel"]),
+            "AngleMeasMM":      (Angle_MM(),     ["PolarTargetPos"]),
+            "VisAngleMM":       (Vis_Angle_MM(), ["TargetVisAngle"]),
         }
 
     def define_active_interconnections(self):

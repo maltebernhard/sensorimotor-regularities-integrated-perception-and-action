@@ -19,15 +19,15 @@ class ExperimantalAICON(AICON):
 
     def define_estimators(self):
         estimators = {
-            "RobotVel":               Robot_Vel_Estimator(),
+            "RobotVel":         Robot_Vel_Estimator(),
             "PolarTargetPos":   Polar_Pos_Estimator(),
         }
         return estimators
 
     def define_measurement_models(self):
         return {
-            "VelMM":            Robot_Vel_MM(),
-            "AngleMeasMM":      Angle_MM(),
+            "VelMM":            (Robot_Vel_MM(), ["RobotVel"]),
+            "AngleMeasMM":      (Angle_MM(),     ["PolarTargetPos"]),
         }
 
     def define_active_interconnections(self):

@@ -25,8 +25,8 @@ class ContingentEstimatorAICON(AICON):
     
     def define_measurement_models(self):
         return {
-            "VelMM":        Robot_Vel_MM(),
-            "AngleMeasMM":  Angle_MM(),
+            "VelMM":        (Robot_Vel_MM(), ["RobotState"]),
+            "AngleMeasMM":  (Angle_MM(), ["RobotState"]),
         }
 
     def define_active_interconnections(self):

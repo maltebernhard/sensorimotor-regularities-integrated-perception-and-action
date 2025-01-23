@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.func import jacrev
 from abc import ABC, abstractmethod
-from typing import Dict, Tuple
+from typing import Dict, List, Tuple
 
 import matplotlib.pyplot as plt
 import networkx as nx
@@ -10,7 +10,6 @@ import yaml
 
 from components.estimator import Observation, RecursiveEstimator
 from components.logger import AICONLogger
-from components.measurement_model import MeasurementModel
 from components.measurement_model import ActiveInterconnection
 from components.goal import Goal
 from environment.base_env import BaseEnv
@@ -26,9 +25,9 @@ class AICON(ABC):
         torch.set_default_dtype(self.dtype)
         self.env: GazeFixEnv = self.define_env()
         self.REs: Dict[str, RecursiveEstimator] = self.define_estimators()
-        self.MMs: Dict[str, MeasurementModel] = self.define_measurement_models()
+        self.MMs: Dict[str, Tuple[ActiveInterconnection,List[str]]] = self.define_measurement_models()
         self.AIs: Dict[str, ActiveInterconnection] = self.define_active_interconnections()
-        self.set_observations()
+        self.obs: Dict[str, Observation] = self.set_observations()
         self.connect_states()
         self.goals: Dict[str, Goal] = self.define_goals()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
@@ -95,19 +94,19 @@ class AICON(ABC):
             self.REs[key].load_state_dict(buffer_dict) if key in self.REs.keys() else None
 
     def set_observations(self):
-        self.obs: Dict[str, Observation] = {}
-        required_observations = [key for key in [obs for mm in self.MMs.values() for obs in mm.required_states] + [obs for ai in self.AIs.values() for obs in ai.required_states] if key in self.env.observations.keys()]
+        obs: Dict[str, Observation] = {}
+        required_observations = [key for key in [obs for mm in [val[0] for val in self.MMs.values()] for obs in mm.required_observations] + [obs for ai in self.AIs.values() for obs in ai.required_observations] if key in self.env.observations.keys()]
+        # TODO: change this back! How would the model know the varying noise applied by the environment?
         #self.observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
-            self.obs[key] = Observation(key, 1, self.get_observation_update_uncertainty(key))
+            obs[key] = Observation(key, 1, self.get_observation_update_uncertainty(key))
         self.last_observation: Tuple[dict,dict] = None
+        return obs
 
     def connect_states(self):
-        for ai in self.AIs.values():
-            ai.set_connected_states([self.REs[estimator_id] for estimator_id in ai.required_states])
-        for mm in self.MMs.values():
-            mm.set_connected_states([self.obs[obs_id] for obs_id in mm.required_states])
+        for connection in list(self.AIs.values()) + [val[0] for val in self.MMs.values()]:
+            connection.set_connected_states([self.REs[estimator_id] for estimator_id in connection.required_estimators] + [self.obs[obs_id] for obs_id in connection.required_observations])
 
     def update_observations(self):
         self.last_observation = self.env.get_observation()
@@ -224,8 +223,10 @@ class AICON(ABC):
         self.custom_reset()
 
     def meas_updates(self, buffer_dict):
-        for model_key, meas_model in self.MMs.items():
-            self.REs[meas_model.estimator_id].call_update_with_meas_model(meas_model, buffer_dict)
+        for meas_model, estimator_keys in self.MMs.values():
+            if meas_model.all_observations_updated():
+                for estimator_key in estimator_keys:
+                    self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
 
     def visualize_graph(self, save_path=None, show:bool=False):
         G = nx.DiGraph()
@@ -307,7 +308,7 @@ class AICON(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def define_measurement_models(self) -> Dict[str, MeasurementModel]:
+    def define_measurement_models(self) -> Dict[str, ActiveInterconnection]:
         """
         MUST be implemented by user. Returns the measurement models
         """
@@ -331,14 +332,15 @@ class AICON(ABC):
         """
         Evaluates one step of the environment and returns the buffer_dict
         """
-        buffer_dict = {key: estimator.get_buffer_dict() for key, estimator in list(self.REs.items())}
+        if new_step:
+            self.update_observations()
+        buffer_dict = self.get_buffer_dict()
         # estimator forward models
         u = self.get_control_input(action)
         for estimator in self.REs.values():
             estimator.call_predict(u, buffer_dict)
         # measurement updates
         if new_step:
-            self.update_observations()
             self.meas_updates(buffer_dict)
         # interconnection updates
         return self.eval_interconnections(buffer_dict)
@@ -388,7 +390,7 @@ class AICON(ABC):
         Gets the buffer_dict of all estimators, used for simulating update steps
         on a state detached from the real estimate, for gradient computation.
         """
-        return {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()}
+        return {key: state.get_buffer_dict() for key, state in list(self.REs.items()) + list(self.obs.items())}
     
     def get_observation_update_uncertainty(self, key):
         """

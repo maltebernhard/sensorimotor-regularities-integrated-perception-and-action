@@ -122,7 +122,7 @@ class RecursiveEstimator(ABC, State):
 
     # ----------------------------- everything related to measurement update ----------------------------------
 
-    def update_with_specific_meas(self, meas_dict,
+    def update_with_specific_meas(self, meas_dict: dict,
                                   implicit_meas_model,
                                   custom_measurement_noise: Optional[Dict] = None):
         #NOTE: this doesn't work with current ActiveInterconnection implementation
@@ -297,10 +297,3 @@ class RecursiveEstimator(ABC, State):
         args_to_be_passed = ('update_with_specific_meas', active_interconnection)
         kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id), 'custom_measurement_noise': active_interconnection.get_cov_dict(buffer_dict, self.id)}
         return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
-    
-    def call_update_with_meas_model(self, meas_model, buffer_dict):
-        meas_dict: Dict[str, torch.Tensor] = meas_model.get_meas_dict()
-        if len(meas_dict["means"]) == len(meas_model.connected_states):
-            args_to_be_passed = ('update_with_specific_meas', meas_model)
-            kwargs = {'meas_dict': meas_dict["means"], 'custom_measurement_noise': meas_dict["covs"]}
-            return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)

@@ -6,7 +6,6 @@ from components.aicon import DroneEnvAICON as AICON
 from components.estimator import RecursiveEstimator
 from models.old.old_component_instances.estimators import Robot_Vel_Estimator_Vel, Robot_Vel_Estimator_Acc, Polar_Pos_Estimator_Vel, Polar_Pos_Estimator_Acc, Cartesian_Pos_Estimator, Rad_Estimator
 from models.old.old_component_instances.measurement_models import Robot_Vel_MM, Pos_Angle_MM, Angle_MM
-#from components.instances.active_interconnections import Triangulation_AI
 
 from models.old.experiment_general.estimators import Visibility_Estimator
 from models.old.experiment_general.active_interconnections import Radius_Pos_VisAngle_AI, Visibility_Angle_AI, Triangulation_Visibility_AI
@@ -35,14 +34,14 @@ class GeneralTestAICON(AICON):
 
     def define_measurement_models(self):
         MMs = {
-            "RobotVel":                     Robot_Vel_MM(),
-            "PolarTargetAngle":             Angle_MM(),
-            #"CartesianTargetPos-Angle":    Pos_Angle_MM(),
-            "TargetVisiblity":              Visibility_MM(),
+            "RobotVel":                     (Robot_Vel_MM(), ["RobotVel"]),
+            "PolarTargetAngle":             (Angle_MM(), ["PolarTargetPos"]),
+            #"CartesianTargetPos-Angle":    (Pos_Angle_MM(), ["CartesianTargetPos"]),
+            "TargetVisiblity":              (Visibility_MM(), ["TargetVisibility"]),
         }
         for i in range(1, self.num_obstacles + 1):
-            MMs[f"PolarObstacle{i}Angle"] =             Angle_MM(f"Obstacle{i}")
-            #MMs[f"CartesianObstacle{i}Pos-Angle"] =    Pos_Angle_MM(f"Obstacle{i}")
+            MMs[f"PolarObstacle{i}Angle"] =             (Angle_MM(f"Obstacle{i}"), [f"PolarObstacle{i}Pos"])
+            #MMs[f"CartesianObstacle{i}Pos-Angle"] =    (Pos_Angle_MM(f"Obstacle{i}"), [f"CartesianObstacle{i}Pos"])
         return MMs
 
     def define_active_interconnections(self):

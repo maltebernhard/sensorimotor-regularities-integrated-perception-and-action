@@ -4,7 +4,7 @@ import torch
 from torch.nn import Module
 from torch.func import jacrev
 
-from components.estimator import State
+from components.estimator import Observation, State
 from typing import Type
     
 # ====================================================================================================================================
@@ -18,7 +18,8 @@ class ImplicitMeasurementModel(Module):
     Notation as in Thrun et al., Probabilistic Robotics
     """
     def __init__(self,
-                 required_states: List[str],
+                 required_estimators: List[str],
+                 required_observations: List[str],
                  device=None,
                  outlier_rejection_enabled=False,
                  outlier_threshold=1.0,
@@ -34,7 +35,8 @@ class ImplicitMeasurementModel(Module):
         self.device = device if device is not None else torch.get_default_device()
         self.dtype = dtype if dtype is not None else torch.get_default_dtype()
 
-        self.required_states: List[str] = required_states
+        self.required_estimators: List[str] = required_estimators
+        self.required_observations: List[str] = required_observations
         self.connected_states: Dict[str, Type[State]] = None
         self.meas_config: Dict[str, int] = None
             
@@ -48,7 +50,7 @@ class ImplicitMeasurementModel(Module):
         self.to(device)
     
     def set_connected_states(self, connected_states: List[State]) -> None:
-        assert set(state.id for state in connected_states) == set(self.required_states), f"Estimators should be {self.required_states}"
+        assert set(state.id for state in connected_states) == set(self.required_estimators + self.required_observations), f"Estimators should be {self.required_estimators} and Observations should be {self.required_observations}"
         self.connected_states: Dict[str, State] = {state.id: state for state in connected_states}
         self.meas_config = {state.id: state.state_dim for state in connected_states}
         # Initialize static measurement noise to identity for each measurement
@@ -69,17 +71,17 @@ class ImplicitMeasurementModel(Module):
             persistent=False)
         setattr(self, f'_Q_{meas_name}', noise_cov.to(self.dtype))
 
-    def get_state_dict(self, buffer_dict, estimator_id):
+    def all_observations_updated(self):
+        all_obs = [obs for obs in self.connected_states.values() if type(obs) == Observation]
+        if len(all_obs) == 0:
+            raise ValueError("No observations connected to this model")
+        return all(obs.updated for obs in all_obs)
+
+    def get_state_dict(self, buffer_dict: dict, estimator_id):
         return {id: buffer_dict[id]['state_mean'] for id in self.connected_states.keys() if id != estimator_id}
     
-    def get_cov_dict(self, buffer_dict, estimator_id):
+    def get_cov_dict(self, buffer_dict: dict, estimator_id):
         return {id: buffer_dict[id]['state_cov'] + self.connected_states[id].update_uncertainty.pow(2) for id in self.connected_states.keys() if id != estimator_id}
-
-    def get_meas_dict(self):
-        return {
-            "means": {key: obs.state_mean for key, obs in self.connected_states.items() if obs.updated},
-            "covs": {key: obs.state_cov + self.connected_states[key].update_uncertainty.pow(2) for key, obs in self.connected_states.items() if obs.updated}
-        }
 
     @abstractmethod
     def implicit_measurement_model(self, x: torch.Tensor, meas_dict: torch.Tensor):
@@ -153,20 +155,9 @@ class ImplicitMeasurementModel(Module):
     
 # =======================================================================================
 
-class MeasurementModel(ABC, ImplicitMeasurementModel):
-    def __init__(self, estimator_id: str, required_observations: List[str], device=None):
-        super().__init__(required_states=required_observations, device=device)
-        self.estimator_id = estimator_id
-
-    @abstractmethod
-    def implicit_measurement_model(self, x, meas_dict):
-        raise NotImplementedError
-    
-# =======================================================================================
-
 class ActiveInterconnection(ABC, ImplicitMeasurementModel):
-    def __init__(self, required_estimators, device=None):
-        super().__init__(required_states=required_estimators, device=device)
+    def __init__(self, required_estimators, required_observations=[]):
+        super().__init__(required_estimators=required_estimators, required_observations=required_observations)
 
     def implicit_measurement_model(self, x, meas_dict):
         """
