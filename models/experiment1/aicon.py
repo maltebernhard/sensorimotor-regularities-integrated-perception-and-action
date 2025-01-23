@@ -93,3 +93,10 @@ class Experiment1AICON(AICON):
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
+
+    def get_observation_update_uncertainty(self, key):
+        if "angle" in key or "_rot" in key:
+            update_uncertainty: torch.Tensor = 2e-1 * torch.eye(1)
+        else:
+            update_uncertainty: torch.Tensor = 5e-1 * torch.eye(1)
+        return update_uncertainty

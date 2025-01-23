@@ -6,7 +6,7 @@ from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
 
 from models.experimental.active_interconnections import Triangulation_AI
-from models.experimental.estimators import Robot_Vel_Estimator_Vel, Polar_Pos_Estimator_Vel
+from models.experimental.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator
 from models.experimental.goals import PolarGoToTargetGoal
 from models.experimental.measurement_models import Angle_MM, Robot_Vel_MM
 
@@ -19,8 +19,8 @@ class ExperimantalAICON(AICON):
 
     def define_estimators(self):
         estimators = {
-            "RobotVel":               Robot_Vel_Estimator_Vel(),
-            "PolarTargetGlobalPos":   Polar_Pos_Estimator_Vel(),
+            "RobotVel":               Robot_Vel_Estimator(),
+            "PolarTargetPos":   Polar_Pos_Estimator(),
         }
         return estimators
 
@@ -43,7 +43,7 @@ class ExperimantalAICON(AICON):
         return goals
 
     def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        self.REs["PolarTargetGlobalPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
+        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         return buffer_dict 
 
     def compute_action_from_gradient(self, gradients):
@@ -53,8 +53,8 @@ class ExperimantalAICON(AICON):
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()
         print("--------------------------------------------------------------------")
-        self.print_estimator("PolarTargetGlobalPos", buffer_dict=buffer_dict, print_cov=2)
-        print(f"True PolarTargetGlobalPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
+        self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
+        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
         rtf_vel = rotate_vector_2d(env_state["target_offset_angle"], torch.tensor([env_state["vel_frontal"], env_state["vel_lateral"]]))
         print(f"True Global TargetVel: [{env_state['target_distance_dot']+rtf_vel[0]:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}]")
         print("--------------------------------------------------------------------")
@@ -65,10 +65,17 @@ class ExperimantalAICON(AICON):
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
 
+    def get_observation_update_uncertainty(self, key):
+        if "angle" in key or "_rot" in key:
+            update_uncertainty: torch.Tensor = 2e-1 * torch.eye(1)
+        else:
+            update_uncertainty: torch.Tensor = 5e-1 * torch.eye(1)
+        return update_uncertainty
+
     def render(self):
-        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetGlobalPos"].state_mean, self.REs["PolarTargetGlobalPos"].state_cov)
-        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetGlobalPos": target_mean}
-        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetGlobalPos": target_cov}
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
+        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
+        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     

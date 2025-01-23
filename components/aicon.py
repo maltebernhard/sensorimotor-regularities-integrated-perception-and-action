@@ -100,7 +100,7 @@ class AICON(ABC):
         #self.observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
-            self.obs[key] = Observation(key, 1, self.device)
+            self.obs[key] = Observation(key, 1, self.get_observation_update_uncertainty(key))
         self.last_observation: Tuple[dict,dict] = None
 
     def connect_states(self):
@@ -384,7 +384,18 @@ class AICON(ABC):
             self.print_estimator(estimator.id, print_cov=True)
     
     def get_buffer_dict(self):
+        """
+        Gets the buffer_dict of all estimators, used for simulating update steps
+        on a state detached from the real estimate, for gradient computation.
+        """
         return {key: estimator.get_buffer_dict() for key, estimator in self.REs.items()}
+    
+    def get_observation_update_uncertainty(self, key):
+        """
+        Returns the uncertainty to be added to a sensor measurement's known noise for updates.
+        This is done to increase Kalman Filter stability. SHOULD be overwritten by user to add custom uncertainty.
+        """
+        return 0.0
     
 class DroneEnvAICON(AICON):
     def __init__(self, env_config:dict={

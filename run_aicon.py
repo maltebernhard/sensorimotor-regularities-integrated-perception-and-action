@@ -22,7 +22,7 @@ if __name__ == "__main__":
         # 8: "Visibility",
     }
 
-    model_type = "Experiment1"
+    model_type = "Experimental"
     aicon_type = 5
 
     # --------------------- config ---------------------
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         "vel_lateral":              0.1,
         "vel_rot":                  0.01
     }
-    use_observation_noise = False
+    use_observation_noise = True
 
     observation_loss = {
         "target_offset_angle":      (3.0, 5.0),
@@ -48,7 +48,7 @@ if __name__ == "__main__":
         "target_offset_angle":      0.5,
         "target_offset_angle_dot":  0.5,
     }
-    use_foveal_vision_noise = True
+    use_foveal_vision_noise = False
 
     env_config = {
         "vel_control":          True,
