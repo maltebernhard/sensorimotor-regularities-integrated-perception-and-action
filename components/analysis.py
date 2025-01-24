@@ -5,11 +5,15 @@ from typing import Dict, List, Tuple, Type
 import torch
 from tqdm import tqdm
 import yaml
+import matplotlib.pyplot as plt
+import networkx as nx
+
 from components.aicon import AICON
 from components.logger import AICONLogger
+from models.base.aicon import BaseAICON
 from models.experiment1.aicon import Experiment1AICON
-from models.experimental.aicon import ExperimantalAICON
 from models.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
+from models.global_vel_estimation.aicon import GlobalVelEstimationAICON
 
 from models.old.experiment_divergence.aicon import DivergenceAICON
 from models.old.experiment_estimator.aicon import ContingentEstimatorAICON
@@ -54,8 +58,9 @@ class Runner:
         )
     
     def create_model(self):
-        if   self.model == "Experiment1":     return Experiment1AICON(self.env_config, self.aicon_type)
-        elif self.model == "Experimental":    return ExperimantalAICON(self.env_config)
+        if   self.model == "Base":                   return BaseAICON(self.env_config)
+        elif self.model == "Experiment1":            return Experiment1AICON(self.env_config, self.aicon_type)
+        elif self.model == "GlobalVelEstimation":    return GlobalVelEstimationAICON(self.env_config)
         elif self.model == "ExperimentFovealVision": return ExperimentFovealVisionAICON(self.env_config)
 
         elif self.model == "Divergence":      return DivergenceAICON(self.env_config)
@@ -167,7 +172,70 @@ class Analysis:
         self.logger.plot_goal_losses(plotting_config, save_path=self.record_dir if save else None, show=show)
 
     def visualize_graph(self, aicon:Type[AICON], save:bool=True, show:bool=False):
-        aicon.visualize_graph(save_path=os.path.join(self.record_dir, 'configs') if save else None, show=show)
+        save_path = os.path.join(self.record_dir, 'configs') if save else None
+        G = nx.DiGraph()
+
+        pos = {}
+        ai_nodes=[]
+        estimator_nodes=[]
+        measurement_model_nodes=[]
+        observation_nodes=[]
+
+        # Add nodes and edges for Active Interconnections
+        for ai_key, ai in aicon.AIs.items():
+            ai_node = f"AI_{ai_key}"
+            ai_nodes.append(ai_node)
+            G.add_node(ai_node, shape='o', color='red')
+            for estimator in ai.connected_states.values():
+                estimator_node = f"RE_{estimator.id}"
+                if estimator_node not in G:
+                    G.add_node(estimator_node, shape='s', color='blue')
+                    pos[estimator_node] = (len(estimator_nodes), 2)
+                    estimator_nodes.append(estimator_node)
+                G.add_edge(ai_node, estimator_node)
+            pos[ai_node] = (sum([pos[f'RE_{est}'][0] for est in [state.id for state in ai.connected_states.values()]])/len(ai.connected_states), 3)
+
+        # Add nodes and edges for Measurement Models
+        for mm_key, mm in aicon.MMs.items():
+            mm_node = f"MM_{mm_key}"
+            G.add_node(mm_node, shape='o', color='green')
+            measurement_model_nodes.append(mm_node)
+            estimator_node = f"RE_{mm.estimator_id}"
+            if estimator_node not in G:
+                G.add_node(estimator_node, shape='s', color='blue')
+                estimator_nodes.append(estimator_node)
+            pos[mm_node] = (pos[estimator_node][0], 1)
+            G.add_edge(mm_node, estimator_node)
+            for observation in mm.connected_states.values():
+                observation_node = f"OBS_{observation.id}"
+                if observation_node not in G:
+                    G.add_node(observation_node, shape='^', color='orange')
+                    observation_nodes.append(observation_node)
+                G.add_edge(observation_node, mm_node)
+        
+        # set x spacing for observation nodes
+        min = 0
+        max = 0
+        for p in pos.values():
+            if p[0] > max:
+                max = p[0]
+        for i,obs in enumerate(observation_nodes):
+            pos[obs] = ((min+max-len(observation_nodes))/2+i, 0)
+
+        shapes = nx.get_node_attributes(G, 'shape')
+        colors = nx.get_node_attributes(G, 'color')
+
+        for shape in set(shapes.values()):
+            nx.draw_networkx_nodes(G, pos, nodelist=[sNode for sNode in shapes if shapes[sNode] == shape], node_shape=shape, node_color=[colors[sNode] for sNode in shapes if shapes[sNode] == shape], node_size=500)
+        nx.draw_networkx_edges(G, pos)
+        nx.draw_networkx_labels(G, pos, font_size=8)
+        if save_path is not None:
+            if not save_path.endswith('/'):
+                    save_path += '/'
+            plt.savefig(save_path + f"{aicon.type}_graph.png")
+        if show:
+            plt.show()
+            input("Press Enter to continue...")
 
     @staticmethod
     def load(folder: str):

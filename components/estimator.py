@@ -140,9 +140,6 @@ class RecursiveEstimator(ABC, State):
         # outputs of jacrev() and both eval and compute Jacobian in one go
         H_t, F_t_dict, residual = implicit_meas_model.implicit_measurement_model_eval_and_jac(self.state_mean, meas_dict)
 
-        if self.id == 'PolarTargetPos':
-            print(F_t_dict)
-
         # Below assert is not needed as F_t_dict should be produced from meas_dict
         # Still retaining in case in the future, F_t_dict is produced from some other source
         # assert F_t_dict.keys() == meas_dict.keys()

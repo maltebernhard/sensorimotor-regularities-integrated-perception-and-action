@@ -3,9 +3,6 @@ import torch
 from torch.func import jacrev
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
-
-import matplotlib.pyplot as plt
-import networkx as nx
 import yaml
 
 from components.estimator import Observation, RecursiveEstimator
@@ -113,6 +110,8 @@ class AICON(ABC):
         # measurement updates
         if new_step:
             self.meas_updates(buffer_dict)
+        else:
+            self.contingent_meas_updates(buffer_dict)
         # interconnection updates
         return self.eval_interconnections(buffer_dict)
 
@@ -132,12 +131,12 @@ class AICON(ABC):
 
     def update_observations(self):
         self.last_observation = self.env.get_observation()
-        custom_observation_noise = self.get_custom_observation_noise(self.last_observation[0])
+        custom_sensor_noise = self.get_custom_sensor_noise(self.last_observation[0])
         for key, value in self.last_observation[0].items():
             if value is not None:
                 self.obs[key].set_observation(
                     obs = torch.tensor([value]),
-                    custom_obs_noise = custom_observation_noise[key],
+                    custom_obs_noise = custom_sensor_noise[key],
                     time = self.env.time,
                 )
 
@@ -251,71 +250,6 @@ class AICON(ABC):
                 for estimator_key in estimator_keys:
                     self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
 
-    def visualize_graph(self, save_path=None, show:bool=False):
-        G = nx.DiGraph()
-
-        pos = {}
-        ai_nodes=[]
-        estimator_nodes=[]
-        measurement_model_nodes=[]
-        observation_nodes=[]
-
-        # Add nodes and edges for Active Interconnections
-        for ai_key, ai in self.AIs.items():
-            ai_node = f"AI_{ai_key}"
-            ai_nodes.append(ai_node)
-            G.add_node(ai_node, shape='o', color='red')
-            for estimator in ai.connected_states.values():
-                estimator_node = f"RE_{estimator.id}"
-                if estimator_node not in G:
-                    G.add_node(estimator_node, shape='s', color='blue')
-                    pos[estimator_node] = (len(estimator_nodes), 2)
-                    estimator_nodes.append(estimator_node)
-                G.add_edge(ai_node, estimator_node)
-            pos[ai_node] = (sum([pos[f'RE_{est}'][0] for est in [state.id for state in ai.connected_states.values()]])/len(ai.connected_states), 3)
-
-        # Add nodes and edges for Measurement Models
-        for mm_key, mm in self.MMs.items():
-            mm_node = f"MM_{mm_key}"
-            G.add_node(mm_node, shape='o', color='green')
-            measurement_model_nodes.append(mm_node)
-            estimator_node = f"RE_{mm.estimator_id}"
-            if estimator_node not in G:
-                G.add_node(estimator_node, shape='s', color='blue')
-                estimator_nodes.append(estimator_node)
-            pos[mm_node] = (pos[estimator_node][0], 1)
-            G.add_edge(mm_node, estimator_node)
-            for observation in mm.connected_states.values():
-                observation_node = f"OBS_{observation.id}"
-                if observation_node not in G:
-                    G.add_node(observation_node, shape='^', color='orange')
-                    observation_nodes.append(observation_node)
-                G.add_edge(observation_node, mm_node)
-        
-        # set x spacing for observation nodes
-        min = 0
-        max = 0
-        for p in pos.values():
-            if p[0] > max:
-                max = p[0]
-        for i,obs in enumerate(observation_nodes):
-            pos[obs] = ((min+max-len(observation_nodes))/2+i, 0)
-
-        shapes = nx.get_node_attributes(G, 'shape')
-        colors = nx.get_node_attributes(G, 'color')
-
-        for shape in set(shapes.values()):
-            nx.draw_networkx_nodes(G, pos, nodelist=[sNode for sNode in shapes if shapes[sNode] == shape], node_shape=shape, node_color=[colors[sNode] for sNode in shapes if shapes[sNode] == shape], node_size=500)
-        nx.draw_networkx_edges(G, pos)
-        nx.draw_networkx_labels(G, pos, font_size=8)
-        if save_path is not None:
-            if not save_path.endswith('/'):
-                    save_path += '/'
-            plt.savefig(save_path + f"{self.type}_graph.png")
-        if show:
-            plt.show()
-            input("Press Enter to continue...")
-
     @abstractmethod
     def define_env(self) -> BaseEnv:
         """
@@ -405,12 +339,30 @@ class AICON(ABC):
         """
         return 0.0 * torch.eye(1)
     
-    def get_custom_observation_noise(self, obs: dict):
+    def get_custom_sensor_noise(self, obs: dict):
         """
         Returns noise based on the model's knowledge of environment properties (e.g. foveal vision), which is added to static sensor noise.
         Only to be implemented if there is any noise depending on the state.
         """
         return {key: 0.0 * torch.eye(1) for key in obs.keys()}
+    
+    def contingent_meas_updates(self, buffer_dict: dict):
+        """
+        Updates the estimators with the expected measurements AND (important!) expected measurement noise. SHOULD be overwritten by user.
+        """
+        try:
+            self.adapt_contingent_measurements(buffer_dict)
+            for meas_model, estimator_keys in self.MMs.values():
+                for estimator_key in estimator_keys:
+                    self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
+        except NotImplementedError:
+            return
+
+    def adapt_contingent_measurements(self, buffer_dict: dict) -> bool:
+        """
+        Adapts the expected measurements and measurement noise based on the current state. SHOULD be overwritten by user and return TRUE.
+        """
+        raise NotImplementedError
     
 class DroneEnvAICON(AICON):
     def __init__(self, env_config:dict={
