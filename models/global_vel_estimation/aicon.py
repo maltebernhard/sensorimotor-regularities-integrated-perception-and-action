@@ -5,16 +5,16 @@ import torch
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
 
-from models.experimental.active_interconnections import Triangulation_AI
-from models.experimental.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator
-from models.experimental.goals import PolarGoToTargetGoal
-from models.experimental.measurement_models import Angle_MM, Robot_Vel_MM
+from models.global_vel_estimation.active_interconnections import Triangulation_AI
+from models.global_vel_estimation.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator
+from models.global_vel_estimation.goals import PolarGoToTargetGoal
+from models.global_vel_estimation.measurement_models import Angle_MM, Robot_Vel_MM
 
 # ========================================================================================================
 
-class ExperimantalAICON(AICON):
+class GlobalVelEstimationAICON(AICON):
     def __init__(self, env_config):
-        self.type = "Experimental"
+        self.type = "GlobalVelEstimation"
         super().__init__(env_config)
 
     def define_estimators(self):
