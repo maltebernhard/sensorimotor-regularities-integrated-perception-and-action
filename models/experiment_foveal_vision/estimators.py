@@ -52,8 +52,6 @@ class Polar_Pos_Estimator(RecursiveEstimator):
         super().__init__(f'Polar{object_name}Pos', 4)
         self.default_state = torch.tensor([10.0, torch.pi, 0.0, 0.0])
         self.default_cov = 1e3 * torch.eye(4)
-        # NOTE: Unfortunately, Triangulation behavior only works well when angle uncertainty goes up faster than distance uncertainty, otherwise strong oscillation
-        #       Can't tackle this with update uncertainty as it is not used when updating the estimator itself w/ Triangulation AI
         self.default_motion_noise = torch.eye(4) * torch.tensor([1e-1, 1e-1, 1e-1, 1e-1])
         self.update_uncertainty = torch.eye(4) * torch.tensor([1e-1, 1e-2, 1e-1, 1e-2])
 
@@ -67,30 +65,3 @@ class Polar_Pos_Estimator(RecursiveEstimator):
         ret_mean[2] = - rtf_vel[0]
         ret_mean[3] = - rtf_vel[1]/x_mean[0] - u[3]
         return ret_mean, cov
-
-class Foveal_Vision_Estimator(RecursiveEstimator):
-    """
-    Estimator for Target state x:
-    x[0]: target offset angle
-    x[1]: target offset angle dot
-    """
-    def __init__(self, object_name:str="Target", foveal_vision_noise:dict={}, sensor_angle:float=2*torch.pi):
-        super().__init__(f'{object_name}FovealVision', 2)
-        self.default_state = torch.tensor([torch.pi, 0.0])
-        self.default_cov = 1e3 * torch.eye(2)
-        self.default_motion_noise = torch.eye(2) * torch.tensor([5e-2, 5e-2])
-        self.update_uncertainty = torch.eye(2) * torch.tensor([1e-2, 1e-2])
-        self.foveal_vision_noise = foveal_vision_noise
-        self.sensor_angle = sensor_angle
-
-    def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
-        timestep = u[0]
-        ret_mean = torch.empty_like(x_mean)
-        ret_mean[0] = (x_mean[0] - u[3] * timestep + torch.pi) % (2 * torch.pi) - torch.pi
-        ret_mean[1] = - u[3]
-
-        ret_cov = cov.clone()
-        if ret_mean[1].clone().abs() < self.sensor_angle/2:
-            ret_cov[0,0] = get_foveal_noise(ret_mean[0], 0, self.foveal_vision_noise, self.sensor_angle) ** 2
-            ret_cov[1,1] = get_foveal_noise(ret_mean[0], 1, self.foveal_vision_noise, self.sensor_angle) ** 2
-        return ret_mean, ret_cov
