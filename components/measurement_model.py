@@ -18,8 +18,6 @@ class ImplicitMeasurementModel(Module):
     Notation as in Thrun et al., Probabilistic Robotics
     """
     def __init__(self,
-                 required_estimators: List[str],
-                 required_observations: List[str],
                  device=None,
                  outlier_rejection_enabled=False,
                  outlier_threshold=1.0,
@@ -35,9 +33,6 @@ class ImplicitMeasurementModel(Module):
         self.device = device if device is not None else torch.get_default_device()
         self.dtype = dtype if dtype is not None else torch.get_default_dtype()
 
-        self.required_estimators: List[str] = required_estimators
-        self.required_observations: List[str] = required_observations
-        self.connected_states: Dict[str, Type[State]] = None
         self.meas_config: Dict[str, int] = None
             
         self.outlier_rejection_enabled = outlier_rejection_enabled
@@ -47,18 +42,7 @@ class ImplicitMeasurementModel(Module):
             persistent=False)
         self.regularize_kalman_gain = regularize_kalman_gain
 
-        self.to(device)
-    
-    def set_connected_states(self, connected_states: List[State]) -> None:
-        assert set(state.id for state in connected_states) == set(self.required_estimators + self.required_observations), f"Estimators should be {self.required_estimators} and Observations should be {self.required_observations}, but are {[state.id for state in connected_states]}"
-        self.connected_states: Dict[str, State] = {state.id: state for state in connected_states}
-        self.meas_config = {state.id: state.state_dim for state in connected_states}
-        # Initialize static measurement noise to identity for each measurement
-        for key in self.meas_config.keys():
-            self.register_buffer(
-                f'_Q_{key}',
-                torch.eye(self.meas_config[key], dtype=self.dtype),
-                persistent=False)
+        self.to(self.device)
 
     def set_static_measurement_noise(self, meas_name: str, noise_cov: torch.Tensor) -> None:
         assert meas_name in self.meas_config.keys(), (
@@ -70,18 +54,6 @@ class ImplicitMeasurementModel(Module):
             noise_cov.to(self.dtype),
             persistent=False)
         setattr(self, f'_Q_{meas_name}', noise_cov.to(self.dtype))
-
-    def all_observations_updated(self):
-        all_obs = [obs for obs in self.connected_states.values() if type(obs) == Observation]
-        if len(all_obs) == 0:
-            raise ValueError("No observations connected to this model")
-        return all(obs.updated for obs in all_obs)
-
-    def get_state_dict(self, buffer_dict: dict, estimator_id):
-        return {id: buffer_dict[id]['state_mean'] for id in self.connected_states.keys() if id != estimator_id}
-    
-    def get_cov_dict(self, buffer_dict: dict, estimator_id):
-        return {id: buffer_dict[id]['state_cov'] + buffer_dict[id]['update_uncertainty'] for id in self.connected_states.keys() if id != estimator_id}
 
     @abstractmethod
     def implicit_measurement_model(self, x: torch.Tensor, meas_dict: torch.Tensor):
@@ -157,7 +129,10 @@ class ImplicitMeasurementModel(Module):
 
 class ActiveInterconnection(ABC, ImplicitMeasurementModel):
     def __init__(self, required_estimators, required_observations=[]):
-        super().__init__(required_estimators=required_estimators, required_observations=required_observations)
+        super().__init__()
+        self.required_estimators: List[str] = required_estimators
+        self.required_observations: List[str] = required_observations
+        self.connected_states: Dict[str, Type[State]] = None
 
     def implicit_measurement_model(self, x, meas_dict):
         """
@@ -167,6 +142,26 @@ class ActiveInterconnection(ABC, ImplicitMeasurementModel):
         assert sum(1 for key in self.connected_states.keys() if key not in meas_dict) == 1, "There should be exactly one missing key"
         meas_dict[missing_key] = x
         return self.implicit_interconnection_model(meas_dict)
+
+    def set_connected_states(self, connected_states: List[State]) -> None:
+        assert set(state.id for state in connected_states) == set(self.required_estimators + self.required_observations), f"Estimators should be {self.required_estimators} and Observations should be {self.required_observations}, but are {[state.id for state in connected_states]}"
+        self.connected_states: Dict[str, State] = {state.id: state for state in connected_states}
+        self.meas_config = {state.id: state.state_dim for state in connected_states}
+        # Initialize static measurement noise to identity for each measurement
+        for key in self.meas_config.keys():
+            self.set_static_measurement_noise(key, torch.eye(self.meas_config[key]))
+    
+    def all_observations_updated(self):
+        all_obs = [obs for obs in self.connected_states.values() if type(obs) == Observation]
+        if len(all_obs) == 0:
+            raise ValueError("No observations connected to this model")
+        return all(obs.updated for obs in all_obs)
+
+    def get_state_dict(self, buffer_dict: dict, estimator_id):
+        return {id: buffer_dict[id]['state_mean'] for id in self.connected_states.keys() if id != estimator_id}
+    
+    def get_cov_dict(self, buffer_dict: dict, estimator_id):
+        return {id: buffer_dict[id]['state_cov'] + buffer_dict[id]['update_uncertainty'] for id in self.connected_states.keys() if id != estimator_id}
 
     @abstractmethod
     def implicit_interconnection_model(self, meas_dict):
