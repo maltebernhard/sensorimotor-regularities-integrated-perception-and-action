@@ -173,9 +173,15 @@ class AICON(ABC):
         gradients: Dict[str, torch.Tensor] = {}
         for key, goal in self.goals.items():
             gradients[key] = self.compute_goal_action_gradient(goal)
-        # print("Action gradients:")
-        # for key, gradient in gradients.items():
-        #     print(f"{key}: {[f'{x:.3f}' for x in gradient.tolist()]}")
+        # Hacky Code for handling dictionaries of goal function components
+        for key, gradient in gradients.items():
+            if type(gradient) == dict:
+                gradients[key] = torch.zeros_like(list(gradient.values())[0])
+                for gradkey, grad in gradient.items():
+                    print(f"{gradkey}: {[f'{x:.3f}' for x in grad.tolist()]}")
+                    gradients[key] += grad
+            else:
+                print(f"{key}: {[f'{x:.3f}' for x in gradient.tolist()]}")
         return gradients
 
     def get_steepest_gradient(self, gradients: Dict[str, torch.Tensor]):
@@ -358,7 +364,7 @@ class AICON(ABC):
         except NotImplementedError:
             return
 
-    def adapt_contingent_measurements(self, buffer_dict: dict) -> bool:
+    def adapt_contingent_measurements(self, buffer_dict: dict):
         """
         Adapts the expected measurements and measurement noise based on the current state. SHOULD be overwritten by user and return TRUE.
         """
