@@ -6,8 +6,9 @@ if __name__ == "__main__":
 
     model_types = {
         # ------ SANDBOX ------
-        "Experimental": {},
-        # ------ Experiment 1 ------
+        "GlobalVelEstimation": {},
+        "Base": {},
+        # ------ Experiments ------
         "Experiment1": {
             1: "Baseline",
             2: "Control",
@@ -22,7 +23,7 @@ if __name__ == "__main__":
         # 8: "Visibility",
     }
 
-    model_type = "Experiment1"
+    model_type = "Base"
     aicon_type = 2
 
     # --------------------- config ---------------------
@@ -53,13 +54,13 @@ if __name__ == "__main__":
         "obstacle1_offset_angle":     0.5,
         "obstacle1_offset_angle_dot": 0.5,
     }
-    use_foveal_vision_noise = False
+    use_foveal_vision_noise = True
 
     env_config = {
         "vel_control":          True,
         "moving_target":        "false",        #"sine", "linear", "flight", "false"
         "sensor_angle_deg":     360,
-        "num_obstacles":        1,
+        "num_obstacles":        0,
         "timestep":             0.05,
         "observation_noise":    observation_noise if use_observation_noise else {},
         "observation_loss":     observation_loss if use_observation_loss else {},
