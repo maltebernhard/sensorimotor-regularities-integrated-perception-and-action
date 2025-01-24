@@ -1,5 +1,4 @@
 import math
-import time
 import torch
 from components.goal import Goal
 from typing import Dict
@@ -10,9 +9,11 @@ class PolarGoToTargetFovealVisionGoal(Goal):
     def __init__(self):
         super().__init__()
         self.desired_distance = 0.0
+        self.step = 0
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        currtime = time.time()
+        self.step += 1
+        currtime = self.step * 0.05
         relevance_target = (math.sin(currtime/2) + 1.0) / 2.0
         relevance_obstacle = 1.0 - relevance_target
 

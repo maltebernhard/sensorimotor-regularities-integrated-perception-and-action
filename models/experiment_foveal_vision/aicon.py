@@ -19,20 +19,20 @@ class ExperimentFovealVisionAICON(AICON):
 
     def define_estimators(self):
         estimators = {
-            "RobotVel":             Robot_Vel_Estimator(),
-            "PolarTargetPos":       Polar_Pos_Estimator(),
+            "RobotVel":              Robot_Vel_Estimator(),
+            "PolarTargetPos":        Polar_Pos_Estimator(),
             "PolarObstacle1Pos":     Polar_Pos_Estimator(object_name="Obstacle1"),
-            "TargetFovealVision":   Foveal_Vision_Estimator(foveal_vision_noise=self.env_config["foveal_vision_noise"], sensor_angle=self.env_config["robot_sensor_angle"]),
+            "TargetFovealVision":    Foveal_Vision_Estimator(foveal_vision_noise=self.env_config["foveal_vision_noise"], sensor_angle=self.env_config["robot_sensor_angle"]),
             "Obstacle1FovealVision": Foveal_Vision_Estimator(object_name="Obstacle1", foveal_vision_noise=self.env_config["foveal_vision_noise"], sensor_angle=self.env_config["robot_sensor_angle"]),
         }
         return estimators
 
     def define_measurement_models(self):
         return {
-            "VelMM":            (Robot_Vel_MM(),                    ["RobotVel"]),
-            "TargetAngleMM":    (Angle_MM(),                        ["TargetFovealVision"]),
-            "Obstacle1AngleMM": (Angle_MM(object_name="Obstacle1"), ["Obstacle1FovealVision"]),
-            "TargetDistanceMM": (Distance_MM(),                     ["PolarTargetPos"]),
+            "VelMM":               (Robot_Vel_MM(),                    ["RobotVel"]),
+            "TargetAngleMM":       (Angle_MM(),                        ["TargetFovealVision"]),
+            "Obstacle1AngleMM":    (Angle_MM(object_name="Obstacle1"), ["Obstacle1FovealVision"]),
+            "TargetDistanceMM":    (Distance_MM(),                     ["PolarTargetPos"]),
             "Obstacle1DistanceMM": (Distance_MM(object_name="Obstacle1"), ["PolarObstacle1Pos"]),
         }
 
@@ -110,7 +110,7 @@ class ExperimentFovealVisionAICON(AICON):
             update_uncertainty = 5e-1
         return update_uncertainty * torch.eye(1)
 
-    def get_custom_observation_noise(self, obs: dict):
+    def get_custom_sensor_noise(self, obs: dict):
         observation_noise = {}
         for key in obs.keys():
             if key == "target_offset_angle":
