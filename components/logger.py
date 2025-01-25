@@ -270,7 +270,7 @@ class AICONLogger:
                     axs[1][i].set_ylim(ybounds[1][i])
                     axs[2][i].set_ylim(ybounds[2][i])
             # save / show
-            path = os.path.join(save_path, f"records/{state_id}_{plotting_config["name"]}.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/{state_id}_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_state_runs(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], axs_id: str, save_path:str=None, show:bool=False):
@@ -292,7 +292,7 @@ class AICONLogger:
                 axs[1][i].set_ylim(ybounds[1][i])
                 axs[2][i].set_ylim(ybounds[2][i])
             # save / show
-            path = os.path.join(save_path, f"records/{state_id}_{plotting_config["name"]}_{axs_id}_runs.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/{state_id}_{plotting_config['name']}_{axs_id}_runs.png") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
@@ -311,7 +311,7 @@ class AICONLogger:
                 self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"Goal Loss for {goal_id}", label, "Loss Mean and Stddev", "Timestep", True)
                 axs_goal[i].set_ylim(ybounds[0], ybounds[1])
         # save / show
-        loss_path = os.path.join(save_path, f"records/goal_losses_{plotting_config["name"]}.png") if save_path is not None else None
+        loss_path = os.path.join(save_path, f"records/goal_losses_{plotting_config['name']}.png") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)
         
 
