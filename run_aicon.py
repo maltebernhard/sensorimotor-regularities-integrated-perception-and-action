@@ -17,13 +17,16 @@ if __name__ == "__main__":
             5: "Interconnection",
         },
         "ExperimentFovealVision": {},
+        "SingleEstimator": {},
+        "Divergence": {},
+        "GlobalVel": {},
         # 6: "Estimator",
         # # ---- ACTUAL SMCs ----
         # 7: "Divergence",
         # 8: "Visibility",
     }
 
-    model_type = "Base"
+    model_type = "GlobalVel"
     aicon_type = 2
 
     # --------------------- config ---------------------
@@ -31,10 +34,14 @@ if __name__ == "__main__":
     observation_noise = {
         "target_offset_angle":      0.01,
         "target_offset_angle_dot":  0.01,
+        #"target_offset_angle":      0.2,
+        #"target_offset_angle_dot":  0.1,
         "obstacle1_offset_angle":      0.01,
         "obstacle1_offset_angle_dot":  0.01,
         "target_visual_angle":      0.01,
         "target_visual_angle_dot":  0.01,
+        # "target_visual_angle":      0.1,
+        # "target_visual_angle_dot":  0.1,
         "target_distance":          1.0,
         "vel_frontal":              0.01,
         "vel_lateral":              0.01,
@@ -54,11 +61,11 @@ if __name__ == "__main__":
         "obstacle1_offset_angle":     0.5,
         "obstacle1_offset_angle_dot": 0.5,
     }
-    use_foveal_vision_noise = True
+    use_foveal_vision_noise = False
 
     env_config = {
         "vel_control":          True,
-        "moving_target":        "false",        #"sine", "linear", "flight", "false"
+        "moving_target":        "flight",        #"false", "sine", "linear", "flight"
         "sensor_angle_deg":     360,
         "num_obstacles":        0,
         "timestep":             0.05,
@@ -69,7 +76,7 @@ if __name__ == "__main__":
 
     run_config = {
         "num_steps":        500,
-        "initial_action":   [0.0, 0.0, 0.0],
+        "initial_action":   [0.1, 0.0, 0.0],
         "seed":             1,
         "render":           True,
         "prints":           1,

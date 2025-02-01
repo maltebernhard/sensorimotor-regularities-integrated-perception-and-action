@@ -254,11 +254,13 @@ class GazeFixEnv(BaseEnv):
             "desired_target_distance" : Observation(0.0, self.config["target_distance"], lambda: self.target.distance),
             "target_offset_angle" :     Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.target)),
             "target_offset_angle_dot" : Observation(-2*np.pi/self.timestep/self.robot.max_vel_rot, 2*np.pi/self.timestep/self.robot.max_vel_rot, lambda: self.compute_offset_angle_dot(self.target)),
+            "target_offset_angle_dot_global" : Observation(-np.inf, np.inf, lambda: self.compute_offset_angle_dot_object_component(self.target)),
             "vel_rot" :                 Observation(-self.robot.max_vel_rot, self.robot.max_vel_rot, lambda: self.robot.vel_rot),
             "vel_frontal" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[0]),
             "vel_lateral" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[1]),
             "target_distance" :         Observation(0.0, np.inf, lambda: self.compute_distance(self.target)),
             "target_distance_dot" :     Observation(-1.5*self.robot.max_vel, 1.5*self.robot.max_vel, lambda: self.compute_distance_dot(self.target)),
+            "target_distance_dot_global" : Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.compute_distance_dot_object_component(self.target)),
             "target_radius" :           Observation(0.0, np.inf, lambda: self.target.radius),
             "target_visual_angle" :     Observation(0.0, self.robot.sensor_angle, lambda: self.compute_visual_angle(self.target)),
             "target_visual_angle_dot" : Observation(-np.inf, np.inf, lambda: self.compute_visual_angle_dot(self.target)),
@@ -515,9 +517,15 @@ class GazeFixEnv(BaseEnv):
         # angular vel due to robot's translation
         offset_angle_dot -= (self.rotation_matrix(-offset_angle) @ self.robot.vel)[1] / self.compute_distance(obj)
         # angular vel due to object's movement
-        if (type(obj) == Target and self.moving_target != "false") or (type(obj) == EnvObject and self.moving_obstacles):
-            offset_angle_dot += obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
+        offset_angle_dot += self.compute_offset_angle_dot_object_component(obj)
         return offset_angle_dot
+    
+    def compute_offset_angle_dot_object_component(self, obj: EnvObject):
+        if (type(obj) == Target and self.moving_target != "false") or (type(obj) == EnvObject and self.moving_obstacles):
+            offset_angle = self.compute_offset_angle(obj)
+            return obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
+        else:
+            return 0.0
     
     def compute_distance(self, obj: EnvObject):
         return np.linalg.norm(obj.pos-self.robot.pos)
@@ -525,9 +533,15 @@ class GazeFixEnv(BaseEnv):
     def compute_distance_dot(self, obj: EnvObject):
         offset_angle = self.compute_offset_angle(obj)
         object_distance_dot = - (self.rotation_matrix(-offset_angle) @ self.robot.vel)[0]
-        if (type(obj) == Target and self.moving_target != "false") or (type(obj) == EnvObject and self.moving_obstacles):
-            object_distance_dot += obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
+        object_distance_dot += self.compute_distance_dot_object_component(obj)
         return object_distance_dot
+    
+    def compute_distance_dot_object_component(self, obj: EnvObject):
+        if (type(obj) == Target and self.moving_target != "false") or (type(obj) == EnvObject and self.moving_obstacles):
+            offset_angle = self.compute_offset_angle(obj)
+            return obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
+        else:
+            return 0.0
     
     def compute_visual_angle(self, obj: EnvObject):
         distance = self.compute_distance(obj)
