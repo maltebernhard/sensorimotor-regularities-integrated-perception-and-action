@@ -9,15 +9,16 @@ class Triangulation_AI(ActiveInterconnection):
     def __init__(self, object_name:str="Target") -> None:
         self.object_name = object_name
         required_estimators = [f'Polar{object_name}Pos', 'RobotVel']
-        super().__init__(required_estimators)
+        required_observations = [f'{object_name.lower()}_offset_angle', f'{object_name.lower()}_offset_angle_dot']
+        super().__init__(required_estimators, required_observations)
 
     def implicit_interconnection_model(self, meas_dict: Dict[str, torch.Tensor]):
         # NOTE: think about suppressing gradient propagation of changes in offset angle in this AI
             # BAD because it suppresses an action component
             # GOOD because we don't want rotation to influence triangulation
             # not sure whether this suppression will have additional effects other than the desired one
-        rtf_vel = rotate_vector_2d(meas_dict[f'Polar{self.object_name}Pos'][1].detach(), meas_dict['RobotVel'][:2])
-        angular_vel = meas_dict[f'Polar{self.object_name}Pos'][3] + meas_dict['RobotVel'][2]
+        rtf_vel = rotate_vector_2d(meas_dict[f'{self.object_name.lower()}_offset_angle'], meas_dict['RobotVel'][:2])
+        angular_vel = meas_dict[f'{self.object_name.lower()}_offset_angle_dot'] + meas_dict['RobotVel'][2]
         if torch.abs(rtf_vel[1]) == 0.0 or torch.abs(angular_vel) == 0.0:
             triangulated_distance = meas_dict[f'Polar{self.object_name}Pos'][0]
         else:

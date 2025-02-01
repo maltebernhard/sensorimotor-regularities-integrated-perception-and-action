@@ -2,36 +2,31 @@ from typing import Dict
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from models.base.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator
-from models.base.active_interconnections import Triangulation_AI
-from models.base.helpers import get_foveal_noise
-from models.base.measurement_models import Robot_Vel_MM, Angle_MM
-from models.base.goals import PolarGoToTargetGoal
+from models.single_estimator.estimators import Polar_Pos_Estimator
+from models.single_estimator.helpers import get_foveal_noise
+from models.single_estimator.measurement_models import Angle_MM
+from models.single_estimator.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 
-class BaseAICON(AICON):
+class SingleEstimatorAICON(AICON):
     def __init__(self, env_config):
-        self.type = "Base"
+        self.type = "SingleEstimator"
         super().__init__(env_config)
 
     def define_estimators(self):
         estimators = {
-            "RobotVel":         Robot_Vel_Estimator(),
             "PolarTargetPos":   Polar_Pos_Estimator(),
         }
         return estimators
 
     def define_measurement_models(self):
         return {
-            "VelMM":        (Robot_Vel_MM(), ["RobotVel"]),
             "AngleMeasMM":  (Angle_MM(),     ["PolarTargetPos"]),
         }
 
     def define_active_interconnections(self):
-        active_interconnections = {
-            "TriangulationAI": Triangulation_AI(),
-        }
+        active_interconnections = {}
         return active_interconnections
 
     def define_goals(self):
@@ -41,7 +36,6 @@ class BaseAICON(AICON):
         return goals
 
     def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
-        self.REs["PolarTargetPos"].call_update_with_active_interconnection(self.AIs["TriangulationAI"], buffer_dict)
         return buffer_dict
 
     def compute_action_from_gradient(self, gradients):
@@ -54,10 +48,7 @@ class BaseAICON(AICON):
         env_state = self.env.get_state()
         print("--------------------------------------------------------------------")
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=1)
-        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")#, {env_state['target_radius']:.3f}]")
-        print("--------------------------------------------------------------------")
-        self.print_estimator("RobotVel", buffer_dict=buffer_dict) 
-        print(f"True RobotVel: [{self.env.robot.vel[0]:.3f}, {self.env.robot.vel[1]:.3f}, {self.env.robot.vel_rot:.3f}]")
+        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}]")#, {env_state['target_radius']:.3f}]")
         print("--------------------------------------------------------------------")
 
     def custom_reset(self):
@@ -82,12 +73,9 @@ class BaseAICON(AICON):
         predicted_angle = buffer_dict['PolarTargetPos']['state_mean'][1]
         buffer_dict['target_offset_angle']['state_mean']     = predicted_angle
         buffer_dict['target_offset_angle_dot']['state_mean'] = buffer_dict['PolarTargetPos']['state_mean'][3]
-        buffer_dict['vel_frontal']['state_mean']             = buffer_dict['RobotVel']['state_mean'][0]
-        buffer_dict['vel_lateral']['state_mean']             = buffer_dict['RobotVel']['state_mean'][1]
-        buffer_dict['vel_rot']['state_mean']                 = buffer_dict['RobotVel']['state_mean'][2]
         if "target_offset_angle" in self.env_config["foveal_vision_noise"].keys():
-            buffer_dict['target_offset_angle']['state_cov']     = 10 * (self.obs["target_offset_angle"].sensor_noise + get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]))# ** 2
+            buffer_dict['target_offset_angle']['state_cov']     = get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])# ** 2
         if "target_offset_angle_dot" in self.env_config["foveal_vision_noise"].keys():
-            buffer_dict['target_offset_angle_dot']['state_cov'] = 10 * (self.obs["target_offset_angle_dot"].sensor_noise + get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]))# ** 2
-            print(f"Cont. meas angle: {buffer_dict['target_offset_angle']['state_cov'].item():.3f} | {self.obs["target_offset_angle"].sensor_noise.item():.3f} , {get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")
-            print(f"Cont. meas angle_dot: {buffer_dict['target_offset_angle_dot']['state_cov'].item():.3f} | {self.obs["target_offset_angle_dot"].sensor_noise.item():.3f} , {get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")
+            buffer_dict['target_offset_angle_dot']['state_cov'] = get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])# ** 2
+            print(f"Cont. angle     sensor_noise: {self.obs["target_offset_angle"].sensor_noise.item():.3f} | fv_noise: {get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")
+            print(f"Cont. angle_dot sensor_noise: {self.obs["target_offset_angle_dot"].sensor_noise.item():.3f} | fv_noise: {get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")

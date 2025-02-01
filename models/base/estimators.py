@@ -51,16 +51,18 @@ class Polar_Pos_Estimator(RecursiveEstimator):
         super().__init__(f'Polar{object_name}Pos', 4)
         self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0])
         self.default_cov = 1e3 * torch.eye(4)
-        self.default_motion_noise = torch.eye(4) * torch.tensor([1e-1, 5e-2, 1e-1, 5e-2])
+        self.default_motion_noise = torch.eye(4) * torch.tensor([5e-1, 1e-2, 1e-1, 1e-2])
         self.update_uncertainty = torch.eye(4) * torch.tensor([1e-1, 1e-2, 1e-1, 1e-2])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
-        timestep = u[0]
-        rtf_vel = rotate_vector_2d(x_mean[1], u[1:3])
-
         ret_mean = torch.empty_like(x_mean)
-        ret_mean[0] = x_mean[0] + (- rtf_vel[0]) * timestep
-        ret_mean[1] = (x_mean[1] + (- rtf_vel[1]/x_mean[0] - u[3]) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
-        ret_mean[2] = - rtf_vel[0]
-        ret_mean[3] = - rtf_vel[1]/x_mean[0] - u[3]
+        timestep = u[0]
+
+        pre_step_rtf_vel = rotate_vector_2d(x_mean[1], u[1:3])
+        ret_mean[0] = x_mean[0] + (- pre_step_rtf_vel[0]) * timestep
+        ret_mean[1] = (x_mean[1] + (- pre_step_rtf_vel[1]/x_mean[0] - u[3]) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
+        
+        post_step_rtf_vel = rotate_vector_2d(ret_mean[1], u[1:3])
+        ret_mean[2] = - post_step_rtf_vel[0]
+        ret_mean[3] = - post_step_rtf_vel[1]/x_mean[0] - u[3]
         return ret_mean, cov
