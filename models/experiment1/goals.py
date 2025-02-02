@@ -15,7 +15,10 @@ class PolarGoToTargetGoal(Goal):
         ]).pow(2).sum()
         cov = buffer_dict['PolarTargetPos']['state_cov'].diag()
         loss_cov = 1e0 * (cov[0] + cov[2]) + 1e1 * (cov[1] + cov[3])
-        return loss_mean + loss_cov
+        return {
+            "mean": loss_mean,
+            "cov": loss_cov
+        }
 
 class PolarGoToTargetGazeFixationGoal(Goal):
     def __init__(self):
@@ -31,7 +34,10 @@ class PolarGoToTargetGazeFixationGoal(Goal):
             1.0 * torch.atleast_1d(buffer_dict['PolarTargetPos']['state_mean'][3] * torch.clamp(1.0 - torch.abs(buffer_dict['PolarTargetPos']['state_mean'][1]), min=0.0)),
         ]).pow(2).sum()
         loss_cov = 1e0 * torch.trace(buffer_dict['PolarTargetPos']['state_cov'])
-        return loss_mean + loss_cov
+        return {
+            "mean": loss_mean,
+            "cov": loss_cov
+        }
     
 class PolarGoToTargetFovealVisionGoal(Goal):
     def __init__(self):
@@ -44,4 +50,7 @@ class PolarGoToTargetFovealVisionGoal(Goal):
         ]).pow(2).sum()
         cov = buffer_dict['PolarTargetPos']['state_cov'].diag()
         loss_cov = 2e0 * (cov[0] + cov[2]) + 2e0 * (cov[1] + cov[3])
-        return loss_mean + loss_cov
+        return {
+            "mean": loss_mean,
+            "cov": loss_cov
+        }
