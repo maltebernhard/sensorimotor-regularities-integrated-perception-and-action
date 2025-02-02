@@ -8,9 +8,9 @@ class Robot_Vel_Estimator(RecursiveEstimator):
     def __init__(self):
         super().__init__("RobotVel", 3)
         self.default_state = torch.tensor([0.0, 0.0, 0.0])
-        self.default_cov = 1e1 * torch.eye(3)
+        self.default_cov = 1e-3 * torch.eye(3)
         self.default_motion_noise = torch.eye(3) * torch.tensor([1e-1, 1e-1, 5e-2])
-        self.update_uncertainty: torch.Tensor = torch.eye(self.state_dim) * torch.tensor([1e-1, 1e-1, 2e-2])
+        #self.update_uncertainty: torch.Tensor = torch.eye(self.state_dim) * torch.tensor([1e-1, 1e-1, 2e-2])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """
@@ -44,25 +44,26 @@ class Polar_Pos_Estimator(RecursiveEstimator):
     Estimator for Target state x:
     x[0]: target distance
     x[1]: target offset angle
-    x[2]: del target distance
-    x[3]: del target offset angle
+    x[2]: target visual angle
     """
     def __init__(self, object_name:str="Target"):
-        super().__init__(f'Polar{object_name}Pos', 4)
-        self.default_state = torch.tensor([10.0, 0.0, 0.0, 0.0])
-        self.default_cov = 1e3 * torch.eye(4)
-        self.default_motion_noise = torch.eye(4) * torch.tensor([5e-1, 1e-2, 1e-1, 1e-2])
-        self.update_uncertainty = torch.eye(4) * torch.tensor([1e-1, 1e-2, 1e-1, 1e-2])
+        super().__init__(f'Polar{object_name}Pos', 3)
+        self.default_state = torch.tensor([10.0, 0.0, 0.1])
+        self.default_cov = 1e3 * torch.eye(3)
+        self.default_motion_noise = torch.eye(3) * torch.tensor([1e-1, 1e-2, 1e-2])
+        self.update_uncertainty = torch.eye(3) * torch.tensor([1e-1, 1e-2, 1e-2])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         ret_mean = torch.empty_like(x_mean)
         timestep = u[0]
 
-        pre_step_rtf_vel = rotate_vector_2d(-x_mean[1], u[1:3])
-        ret_mean[0] = x_mean[0] + (- pre_step_rtf_vel[0]) * timestep
-        ret_mean[1] = (x_mean[1] + (- pre_step_rtf_vel[1]/x_mean[0] - u[3]) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
+        old_rtf_vel = rotate_vector_2d(-x_mean[1], u[1:3])
+        target_radius = torch.sin(x_mean[2] / 2) * x_mean[0]
+        new_distance = torch.abs(x_mean[0] - old_rtf_vel[0] * timestep)
+        new_angle = (x_mean[1] + (- old_rtf_vel[1]/x_mean[0] - u[3]) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
+
+        ret_mean[0] = new_distance
+        ret_mean[1] = new_angle
+        ret_mean[2] = 2 * torch.asin(target_radius / new_distance)
         
-        post_step_rtf_vel = rotate_vector_2d(-ret_mean[1], u[1:3])
-        ret_mean[2] = - post_step_rtf_vel[0]
-        ret_mean[3] = - post_step_rtf_vel[1]/x_mean[0] - u[3]
         return ret_mean, cov

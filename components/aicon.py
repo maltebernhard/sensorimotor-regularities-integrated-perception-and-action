@@ -59,7 +59,12 @@ class AICON(ABC):
         if render:
             self.render()
         for step in range(timesteps):
-            action = self.compute_action()
+
+            # est_jac, est = self.compute_estimator_action_gradient("PolarTargetPos", self.last_action)
+            # for i in range(3):
+            #     print(f"Estimator Jacobian {i}:\n", est_jac['state_cov'][:,:,i])
+
+            gradients, action = self.compute_action()
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
             if logger is not None:
@@ -70,6 +75,8 @@ class AICON(ABC):
                     env_state = self.env.get_state(),
                     observation = {key: {"measurement": self.last_observation[0][key], "noise": (self.last_observation[1][key])} for key in self.last_observation[0].keys()},
                     goal_loss = {key: goal.loss_function_from_buffer(self.get_buffer_dict()) for key, goal in self.goals.items()},
+                    action = action,
+                    gradients = gradients,
                 )
             if step_by_step:
                 input("Press Enter to continue...")
@@ -107,11 +114,17 @@ class AICON(ABC):
         u = self.get_control_input(action)
         for estimator in self.REs.values():
             estimator.call_predict(u, buffer_dict)
+
+        #print("Pre:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+
         # measurement updates
         if new_step:
             self.meas_updates(buffer_dict)
         else:
             self.contingent_meas_updates(buffer_dict)
+
+        #print("Post:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+
         # interconnection updates
         return self.eval_interconnections(buffer_dict)
 
@@ -150,7 +163,7 @@ class AICON(ABC):
         state = buffer_dict[estimator_id]
         return state, state
 
-    def compute_goal_action_gradient(self, goal):
+    def compute_goal_action_gradient(self, goal) -> Dict[str, torch.Tensor]:
         action = self.last_action
         jacobian, step_eval = jacrev(
             self._eval_goal_with_aux,
@@ -167,21 +180,24 @@ class AICON(ABC):
 
     def compute_action(self):
         gradients = self.compute_action_gradients()
-        return self.compute_action_from_gradient(gradients)
+        return gradients, self.compute_action_from_gradient({key: gradient["total"] for key, gradient in gradients.items()})
 
     def compute_action_gradients(self):
-        gradients: Dict[str, torch.Tensor] = {}
-        for key, goal in self.goals.items():
-            gradients[key] = self.compute_goal_action_gradient(goal)
-        # Hacky Code for handling dictionaries of goal function components
-        for key, gradient in gradients.items():
-            if type(gradient) == dict:
-                gradients[key] = torch.zeros_like(list(gradient.values())[0])
+        prints = True
+        gradients: Dict[str, Dict[str,torch.Tensor]] = {}
+        for goal_key, goal in self.goals.items():
+            gradients[goal_key] = self.compute_goal_action_gradient(goal)
+        for goal_key, gradient in gradients.items():
+            gradients[goal_key]["total"] = torch.zeros_like(list(gradient.values())[0])
+            for gradkey, grad in gradient.items():
+                if gradkey != "total":
+                    gradients[goal_key]["total"] += grad
+            if prints:
+                print(f"------------ {goal_key} Gradients ------------")
                 for gradkey, grad in gradient.items():
-                    print(f"{gradkey}: {[f'{x:.3f}' for x in grad.tolist()]}")
-                    gradients[key] += grad
-            else:
-                print(f"{key}: {[f'{x:.3f}' for x in gradient.tolist()]}")
+                    if not torch.allclose(grad, torch.zeros_like(grad)):
+                        print(f"{gradkey}: {[f'{-x:.3f}' for x in grad.tolist()]}")
+                print("------------------------------------------------------")
         return gradients
 
     def get_steepest_gradient(self, gradients: Dict[str, torch.Tensor]):
@@ -227,21 +243,22 @@ class AICON(ABC):
                     print(" ", end="")
             self.print_vector(matrix[i], trail="," if i < matrix.shape[0] - 1 else "]", use_scientific=use_scientific)
 
-    def print_estimator(self, id, print_cov:bool=False, buffer_dict=None):
-        if buffer_dict is None:
-            mean = self.REs[id].state_mean if id in self.REs.keys() else self.obs[id].state_mean
-        else:
-            mean = buffer_dict[id]["state_mean"]
-        self.print_vector(mean, id + " Mean" if print_cov else id)
-        if print_cov:
+    def print_estimator(self, id, print_mean:bool=True, print_cov:int=0, buffer_dict=None):
+        if print_mean:
+            if buffer_dict is None:
+                mean = self.REs[id].state_mean if id in self.REs.keys() else self.obs[id].state_mean
+            else:
+                mean = buffer_dict[id]["state_mean"]
+            self.print_vector(mean, id + " Mean" if print_cov else id)
+        if print_cov != 0:
             if buffer_dict is None:
                 cov = self.REs[id].state_cov if id in self.REs.keys() else self.obs[id].state_cov
             else:
                 cov = buffer_dict[id]["state_cov"]
-            if type(print_cov) == int and print_cov == 2:
-                self.print_vector(torch.sqrt(cov.diag()), id + " UCT")
-            else:
+            if print_cov == 1:
                 self.print_matrix(cov, f"{id} Cov")
+            elif print_cov == 2:
+                self.print_vector(torch.sqrt(cov.diag()), id + " UCT")
 
     def reset(self, seed=None, video_path=None) -> None:
         for estimator in self.REs.values():

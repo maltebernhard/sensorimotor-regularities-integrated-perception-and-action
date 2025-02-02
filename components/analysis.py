@@ -14,10 +14,14 @@ from models.base.aicon import BaseAICON
 from models.experiment1.aicon import Experiment1AICON
 from models.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
 from models.global_vel_estimation.aicon import GlobalVelEstimationAICON
+from models.divergence.aicon import DivergenceAICON
 
-from models.old.experiment_divergence.aicon import DivergenceAICON
+#from models.old.experiment_divergence.aicon import DivergenceAICON
+from models.global_vels.aicon import GlobalVelAICON
 from models.old.experiment_estimator.aicon import ContingentEstimatorAICON
 from models.old.experiment_visibility.aicon import VisibilityAICON
+from models.single_estimator.aicon import SingleEstimatorAICON
+from models.smc_ais.aicon import SMCAICON
 
 # ========================================================================================================
 
@@ -62,6 +66,10 @@ class Runner:
         elif self.model == "Experiment1":            return Experiment1AICON(self.env_config, self.aicon_type)
         elif self.model == "GlobalVelEstimation":    return GlobalVelEstimationAICON(self.env_config)
         elif self.model == "ExperimentFovealVision": return ExperimentFovealVisionAICON(self.env_config)
+        elif self.model == "SingleEstimator":        return SingleEstimatorAICON(self.env_config)
+        elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
+        elif self.model == "GlobalVel":              return GlobalVelAICON(self.env_config)
+        elif self.model == "SMC":                    return SMCAICON(self.env_config)
 
         elif self.model == "Divergence":      return DivergenceAICON(self.env_config)
         elif self.model == "Estimator":       return ContingentEstimatorAICON(self.env_config)

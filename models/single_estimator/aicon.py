@@ -74,8 +74,12 @@ class SingleEstimatorAICON(AICON):
         buffer_dict['target_offset_angle']['state_mean']     = predicted_angle
         buffer_dict['target_offset_angle_dot']['state_mean'] = buffer_dict['PolarTargetPos']['state_mean'][3]
         if "target_offset_angle" in self.env_config["foveal_vision_noise"].keys():
-            buffer_dict['target_offset_angle']['state_cov']     = get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])# ** 2
+            buffer_dict['target_offset_angle']['state_cov']     = buffer_dict['PolarTargetPos']['state_cov'][1,1] + get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])# ** 2
+        else:
+            buffer_dict['target_offset_angle']['state_cov']     = buffer_dict['PolarTargetPos']['state_cov'][1,1]
         if "target_offset_angle_dot" in self.env_config["foveal_vision_noise"].keys():
-            buffer_dict['target_offset_angle_dot']['state_cov'] = get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])# ** 2
-            print(f"Cont. angle     sensor_noise: {self.obs["target_offset_angle"].sensor_noise.item():.3f} | fv_noise: {get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")
-            print(f"Cont. angle_dot sensor_noise: {self.obs["target_offset_angle_dot"].sensor_noise.item():.3f} | fv_noise: {get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")
+            buffer_dict['target_offset_angle_dot']['state_cov'] = buffer_dict['PolarTargetPos']['state_cov'][3,3] + get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])# ** 2
+        else:
+            buffer_dict['target_offset_angle_dot']['state_cov'] = buffer_dict['PolarTargetPos']['state_cov'][3,3]
+            # print(f"Cont. angle     sensor_noise: {self.obs["target_offset_angle"].sensor_noise.item():.3f} | fv_noise: {get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")
+            # print(f"Cont. angle_dot sensor_noise: {self.obs["target_offset_angle_dot"].sensor_noise.item():.3f} | fv_noise: {get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")

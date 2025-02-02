@@ -80,7 +80,7 @@ class AICONLogger:
 
     # ======================================== logging ==========================================
 
-    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,torch.Tensor]):
+    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,torch.Tensor], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
         # for new run, set up logging dict
         if self.run not in self.current_data:
             self.current_data[self.run] = {
@@ -161,7 +161,7 @@ class AICONLogger:
             if state_key == "PolarTargetGlobalPos":
                 # NOTE: this is only valid IF target moves and IF the estimator represents global target velocity
                 # TODO: implement for decoupled PolarTargetDistance and PolarTargetAngle, IF I plan to use them
-                rtf_vel = rotate_vector_2d(task_state[2], real_state["RobotVel"][:2])
+                rtf_vel = rotate_vector_2d(-task_state[2], real_state["RobotVel"][:2])
                 task_state[2] += rtf_vel[0]
                 task_state[3] += real_state["RobotVel"][2]
             self.current_data[self.run]["estimation_error"][state_key].append(task_state - estimator_mean)
@@ -173,6 +173,7 @@ class AICONLogger:
             self.current_data[self.run]["observation"][obs_key]["noise"].append(observation[obs_key]["noise"])
         for goal_key in goal_loss.keys():
             self.current_data[self.run]["goal_loss"][goal_key].append(np.array(goal_loss[goal_key].tolist()))
+            # TODO: log action and gradients
 
     # ======================================= plotting ==========================================
 

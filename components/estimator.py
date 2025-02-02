@@ -54,7 +54,7 @@ class Observation(State):
         self.update_uncertainty: torch.Tensor = update_uncertainty
 
     def set_observation(self, obs: torch.Tensor, custom_obs_noise: torch.Tensor=None, time=None):
-        self.set_state(obs, (self.sensor_noise + custom_obs_noise).pow(2) if custom_obs_noise is not None else self.sensor_noise.pow(2))
+        self.set_state(obs, (self.sensor_noise + custom_obs_noise)**2 if custom_obs_noise is not None else self.sensor_noise**2)
         self.updated = True
         self.last_updated = time
 
@@ -190,6 +190,14 @@ class RecursiveEstimator(ABC, State):
                 else:
                     K_part_2 += self._propagate_covariance(F_t_dict[key], custom_measurement_noise[key])
         
+
+        # if self.id == "PolarTargetPos":# and "RobotVel" in meas_dict.keys():
+        #     for key in ["target_offset_angle", "target_offset_angle_dot"]:
+        #         print(f"{key} mean: {meas_dict[key].item():.3f} | cov: {custom_measurement_noise[key].item():.3f}")
+        #     print(f"F_t: {F_t_dict}")
+        #     print(f"K_part_2: {K_part_2}")
+
+
         K_part_2 = torch.atleast_2d(K_part_2) # in case state is 1D 
 
         if implicit_meas_model.regularize_kalman_gain:

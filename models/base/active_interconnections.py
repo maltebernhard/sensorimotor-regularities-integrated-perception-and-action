@@ -17,7 +17,7 @@ class Triangulation_AI(ActiveInterconnection):
             # BAD because it suppresses an action component
             # GOOD because we don't want rotation to influence triangulation
             # not sure whether this suppression will have additional effects other than the desired one
-        rtf_vel = rotate_vector_2d(meas_dict[f'{self.object_name.lower()}_offset_angle'], meas_dict['RobotVel'][:2])
+        rtf_vel = rotate_vector_2d(-meas_dict[f'{self.object_name.lower()}_offset_angle'], meas_dict['RobotVel'][:2])
         angular_vel = meas_dict[f'{self.object_name.lower()}_offset_angle_dot'] + meas_dict['RobotVel'][2]
         if torch.abs(rtf_vel[1]) == 0.0 or torch.abs(angular_vel) == 0.0:
             triangulated_distance = meas_dict[f'Polar{self.object_name}Pos'][0]

@@ -58,7 +58,7 @@ class Polar_Pos_Estimator(RecursiveEstimator):
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
-        rtf_vel = rotate_vector_2d(x_mean[1], u[1:3])
+        rtf_vel = rotate_vector_2d(-x_mean[1], u[1:3])
 
         ret_mean = torch.empty_like(x_mean)
         ret_mean[0] = x_mean[0] + (- rtf_vel[0]) * timestep
@@ -93,7 +93,7 @@ class Polar_Pos_FovealVision_Estimator(RecursiveEstimator):
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         timestep = u[0]
-        rtf_vel = rotate_vector_2d(x_mean[1], u[1:3])
+        rtf_vel = rotate_vector_2d(-x_mean[1], u[1:3])
 
         ret_mean = torch.empty_like(x_mean)
         ret_mean[0] = x_mean[0] + (- rtf_vel[0]) * timestep

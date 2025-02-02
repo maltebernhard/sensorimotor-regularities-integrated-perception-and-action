@@ -55,7 +55,7 @@ class GlobalVelEstimationAICON(AICON):
         print("--------------------------------------------------------------------")
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']:.3f}]")
-        rtf_vel = rotate_vector_2d(env_state["target_offset_angle"], torch.tensor([env_state["vel_frontal"], env_state["vel_lateral"]]))
+        rtf_vel = rotate_vector_2d(-env_state["target_offset_angle"], torch.tensor([env_state["vel_frontal"], env_state["vel_lateral"]]))
         print(f"True Global TargetVel: [{env_state['target_distance_dot']+rtf_vel[0]:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}]")
         print("--------------------------------------------------------------------")
         self.print_estimator("RobotVel", buffer_dict=buffer_dict) 

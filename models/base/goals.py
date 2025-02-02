@@ -20,18 +20,18 @@ class PolarGoToTargetGoal(Goal):
         # TODO: we want this to make the robot turn due to foveal vision
         loss_cov_distance1 = 9e0 * cov[0]# / max(1.0, (estimated_distance/100)) 
         
-        loss_cov_distance2 = 0.0 * 1e0 * cov[2]
+        loss_cov_distance2 = 1e0 * cov[2]
         
         # this one works nicely, since it works directly on observation uncertainties
-        loss_cov_angle1 = 0.0 * 1e2 * buffer_dict['target_offset_angle']['state_cov'][0,0]
+        loss_cov_angle1 = 1e2 * buffer_dict['target_offset_angle']['state_cov'][0,0]
         # TODO: compare with the one related to the estimate
         #loss_cov_angle1 = 0.0 * 1e4 * cov[1].sqrt()
 
-        loss_cov_angle2 = 0.0 * 1e4 * cov[3]
+        loss_cov_angle2 = 1e4 * cov[3]
         return {
             "distance                ": loss_mean,
             "distance_uncertainty    ": loss_cov_distance1,
-            "distance_dot_uncertainty": loss_cov_distance2,
-            "angle_uncertainty       ": loss_cov_angle1,
-            "angle_dot_uncertainty   ": loss_cov_angle2,
+            "distance_dot_uncertainty": 0.0 * loss_cov_distance2,
+            "angle_uncertainty       ": 0.0 * loss_cov_angle1,
+            "angle_dot_uncertainty   ": 0.0 * loss_cov_angle2,
         }

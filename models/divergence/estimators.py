@@ -25,11 +25,11 @@ class PolarPos_Tri_Div_Estimator(RecursiveEstimator):
         ret_mean = torch.empty_like(x_mean)
         timestep = u[0]
 
-        pre_step_rtf_vel = rotate_vector_2d(x_mean[1], u[1:3])
+        pre_step_rtf_vel = rotate_vector_2d(-x_mean[1], u[1:3])
         ret_mean[0] = torch.abs(x_mean[0] + (- pre_step_rtf_vel[0]) * timestep)
         ret_mean[1] = (x_mean[1] + (- pre_step_rtf_vel[1]/x_mean[0] - u[3]) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
 
-        post_step_rtf_vel = rotate_vector_2d(ret_mean[1], u[1:3])
+        post_step_rtf_vel = rotate_vector_2d(-ret_mean[1], u[1:3])
         ret_mean[2] = - post_step_rtf_vel[0]
 
         estimated_angle_dot = - post_step_rtf_vel[1]/x_mean[0] - u[3]

@@ -166,3 +166,27 @@ class ActiveInterconnection(ABC, ImplicitMeasurementModel):
     @abstractmethod
     def implicit_interconnection_model(self, meas_dict):
         pass
+
+class SensorimotorContingency(ActiveInterconnection):
+    def __init__(self, state_component: str, action_component: str, sensory_components: List[str]):
+        self.state_component = state_component
+        self.action_component = action_component
+        super().__init__(required_estimators=[state_component, action_component], required_observations=sensory_components)
+
+    def implicit_interconnection_model(self, meas_dict):
+        return self.transform_state_to_innovation_space(meas_dict[self.state_component], meas_dict[self.action_component])[0] - self.transform_measurements_to_innovation_space(meas_dict)
+
+    def transform_measurements_to_innovation_space(self, meas_dict: dict):
+        """
+        OVERWRITE if you intend to include innovation outside of the sensory components
+        """
+        return torch.stack([meas_dict[obs] for obs in self.required_observations]).squeeze()
+
+    @abstractmethod
+    def transform_state_to_innovation_space(self, state, action):
+        """
+        returns tuple of estimated means and covariances of sensory components
+        """
+        pass
+
+        

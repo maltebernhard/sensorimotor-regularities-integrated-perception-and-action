@@ -20,28 +20,29 @@ if __name__ == "__main__":
         "SingleEstimator": {},
         "Divergence": {},
         "GlobalVel": {},
+        "SMC": {},
         # 6: "Estimator",
         # # ---- ACTUAL SMCs ----
         # 7: "Divergence",
         # 8: "Visibility",
     }
 
-    model_type = "GlobalVel"
+    model_type = "SMC"
     aicon_type = 2
 
     # --------------------- config ---------------------
 
     observation_noise = {
-        "target_offset_angle":      0.01,
-        "target_offset_angle_dot":  0.01,
+        "target_offset_angle":      0.001,
+        "target_offset_angle_dot":  0.001,
         #"target_offset_angle":      0.2,
         #"target_offset_angle_dot":  0.1,
         "obstacle1_offset_angle":      0.01,
         "obstacle1_offset_angle_dot":  0.01,
-        "target_visual_angle":      0.01,
-        "target_visual_angle_dot":  0.01,
-        # "target_visual_angle":      0.1,
-        # "target_visual_angle_dot":  0.1,
+        # "target_visual_angle":      0.01,
+        # "target_visual_angle_dot":  0.01,
+        "target_visual_angle":      0.2,
+        "target_visual_angle_dot":  0.2,
         "target_distance":          1.0,
         "vel_frontal":              0.01,
         "vel_lateral":              0.01,
@@ -61,11 +62,11 @@ if __name__ == "__main__":
         "obstacle1_offset_angle":     0.5,
         "obstacle1_offset_angle_dot": 0.5,
     }
-    use_foveal_vision_noise = False
+    use_foveal_vision_noise = True
 
     env_config = {
         "vel_control":          True,
-        "moving_target":        "flight",        #"false", "sine", "linear", "flight"
+        "moving_target":        "false",        #"false", "sine", "linear", "flight"
         "sensor_angle_deg":     360,
         "num_obstacles":        0,
         "timestep":             0.05,

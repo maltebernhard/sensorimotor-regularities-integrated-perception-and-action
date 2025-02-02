@@ -70,7 +70,7 @@ class Experiment1AICON(AICON):
             vel_radial = 1.0 / 3.0 * (self.REs["PolarTargetPos"].state_mean[0] - self.goals["PolarGoToTarget"].desired_distance)
             # tangential motion control
             vel_tangential = 1.0 / 10.0 * self.REs["PolarTargetPos"].state_cov[0][0]
-            action[:2] = rotate_vector_2d(-self.REs["PolarTargetPos"].state_mean[1], torch.tensor([vel_radial, vel_tangential])).squeeze()
+            action[:2] = rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([vel_radial, vel_tangential])).squeeze()
             # rotation control
             action[2] = 3.0 * self.REs["PolarTargetPos"].state_mean[1]
             return action
