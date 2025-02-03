@@ -306,12 +306,13 @@ class GazeFixEnv(BaseEnv):
         angle = np.random.uniform(-np.pi, np.pi)
         x = distance * np.cos(angle)
         y = distance * np.sin(angle)
+        radius = 1.0
         self.target = Target(
             pos = np.array([x,y]),
             vel = 0.5 * self.robot.max_vel,
             base_movement_direction = np.random.uniform(-np.pi, np.pi),
-            radius = 1.0,
-            distance = np.random.uniform(0.0, self.max_target_distance)
+            radius = radius,
+            distance = np.random.uniform(2*radius, self.max_target_distance)
         )
     
     def generate_obstacles(self):

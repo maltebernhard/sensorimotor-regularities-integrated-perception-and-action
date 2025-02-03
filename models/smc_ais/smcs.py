@@ -93,7 +93,7 @@ class Divergence_SMC(SensorimotorContingency):
         rtf_vel = rotate_vector_2d(-state[1], action[:2])
         meas = [
             state[2],
-            2 / state[0] * torch.tan(state[2]/2) * rtf_vel[0]
+            2 / state[0] * torch.tan(state[2]/2) * rtf_vel[0] if state[2] < 2*torch.pi else torch.tensor(0.0)
         ]
         
         fv_keys = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']

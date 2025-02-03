@@ -1,3 +1,4 @@
+import time
 from typing import Dict, List, Tuple
 import matplotlib.pyplot as plt
 import numpy as np
@@ -53,17 +54,20 @@ class AICONLogger:
         }
         self.run = 0
 
-    def get_config_id(self, target_config: str, target_value):
-        target_dict = self.data["configs"][target_config]
-        if len(target_dict) > 0:
-            if target_value not in target_dict.values():
-                new_id = max([key_int for key_int in target_dict.keys()]) + 1
-                target_dict[new_id] = target_value
+    def get_config_id(self, config_id: str, target_value):
+        config_values = self.data["configs"][config_id]
+        if len(config_values) > 0:
+            if target_value not in config_values.values():
+                new_id = max([int_key for int_key in config_values.keys()]) + 1
+                config_values[new_id] = target_value
+                #print(f"Couldn't find existing config for {config_id}")
                 return new_id
             else:
-                return [key_int for key_int, value in target_dict.items() if value == target_value][0]
+                #print(f"Found existing config for {config_id}")
+                return [key_int for key_int, value in config_values.items() if value == target_value][0]
         else:
-            target_dict[1] = target_value
+            config_values[1] = target_value
+            #print(f"Couldn't find existing config for {config_id}")
             return 1
 
     def set_config(self, aicon_type: str, sensor_noise: Dict[str,float], target_movement: str, observation_loss: Dict[str,float], foveal_vision_noise: Dict[str,float]):
@@ -232,13 +236,13 @@ class AICONLogger:
         subplot.grid(True)
         subplot.legend() if legend else None
 
-    def plot_runs(self, subplot: plt.Axes, data:List[np.ndarray], state_index:int=None, title:str=None, y_label:str=None, x_label:str=None, legend=False):
+    def plot_runs(self, subplot: plt.Axes, data:List[np.ndarray], labels:List[int], state_index:int=None, title:str=None, y_label:str=None, x_label:str=None, legend=False):
         if state_index is None:
             for i, run in enumerate(data):
-                subplot.plot(run[:], label=f'{i}')
+                subplot.plot(run[:], label=f'{labels[i]}')
         else:
             for i, run in enumerate(data):
-                subplot.plot(run[:, state_index], label=f'{i+1}')
+                subplot.plot(run[:, state_index], label=f'{labels[i]}')
         if title is not None:
             subplot.set_title(title)
         if x_label is not None:
@@ -267,7 +271,13 @@ class AICONLogger:
 
             for label, config in plotting_config["axes"].items():
                 self.set_config(**config)
+
                 states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.current_data.values()])
+                
+                
+                print(states[16][100])
+                return
+                
                 ucttys = np.array([np.array(run["estimators"][state_id]["uncertainty"])[:,indices] for run in self.current_data.values()])
                 errors = np.array([np.array(run["estimation_error"][state_id])[:,indices] for run in self.current_data.values()])
 
@@ -283,6 +293,7 @@ class AICONLogger:
                     axs[2][i].set_ylim(ybounds[2][i])
             # save / show
             path = os.path.join(save_path, f"records/{state_id}_{plotting_config['name']}.png") if save_path is not None else None
+            time.sleep(0.1)
             self.save_fig(fig, path, show)
 
     def plot_state_runs(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], axs_id: str, save_path:str=None, show:bool=False):
@@ -293,18 +304,20 @@ class AICONLogger:
             fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
             config = plotting_config["axes"][axs_id]
             self.set_config(**config)
-            states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.current_data.values()])
-            ucttys = np.array([np.array(run["estimators"][state_id]["uncertainty"])[:,indices] for run in self.current_data.values()])
-            errors = np.array([np.array(run["estimation_error"][state_id])[:,indices] for run in self.current_data.values()])
-            for i in range(len(indices)):   
-                self.plot_runs(axs[0][i], states, i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, True)
-                self.plot_runs(axs[1][i], errors, i, None, "Estimation Error" if i==0 else None, None, True)
-                self.plot_runs(axs[2][i], ucttys, i, None, "Estimation Uncertainty" if i==0 else None, "Time Step", True)
+            runs = plotting_config["runs"] if "runs" in plotting_config else list(self.current_data.keys())
+            states = np.array([np.array(self.current_data[run]["task_state"][state_id])[:,indices] for run in runs])
+            ucttys = np.array([np.array(self.current_data[run]["estimators"][state_id]["uncertainty"])[:,indices] for run in runs])
+            errors = np.array([np.array(self.current_data[run]["estimation_error"][state_id])[:,indices] for run in runs])
+            for i in range(len(indices)):
+                self.plot_runs(axs[0][i], states, runs, i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, True)
+                self.plot_runs(axs[1][i], errors, runs, i, None, "Estimation Error" if i==0 else None, None, True)
+                self.plot_runs(axs[2][i], ucttys, runs, i, None, "Estimation Uncertainty" if i==0 else None, "Time Step", True)
                 axs[0][i].set_ylim(ybounds[0][i])
                 axs[1][i].set_ylim(ybounds[1][i])
                 axs[2][i].set_ylim(ybounds[2][i])
             # save / show
             path = os.path.join(save_path, f"records/{state_id}_{plotting_config['name']}_{axs_id}_runs.png") if save_path is not None else None
+            time.sleep(0.1)
             self.save_fig(fig, path, show)
 
     def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
@@ -313,25 +326,24 @@ class AICONLogger:
         fig_goal, axs_goal = plt.subplots(1, num_goals, figsize=(12, 10*num_goals))
         if num_goals == 1:
             axs_goal = [axs_goal]
-        for i, (goal_id, config) in enumerate(plotting_config["goals"].items()):
+        for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
             ybounds = config["ybounds"]
-
             for label, config in plotting_config["axes"].items():
                 self.set_config(**config)
-                for subgoal_id in config["subgoals"]:
-                    goal_losses = np.array([run["goal_loss"][goal_id][subgoal_id] for run in self.current_data.values()])
+                for subgoal_key in self.current_data[1]["goal_loss"][goal_key].keys():
+                    goal_losses = np.array([run["goal_loss"][goal_key][subgoal_key] for run in self.current_data.values()])
                     goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
-                    self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"{subgoal_id} loss for {goal_id}", label, "Loss Mean and Stddev", "Timestep", True)
+                    self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"{subgoal_key} loss for {goal_key}", label, "Loss Mean and Stddev", "Timestep", True)
                 axs_goal[i].set_ylim(ybounds[0], ybounds[1])
         # save / show
         loss_path = os.path.join(save_path, f"records/goal_losses_{plotting_config['name']}.png") if save_path is not None else None
+        time.sleep(0.1)
         self.save_fig(fig_goal, loss_path, show)
-        
 
     # ================================ saving & loading ================================
 
     def save(self, record_dir):
-        #self.data = self.convert_to_numpy(self.data)
+        self.data["records"] = self.convert_to_numpy(self.data["records"])
         with open(os.path.join(record_dir, "records/data.pkl"), 'wb') as f:
             pickle.dump(self.data, f)
 

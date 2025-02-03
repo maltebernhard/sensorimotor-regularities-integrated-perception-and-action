@@ -144,8 +144,13 @@ class Analysis:
         self.logger.save(self.record_dir)
         #print("Data Saved.")
 
-    def run_demo(self, aicon_type: str, sensor_noise: dict, moving_target: bool, observation_loss: dict, foveal_vision_noise: dict, run_number, record_video=False):
+    def run_demo(self, config: dict, run_number, record_video=False):
         env_config = self.base_env_config.copy()
+        aicon_type = config["aicon_type"]
+        sensor_noise = config["sensor_noise"]
+        moving_target = config["target_movement"]
+        observation_loss = config["observation_loss"]
+        foveal_vision_noise = config["foveal_vision_noise"]
         env_config["observation_noise"] = sensor_noise
         env_config["moving_target"] = moving_target
         env_config["observation_loss"] = observation_loss

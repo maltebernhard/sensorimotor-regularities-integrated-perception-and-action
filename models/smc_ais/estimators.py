@@ -61,9 +61,10 @@ class Polar_Pos_Estimator(RecursiveEstimator):
         target_radius = torch.sin(x_mean[2] / 2) * x_mean[0]
         new_distance = torch.abs(x_mean[0] - old_rtf_vel[0] * timestep)
         new_angle = (x_mean[1] + (- old_rtf_vel[1]/x_mean[0] - u[3]) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
+        new_visual_angle = 2 * torch.asin(target_radius / new_distance) if not target_radius / new_distance >= 1.0 else 2 * torch.pi
 
         ret_mean[0] = new_distance
         ret_mean[1] = new_angle
-        ret_mean[2] = 2 * torch.asin(target_radius / new_distance)
+        ret_mean[2] = new_visual_angle
         
         return ret_mean, cov

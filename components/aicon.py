@@ -28,6 +28,8 @@ class AICON(ABC):
         self.connect_states()
         self.goals: Dict[str, Goal] = self.define_goals()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
+        self.prints = 0
+        self.current_step = 0
 
     def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, logger:AICONLogger=None, video_path=None):
         """
@@ -53,12 +55,14 @@ class AICON(ABC):
         self.eval_interconnections(buffer_dict)
         for key, state_buffer_dict in buffer_dict.items():
             self.REs[key].load_state_dict(state_buffer_dict) if key in self.REs.keys() else None
+        self.prints = prints
         if prints > 0:
             print(f"======================= Initial State ===========================")
             self.print_estimators()
         if render:
             self.render()
         for step in range(timesteps):
+            self.current_step = step
 
             # est_jac, est = self.compute_estimator_action_gradient("PolarTargetPos", self.last_action)
             # for i in range(3):
@@ -184,7 +188,6 @@ class AICON(ABC):
         return gradients, self.compute_action_from_gradient({key: gradient["total"] for key, gradient in gradients.items()})
 
     def compute_action_gradients(self):
-        prints = False
         gradients: Dict[str, Dict[str,torch.Tensor]] = {}
         for goal_key, goal in self.goals.items():
             gradients[goal_key] = self.compute_goal_action_gradient(goal)
@@ -193,7 +196,7 @@ class AICON(ABC):
             for gradkey, grad in gradient.items():
                 if gradkey != "total":
                     gradients[goal_key]["total"] += grad
-            if prints:
+            if self.prints>0 and self.current_step % self.prints == 0:
                 print(f"------------ {goal_key} Gradients ------------")
                 for gradkey, grad in gradient.items():
                     if not torch.allclose(grad, torch.zeros_like(grad)):
@@ -263,6 +266,8 @@ class AICON(ABC):
     def reset(self, seed=None, video_path=None) -> None:
         for estimator in self.REs.values():
             estimator.reset()
+        self.prints = 0
+        self.current_step = 0
         obs, _ = self.env.reset(seed, video_path)
         self.update_observations()
         self.custom_reset()

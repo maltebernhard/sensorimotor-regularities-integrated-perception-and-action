@@ -100,7 +100,7 @@ class SMCAICON(AICON):
         return {key: val*torch.eye(1) for key, val in observation_noise.items()}
     
     def adapt_contingent_measurements(self, buffer_dict: dict):
-        for smc in [val[0] for val in self.MMs.values()]:
+        for smc_key, smc in [(key, val[0]) for key, val in self.MMs.items()]:
             sensor_vals, sensor_covs = smc.transform_state_to_innovation_space(buffer_dict[smc.state_component]['state_mean'], buffer_dict['RobotVel']['state_mean'])
             for i, val in enumerate(sensor_vals):
                 buffer_dict[smc.required_observations[i]]['state_mean'] = val
