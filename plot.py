@@ -112,19 +112,33 @@ if __name__ == "__main__":
 
 # ========================================================================================================
 
-plotting_config1 = {
-    "name": "without_interconnection",
-    "states": {
-        "PolarTargetPos": {
-            "indices": [0,1],
-            "labels" : ["Distance","Angle"],
-            "ybounds": [
-                [(-1, 20),  (-0.5, 0.5), ],
-                [(0, 10),  (-0.1, 0.1), ],
-                [(0, 4),   (0, 0.1),    ],
-            ]
-        },
+plotting_states_with_fv = {
+    "PolarTargetPos": {
+        "indices": [0,1],
+        "labels" : ["Distance","Angle"],
+        "ybounds": [
+            [(-1, 20),  (-0.5, 0.5), ],
+            [(0, 10),  (-0.1, 0.1), ],
+            [(0, 4),   (0, 0.1),    ],
+        ]
     },
+}
+
+plotting_states_without_fv = {
+    "PolarTargetPos": {
+        "indices": [0],
+        "labels" : ["Distance"],
+        "ybounds": [
+            [(-1, 20)],
+            [(0, 10)],
+            [(0, 4)],
+        ]
+    },
+}
+
+plotting_config1 = {
+    "name": "test",
+    "states": plotting_states_without_fv,
     "goals": {
         "PolarGoToTarget": {
             "ybounds": (0, 20)
@@ -147,9 +161,9 @@ plotting_config1 = {
     }
 }
 
-analysis1 = Analysis.load("records/2025_02_03_01_00_Experiment1")
-analysis1.run_demo(plotting_config1["axes"]["Test"], run_number=17, record_video=False)
+analysis1 = Analysis.load("records/2025_02_03_11_14_Experiment1")
+#analysis1.run_demo(plotting_config1["axes"]["Test"], run_number=17, record_video=False)
 
-# analysis1.plot_states(plotting_config1, save=True, show=False)
-# analysis1.plot_goal_losses(plotting_config1, save=True, show=False)
+analysis1.plot_states(plotting_config1, save=True, show=False)
+analysis1.plot_goal_losses(plotting_config1, save=True, show=False)
 # analysis1.plot_state_runs(plotting_config1, "Test", save=True, show=False)

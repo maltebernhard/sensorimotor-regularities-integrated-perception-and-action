@@ -19,6 +19,6 @@ class PolarGoToTargetGoal(Goal):
         # penalty for uncertainty in distance
         loss_cov_distance1 = 1e0 * cov[0]# / max(1.0, (estimated_distance/100)) 
         return {
-            "distance                ": loss_mean,
-            "distance_uncertainty    ": loss_cov_distance1,
+            "distance": loss_mean,
+            "distance_uncertainty": loss_cov_distance1,
         }

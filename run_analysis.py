@@ -245,7 +245,7 @@ if __name__ == "__main__":
         "record_videos":              False,
     })
 
-    exp1_analysis.run_analysis()
+    #exp1_analysis.run_analysis()
     exp2_analysis.run_analysis()
     
     #exp1_analysis.plot_states(plotting_config, save=True, show=False)
