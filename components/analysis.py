@@ -87,12 +87,7 @@ class Analysis:
         self.model = experiment_config["model_type"]
         self.num_runs = experiment_config["num_runs"]
 
-        # Variations
-        self.aicon_type_config: List[str] = experiment_config["aicon_type_config"]
-        self.sensor_noise_config: List[dict] = experiment_config["sensor_noise_config"]
-        self.moving_target_config: List[bool] = experiment_config["moving_target_config"]
-        self.observation_loss_config: List[Dict[str,Tuple[float,float]]] = experiment_config["observation_loss_config"]
-        self.foveal_vision_noise_config: List[dict] = experiment_config["foveal_vision_noise_config"]
+        self.variations = experiment_config["variations"]
         
         self.logger = AICONLogger()
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
@@ -101,38 +96,34 @@ class Analysis:
     def run_analysis(self):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
-        total_configs = len(self.aicon_type_config) * len(self.sensor_noise_config) * len(self.moving_target_config) * len(self.observation_loss_config) * len(self.foveal_vision_noise_config)
+        total_configs = len(self.variations)
         total_runs = total_configs * self.num_runs
         completed_configs = 0
         with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar, tqdm.external_write_mode(file=sys.stdout):
-            for aicon_type in self.aicon_type_config:
-                for sensor_noise in self.sensor_noise_config:
-                    for moving_target in self.moving_target_config:
-                        for observation_loss in self.observation_loss_config:
-                            for foveal_vision_noise in self.foveal_vision_noise_config:
-                                self.logger.set_config(aicon_type, sensor_noise, moving_target, observation_loss, foveal_vision_noise)
-                                env_config = self.base_env_config.copy()
-                                env_config["observation_noise"] = sensor_noise
-                                env_config["moving_target"] = moving_target
-                                env_config["observation_loss"] = observation_loss
-                                env_config["foveal_vision_noise"] = foveal_vision_noise
-                                config_id = self.logger.config
-                                runner = Runner(
-                                    model = self.model,
-                                    aicon_type = aicon_type,
-                                    run_config = self.base_run_config,
-                                    env_config = env_config,
-                                    logger = self.logger
-                                )
-                                for run in range(self.num_runs):
-                                    if self.record_videos and run == self.num_runs-1:
-                                        runner.render = True
-                                        video_path = self.record_dir + f"/records/{config_id[0]}_{config_id[1][0]}_{config_id[1][1]}_{config_id[1][2]}_{config_id[1][3]}.mp4"
-                                        runner.video_record_path = video_path
-                                    runner.run()
-                                    pbar.update(1)
-                                completed_configs += 1
-                                pbar.set_description(f"Completed Configs: {completed_configs}/{total_configs}")
+            for variation in self.variations:
+                self.logger.set_config(variation['aicon_type'], variation['sensor_noise'], variation['moving_target'], variation['observation_loss'], variation['foveal_vision_noise'])
+                env_config = self.base_env_config.copy()
+                env_config["observation_noise"] = variation["sensor_noise"]
+                env_config["moving_target"] = variation["moving_target"]
+                env_config["observation_loss"] = variation["observation_loss"]
+                env_config["foveal_vision_noise"] = variation["foveal_vision_noise"]
+                config_id = self.logger.config
+                runner = Runner(
+                    model = self.model,
+                    aicon_type = variation['aicon_type'],
+                    run_config = self.base_run_config,
+                    env_config = env_config,
+                    logger = self.logger
+                )
+                for run in range(self.num_runs):
+                    if self.record_videos and run == self.num_runs-1:
+                        runner.render = True
+                        video_path = self.record_dir + f"/records/{config_id[0]}_{config_id[1][0]}_{config_id[1][1]}_{config_id[1][2]}_{config_id[1][3]}.mp4"
+                        runner.video_record_path = video_path
+                    runner.run()
+                    pbar.update(1)
+                completed_configs += 1
+                pbar.set_description(f"Completed Configs: {completed_configs}/{total_configs}")
                                 
         #self.visualize_graph(aicon=runner.aicon, save=True, show=False)
         self.save()

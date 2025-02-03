@@ -1,169 +1,80 @@
 from components.analysis import Analysis
-
-# ========================================================================================================
-
-general_small_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.02,
-}
-general_large_noise = {
-    "target_offset_angle":      0.1,
-    "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.1,
-    "target_visual_angle_dot":  0.1,
-    "vel_frontal":              0.2,
-    "vel_lateral":              0.2,
-    "vel_rot":                  0.1,
-    "target_distance":          0.2,
-}
-large_triang_noise = {
-    "target_offset_angle":      0.1,
-    "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
-}
-large_divergence_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.1,
-    "target_visual_angle_dot":  0.1,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
-}
-large_distance_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
-}
-
-# --------------------- foveal vision noise configs ---------------------
-
-small_fv_noise = {
-    "target_offset_angle":      0.1,
-    "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.1,
-    "target_visual_angle_dot":  0.1,
-    "target_distance":          0.1,
-}
-fv_noise = {
-    "target_offset_angle":      0.3,
-    "target_offset_angle_dot":  0.3,
-    "target_visual_angle":      0.3,
-    "target_visual_angle_dot":  0.3,
-    "target_distance":          0.3,
-}
-
-large_fv_noise = {
-    "target_offset_angle":      0.5,
-    "target_offset_angle_dot":  0.5,
-    "target_visual_angle":      0.5,
-    "target_visual_angle_dot":  0.5,
-    "target_distance":          0.5,
-}
+from run_analysis import get_relevant_noise_keys, noise_dict
 
 # ==================================================================================
 
-if __name__ == "__main__":
-    aicon_type_smcs = [[], ["Divergence"], ["Triangulation"], ["Divergence", "Triangulation"]]
-    aicon_type_controls = [True, False]
-    aicon_type_distance_sensors = [True, False]
-
-    exp1_aicon_type_config = []
-    exp2_aicon_type_config = []
-    for smcs in aicon_type_smcs:
-        for control in aicon_type_controls:
-            for distance_sensor in aicon_type_distance_sensors:
-                if not distance_sensor and not len(smcs)==0:
-                    exp1_aicon_type_config.append({
-                        "SMCs":           smcs,
-                        "Control":        control,
-                        "DistanceSensor": distance_sensor,
-                    })
-                if distance_sensor and not control:
-                    exp2_aicon_type_config.append({
-                        "SMCs":           smcs,
-                        "Control":        control,
-                        "DistanceSensor": distance_sensor,
-                    })
-
-    exp1_observation_noise_config = [general_small_noise, general_large_noise, large_triang_noise, large_divergence_noise]
-    exp2_observation_noise_config = [general_small_noise, general_large_noise, large_triang_noise, large_divergence_noise, large_distance_noise]
-    foveal_vision_noise_config = [{}, fv_noise]
-
-    moving_target_config = ["false"]
-    observation_loss_config = [{}]
-
-# ========================================================================================================
-
-plotting_states_with_fv = {
-    "PolarTargetPos": {
-        "indices": [0,1],
-        "labels" : ["Distance","Angle"],
-        "ybounds": [
-            [(-1, 20),  (-0.5, 0.5), ],
-            [(0, 10),  (-0.1, 0.1), ],
-            [(0, 4),   (0, 0.1),    ],
-        ]
-    },
+plotting_controls = {
+    "AICON": False,
+    "CONTROL": True,
+}
+plotting_smc_types = {
+    "None": [],
+    "Both": ["Divergence", "Triangulation"],
+    "Tri":  ["Triangulation"],
+    "Div":  ["Divergence"],
 }
 
-plotting_states_without_fv = {
+def create_axes(experiment_variations: dict, smc_key: str):
+    axes = {f"{smc_key}_{control_key}_{noise_key}" : {
+        "aicon_type": {
+            "SMCs":    plotting_smc_types[smc_key],
+            "Control": control,
+            "DistanceSensor": variation["aicon_type"]["DistanceSensor"],
+        },
+        "sensor_noise": noise,
+        "target_movement": variation["moving_target"],
+        "observation_loss": variation["observation_loss"],
+        "foveal_vision_noise": variation["foveal_vision_noise"],
+    } for control_key, control in plotting_controls.items() for noise_key, noise in noise_dict.items() for variation in experiment_variations if \
+        plotting_smc_types[smc_key] == variation["aicon_type"]["SMCs"] \
+        and control == variation["aicon_type"]["Control"] \
+        and noise == variation["sensor_noise"]
+    }
+    return axes
+
+# ==================================================================================
+
+plotting_states = {
     "PolarTargetPos": {
         "indices": [0],
         "labels" : ["Distance"],
         "ybounds": [
-            [(-1, 20)],
-            [(0, 10)],
+            [(-1, 10)],
+            [(-1, 2)],
             [(0, 4)],
         ]
     },
 }
 
-plotting_config1 = {
-    "name": "test",
-    "states": plotting_states_without_fv,
-    "goals": {
-        "PolarGoToTarget": {
-            "ybounds": (0, 20)
-        },
-    },
-    "runs": [7, 17],
-    "axes": {                                                       # ====================================== SMCs vs. Control ======================================
-        "Test": {
-            "aicon_type": {
-                "SMCs":           ["Divergence", "Triangulation"],  # [["Divergence"], ["Triangulation"], ["Divergence", "Triangulation"]]
-                "Control":        False,                            # [True, False]
-                "DistanceSensor": False,                            # CONSTANT
-            },
-            "sensor_noise":         general_small_noise,            # [general_small_noise, general_large_noise, large_triang_noise, large_divergence_noise]
-            "foveal_vision_noise":  {},                             # [{}, fv_noise]
-            # constant
-            "target_movement":      moving_target_config[0],
-            "observation_loss":     observation_loss_config[0],
-        },
-    }
-}
+path = "records/2025_02_03_17_12_Experiment1"
 
-analysis1 = Analysis.load("records/2025_02_03_11_14_Experiment1")
-#analysis1.run_demo(plotting_config1["axes"]["Test"], run_number=17, record_video=False)
+if __name__ == "__main__":
+    analysis = Analysis.load(path)
+    if "Experiment1" in path:
+        exp_id = 1
+    elif "Experiment2" in path:
+        exp_id = 2
+    else:
+        raise ValueError("Unknown experiment ID")
+    
+    experiment_variations = analysis.variations
 
-analysis1.plot_states(plotting_config1, save=True, show=False)
-analysis1.plot_goal_losses(plotting_config1, save=True, show=False)
-# analysis1.plot_state_runs(plotting_config1, "Test", save=True, show=False)
+    for smc_key, smc in plotting_smc_types.items():
+        if smc in [config["aicon_type"]["SMCs"] for config in experiment_variations]:
+            axes = create_axes(experiment_variations, smc_key)
+            plotting_config = {
+                "name": f"{exp_id}",
+                "states": plotting_states,
+                "goals": {
+                    "PolarGoToTarget": {
+                        "ybounds": (0, 20)
+                    },
+                },
+                #"runs": [7, 17], # (used to select the runs to plot)
+                "axes": axes
+            }
+            analysis.plot_states(plotting_config, save=True, show=False)
+            analysis.plot_goal_losses(plotting_config, save=True, show=False)
+
+            # analysis.run_demo(plotting_config1["axes"]["Test"], run_number=17, record_video=False)
+            # analysis.plot_state_runs(plotting_config1, "Test", save=True, show=False)

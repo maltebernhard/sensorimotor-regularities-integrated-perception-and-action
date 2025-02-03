@@ -2,34 +2,13 @@ from components.analysis import Analysis
 
 # ========================================================================================================
 
-base_env_config = {
-    "vel_control":          True,
-    "sensor_angle_deg":     360,
-    "num_obstacles":        0,
-    "timestep":             0.05,
-}
-
-base_run_config = {
-    "num_steps":        300,
-    "initial_action":   [0.0, 0.0, 0.0],
-    "seed":             1,
-}
-
-# --------------------- moving target types -------------------------
-
-# moving_target variations:
-# "false"  - target is stationary
-# "linear" - target moves linearly
-# "sine"   - target moves in a sine wave
-# "flight" - target moves in a flight pattern
-
-# --------------------- observation noise configs ---------------------
+# --------------------- sensor noise configs -------------------------
 
 general_small_noise = {
     "target_offset_angle":      0.01,
     "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
+    "target_visual_angle":      0.002,
+    "target_visual_angle_dot":  0.002,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
@@ -38,8 +17,8 @@ general_small_noise = {
 general_large_noise = {
     "target_offset_angle":      0.1,
     "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.1,
-    "target_visual_angle_dot":  0.1,
+    "target_visual_angle":      0.02,
+    "target_visual_angle_dot":  0.02,
     "vel_frontal":              0.2,
     "vel_lateral":              0.2,
     "vel_rot":                  0.1,
@@ -48,8 +27,8 @@ general_large_noise = {
 large_triang_noise = {
     "target_offset_angle":      0.1,
     "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
+    "target_visual_angle":      0.002,
+    "target_visual_angle_dot":  0.002,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
@@ -58,8 +37,8 @@ large_triang_noise = {
 large_divergence_noise = {
     "target_offset_angle":      0.01,
     "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.1,
-    "target_visual_angle_dot":  0.1,
+    "target_visual_angle":      0.02,
+    "target_visual_angle_dot":  0.02,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
@@ -68,12 +47,19 @@ large_divergence_noise = {
 large_distance_noise = {
     "target_offset_angle":      0.01,
     "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
+    "target_visual_angle":      0.002,
+    "target_visual_angle_dot":  0.002,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
     "target_distance":          0.2,
+}
+noise_dict = {
+    "SmallNoise": general_small_noise,
+    "LargeNoise": general_large_noise,
+    "TriNoise": large_triang_noise,
+    "DivNoise": large_divergence_noise,
+    "DistNoise": large_distance_noise,
 }
 
 # --------------------- observation loss configs ---------------------
@@ -92,13 +78,6 @@ double_loss = {
 
 # --------------------- foveal vision noise configs ---------------------
 
-small_fv_noise = {
-    "target_offset_angle":      0.1,
-    "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.1,
-    "target_visual_angle_dot":  0.1,
-    "target_distance":          0.1,
-}
 fv_noise = {
     "target_offset_angle":      0.3,
     "target_offset_angle_dot":  0.3,
@@ -107,161 +86,116 @@ fv_noise = {
     "target_distance":          0.3,
 }
 
-large_fv_noise = {
-    "target_offset_angle":      0.5,
-    "target_offset_angle_dot":  0.5,
-    "target_visual_angle":      0.5,
-    "target_visual_angle_dot":  0.5,
-    "target_distance":          0.5,
-}
-
 # ==================================================================================
 
-if __name__ == "__main__":
-    aicon_type_smcs = [[], ["Divergence"], ["Triangulation"], ["Divergence", "Triangulation"]]
+def create_aicon_type_configs(experiment_id):
+    #aicon_type_smcs = [[], ["Divergence"], ["Triangulation"], ["Divergence", "Triangulation"]]
+    aicon_type_smcs = [["Divergence", "Triangulation"]]
     aicon_type_controls = [True, False]
     aicon_type_distance_sensors = [True, False]
-
-    exp1_aicon_type_config = []
-    exp2_aicon_type_config = []
+    aicon_type_configs = []
     for smcs in aicon_type_smcs:
         for control in aicon_type_controls:
             for distance_sensor in aicon_type_distance_sensors:
-                if not distance_sensor and not len(smcs)==0:
-                    exp1_aicon_type_config.append({
+                if experiment_id == 1 and not distance_sensor and not len(smcs)==0:
+                    aicon_type_configs.append({
                         "SMCs":           smcs,
                         "Control":        control,
                         "DistanceSensor": distance_sensor,
                     })
-                if distance_sensor and not control:
-                    exp2_aicon_type_config.append({
+                elif experiment_id == 2 and distance_sensor and not control:
+                    aicon_type_configs.append({
                         "SMCs":           smcs,
                         "Control":        control,
                         "DistanceSensor": distance_sensor,
                     })
+    return aicon_type_configs
 
-    # --------------------- config ---------------------
-    num_runs_per_config = 20
-    model_type = "SMC"
+def get_relevant_noise_keys(aicon_type_config, experiment_id):
+    if experiment_id == 1:
+        relevant_noise_keys = ["SmallNoise", "LargeNoise"]
+        if aicon_type_config["SMCs"] == "Both":
+            relevant_noise_keys += ["TriNoise", "DivNoise"]
+    elif experiment_id == 2:
+        relevant_noise_keys = ["SmallNoise", "LargeNoise", "DistNoise"]
+        if aicon_type_config["SMCs"] == "Both":
+            relevant_noise_keys += ["TriNoise", "DivNoise"]
+    return relevant_noise_keys
 
-    exp1_observation_noise_config = [general_small_noise, general_large_noise, large_triang_noise, large_divergence_noise]
-    exp2_observation_noise_config = [general_small_noise, general_large_noise, large_triang_noise, large_divergence_noise, large_distance_noise]
+def get_foveal_vision_noise_config(aicon_type_config, experiment_id):
+    if experiment_id == 1:
+        return [{}, fv_noise]
+    elif experiment_id == 2:
+        return [{}, fv_noise]
 
-    moving_target_config = ["false"]
-    observation_loss_config = [{}]
-    foveal_vision_noise_config = [{}, fv_noise]
+def get_moving_target_config(aicon_type_config, experiment_id):
+    # "false"  - target is stationary
+    # "linear" - target moves linearly
+    # "sine"   - target moves in a sine wave
+    # "flight" - target moves in a flight pattern
+    if experiment_id == 1:
+        return ["false"]
+    elif experiment_id == 2:
+        return ["false"]
+    
+def get_observation_loss_config(aicon_type_config, experiment_id):
+    if experiment_id == 1:
+        return [{}]
+    elif experiment_id == 2:
+        return [{}]
 
-    use_moving_target = False
-    use_observation_noise = True
-    use_observation_loss = True
-    use_foveal_vision_noise = True
+def create_configs(experiment):
+    exp_configs = []
+    for aicon_type_config in create_aicon_type_configs(experiment):
+        for observation_noise_config in [noise for noise_key, noise in noise_dict.items() if noise_key in get_relevant_noise_keys(aicon_type_config, experiment)]:
+            for foveal_vision_noise_config in get_foveal_vision_noise_config(aicon_type_config, experiment):
+                for moving_target_config in get_moving_target_config(aicon_type_config, experiment):
+                    for observation_loss_config in get_observation_loss_config(aicon_type_config, experiment):
+                        exp_configs.append({
+                            "aicon_type":          aicon_type_config,
+                            "moving_target":       moving_target_config,
+                            "sensor_noise":        observation_noise_config,
+                            "observation_loss":    observation_loss_config,
+                            "foveal_vision_noise": foveal_vision_noise_config,
+                        })
+    return exp_configs
 
-    # ------------------- plotting config -----------------------
+# ==================================================================================
 
-    # plotting_config = {
-    #     "name": "all_aicon_types",
-    #     "states": {
-    #         "PolarTargetPos": {
-    #             "indices": [0,1],
-    #             "labels" : ["Distance","Angle"],
-    #             "ybounds": [
-    #                 [(-5, 20), (-2, 2)    ],
-    #                 [(0, 10),  (-0.1, 0.1)],
-    #                 [(0, 4),   (0, 0.1)   ],
-    #             ]
-    #         },
-    #     },
-    #     "goals": {
-    #         "PolarGoToTarget": {
-    #             "ybounds": (0, 300)
-    #         },
-    #     },
-    #     "axes": {
-    #         "Baseline": {
-    #             "aicon_type":           "Baseline",
-    #             "target_movement":      moving_target_config[0],
-    #             "sensor_noise":         observation_noise_config[0],
-    #             "observation_loss":     observation_loss_config[0],
-    #             "foveal_vision_noise":  foveal_vision_noise_config[0],
-    #         },
-    #         "Control": {
-    #             "aicon_type":           "Control",
-    #             "target_movement":      moving_target_config[0],
-    #             "sensor_noise":         observation_noise_config[0],
-    #             "observation_loss":     observation_loss_config[0],
-    #             "foveal_vision_noise":  foveal_vision_noise_config[0],
-    #         },
-    #         "Goal": {
-    #             "aicon_type":           "Goal",
-    #             "target_movement":      moving_target_config[0],
-    #             "sensor_noise":         observation_noise_config[0],
-    #             "observation_loss":     observation_loss_config[0],
-    #             "foveal_vision_noise":  foveal_vision_noise_config[0],
-    #         },
-    #         "FovealVision": {
-    #             "aicon_type":           "FovealVision",
-    #             "target_movement":      moving_target_config[0],
-    #             "sensor_noise":         observation_noise_config[0],
-    #             "observation_loss":     observation_loss_config[0],
-    #             "foveal_vision_noise":  foveal_vision_noise_config[0],
-    #         },
-    #         "Interconnection": {
-    #             "aicon_type":           "Interconnection",
-    #             "target_movement":      moving_target_config[0],
-    #             "sensor_noise":         observation_noise_config[0],
-    #             "observation_loss":     observation_loss_config[0],
-    #             "foveal_vision_noise":  foveal_vision_noise_config[0],
-    #         },
-    #     }
-    # }
+base_env_config = {
+    "vel_control":          True,
+    "sensor_angle_deg":     360,
+    "num_obstacles":        0,
+    "timestep":             0.05,
+}
 
-    # --------------------- run ---------------------
+base_run_config = {
+    "num_steps":        300,
+    "initial_action":   [0.0, 0.0, 0.0],
+    "seed":             1,
+}
 
+if __name__ == "__main__":
     exp1_analysis = Analysis({
+        # general
         "name":                       "Experiment1",
-        "num_runs":                   num_runs_per_config,
-        "model_type":                 model_type,
+        "num_runs":                   20,
+        "model_type":                 "SMC",
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
-        "aicon_type_config":          exp1_aicon_type_config,
-        "moving_target_config":       moving_target_config,
-        "sensor_noise_config":        exp1_observation_noise_config,
-        "observation_loss_config":    observation_loss_config,
-        "foveal_vision_noise_config": foveal_vision_noise_config,
         "record_videos":              False,
+        "variations":                 create_configs(1),
     })
 
     exp2_analysis = Analysis({
         "name":                       "Experiment2",
-        "num_runs":                   num_runs_per_config,
-        "model_type":                 model_type,
+        "num_runs":                   1,
+        "model_type":                 "SMC",
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
-        "aicon_type_config":          exp2_aicon_type_config,
-        "moving_target_config":       moving_target_config,
-        "sensor_noise_config":        exp2_observation_noise_config,
-        "observation_loss_config":    observation_loss_config,
-        "foveal_vision_noise_config": foveal_vision_noise_config,
         "record_videos":              False,
+        "variations":                 create_configs(2),
     })
 
-    #exp1_analysis.run_analysis()
+    exp1_analysis.run_analysis()
     exp2_analysis.run_analysis()
-    
-    #exp1_analysis.plot_states(plotting_config, save=True, show=False)
-    #exp1_analysis.plot_goal_losses(plotting_config, save=True, show=False)
-    
-    # analysis = Analysis.load("records/2025_01_21_11_44")
-    # analysis.plot_states(plotting_config, save=True, show=False)
-    # analysis.plot_goal_losses(plotting_config, save=True, show=False)
-    # analysis.plot_state_runs(plotting_config, "Control", save=True, show=False)
-
-    # analysis.run_demo(
-    #     "Control",
-    #     observation_noise_config[0],
-    #     moving_target_config[0],
-    #     observation_loss_config[0],
-    #     foveal_vision_noise_config[0],
-    #     run_number = 6,
-    #     record_video = True,
-    # )
