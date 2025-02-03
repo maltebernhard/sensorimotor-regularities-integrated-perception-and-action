@@ -49,6 +49,9 @@ class Angle_MM(SensorimotorContingency):
             sensory_components = sensory_components
         )
 
+    def implicit_interconnection_model(self, meas_dict):
+        return (self.transform_state_to_innovation_space(meas_dict[self.state_component], meas_dict[self.action_component])[0] - self.transform_measurements_to_innovation_space(meas_dict) + torch.pi) % (2 * torch.pi) - torch.pi
+
     def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
         if f"{self.object_name.lower()}_offset_angle" in self.foveal_vision_noise.keys():
             covs = [(get_foveal_noise(state[1], f"{self.object_name.lower()}_offset_angle", self.foveal_vision_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[f"{self.object_name.lower()}_offset_angle"]))**2]

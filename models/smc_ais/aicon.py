@@ -79,7 +79,7 @@ class SMCAICON(AICON):
     def compute_action_from_gradient(self, gradients):
         # TODO: improve timestep scaling of action generation
         decay = 0.9 ** (self.env_config["timestep"] / 0.05)
-        gradient_action = decay * self.last_action - torch.tensor([1e-1, 1e-1, 1e1]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+        gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 1e2]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):
@@ -92,6 +92,13 @@ class SMCAICON(AICON):
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
     
+    def get_observation_update_uncertainty(self, key):
+        if "angle" in key or "_rot" in key:
+            update_uncertainty: torch.Tensor = 5e-2 * torch.eye(1)
+        else:
+            update_uncertainty: torch.Tensor = 2e-1 * torch.eye(1)
+        return update_uncertainty
+
     def get_custom_sensor_noise(self, obs: dict):
         observation_noise = {}
         for key in obs.keys():

@@ -21,9 +21,9 @@ if __name__ == "__main__":
         "GlobalVel": {},
         "SMC": {
             1: {
-                "SMCs":           ["Divergence"],   # ["Triangulation", "Divergence"],
+                "SMCs":           ["Triangulation"],   # ["Triangulation", "Divergence"],
                 "DistanceSensor": False,
-                "Control":        True,
+                "Control":        False,
             }
         }
         # 6: "Estimator",
