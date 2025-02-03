@@ -80,7 +80,7 @@ class AICONLogger:
 
     # ======================================== logging ==========================================
 
-    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,torch.Tensor], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
+    def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
         # for new run, set up logging dict
         if self.run not in self.current_data:
             self.current_data[self.run] = {
@@ -105,9 +105,15 @@ class AICONLogger:
                 "estimation_error": {
                     state_key:      []      # estimation error: estimation - real state
                 for state_key in estimators.keys()},
-                "goal_loss": {
-                    goal_key:       []      # goal loss function value
+                "goal_loss": {goal_key: {
+                        subgoal_key: []     # goal loss function value
+                    for subgoal_key in goal_loss[goal_key].keys()}
                 for goal_key in goal_loss.keys()},
+                "gradient": {goal_key: {
+                        subgoal_key: []     # gradient of goal loss function
+                    for subgoal_key in gradients[goal_key].keys()}
+                for goal_key in gradients.keys()},
+                "action":           [],     # action
                 "desired_distance": env_state["desired_target_distance"],
             }
 
@@ -119,8 +125,8 @@ class AICONLogger:
                 real_state[key] = np.array([
                     env_state[f"{obj}_distance"],
                     env_state[f"{obj}_offset_angle"],
-                    env_state[f"{obj}_distance_dot"],
-                    env_state[f"{obj}_offset_angle_dot"]
+                    env_state[f"{obj}_visual_angle"],
+                    #env_state[f"{obj}_offset_angle_dot"]
                 ])
             elif key[:5] == "Polar" and key[-9:] == "PosRadius":
                 obj = key[5:-9].lower()
@@ -152,18 +158,19 @@ class AICONLogger:
             estimator_cov = np.array(estimators[state_key]["state_cov"].tolist())
             self.current_data[self.run]["estimators"][state_key]["state_mean"].append(estimator_mean)
             self.current_data[self.run]["estimators"][state_key]["state_cov"].append(estimator_cov)
+            # log uncertainty
             # TODO: remove this hack once noise is always on
             estimator_cov[estimator_cov < 0] = 0
             self.current_data[self.run]["estimators"][state_key]["uncertainty"].append(np.sqrt(np.diag(estimator_cov)))
             # log env_state
             self.current_data[self.run]["env_state"][state_key].append(real_state[state_key])
             task_state = real_state[state_key]
-            if state_key == "PolarTargetGlobalPos":
-                # NOTE: this is only valid IF target moves and IF the estimator represents global target velocity
-                # TODO: implement for decoupled PolarTargetDistance and PolarTargetAngle, IF I plan to use them
-                rtf_vel = rotate_vector_2d(-task_state[2], real_state["RobotVel"][:2])
-                task_state[2] += rtf_vel[0]
-                task_state[3] += real_state["RobotVel"][2]
+            # if state_key == "PolarTargetGlobalPos":
+            #     # NOTE: this is only valid IF target moves and IF the estimator represents global target velocity
+            #     # TODO: implement for decoupled PolarTargetDistance and PolarTargetAngle, IF I plan to use them
+            #     rtf_vel = rotate_vector_2d(-task_state[2], real_state["RobotVel"][:2])
+            #     task_state[2] += rtf_vel[0]
+            #     task_state[3] += real_state["RobotVel"][2]
             self.current_data[self.run]["estimation_error"][state_key].append(task_state - estimator_mean)
             if state_key in ["PolarTargetPos", "PolarTargetGlobalPos", "PolarTargetDistance"]:
                 task_state[0] -= self.current_data[self.run]["desired_distance"]
@@ -172,8 +179,12 @@ class AICONLogger:
             self.current_data[self.run]["observation"][obs_key]["measurement"].append(observation[obs_key]["measurement"])
             self.current_data[self.run]["observation"][obs_key]["noise"].append(observation[obs_key]["noise"])
         for goal_key in goal_loss.keys():
-            self.current_data[self.run]["goal_loss"][goal_key].append(np.array(goal_loss[goal_key].tolist()))
-            # TODO: log action and gradients
+            for subgoal_key in goal_loss[goal_key].keys():
+                self.current_data[self.run]["goal_loss"][goal_key][subgoal_key].append(np.array(goal_loss[goal_key][subgoal_key].item()))
+        for goal_key in gradients.keys():
+            for subgoal_key in gradients[goal_key].keys():
+                self.current_data[self.run]["gradient"][goal_key][subgoal_key].append(np.array(gradients[goal_key][subgoal_key].tolist()))
+        self.current_data[self.run]["action"].append(np.array(action.tolist()))
 
     # ======================================= plotting ==========================================
 
@@ -307,9 +318,10 @@ class AICONLogger:
 
             for label, config in plotting_config["axes"].items():
                 self.set_config(**config)
-                goal_losses = np.array([run["goal_loss"][goal_id] for run in self.current_data.values()])
-                goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
-                self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"Goal Loss for {goal_id}", label, "Loss Mean and Stddev", "Timestep", True)
+                for subgoal_id in config["subgoals"]:
+                    goal_losses = np.array([run["goal_loss"][goal_id][subgoal_id] for run in self.current_data.values()])
+                    goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
+                    self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"{subgoal_id} loss for {goal_id}", label, "Loss Mean and Stddev", "Timestep", True)
                 axs_goal[i].set_ylim(ybounds[0], ybounds[1])
         # save / show
         loss_path = os.path.join(save_path, f"records/goal_losses_{plotting_config['name']}.png") if save_path is not None else None
@@ -319,7 +331,7 @@ class AICONLogger:
     # ================================ saving & loading ================================
 
     def save(self, record_dir):
-        self.data = self.convert_to_numpy(self.data)
+        #self.data = self.convert_to_numpy(self.data)
         with open(os.path.join(record_dir, "records/data.pkl"), 'wb') as f:
             pickle.dump(self.data, f)
 

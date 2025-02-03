@@ -66,7 +66,7 @@ class Runner:
         elif self.model == "SingleEstimator":        return SingleEstimatorAICON(self.env_config)
         elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
         elif self.model == "GlobalVel":              return GlobalVelAICON(self.env_config)
-        elif self.model == "SMC":                    return SMCAICON(self.env_config)
+        elif self.model == "SMC":                    return SMCAICON(self.env_config, self.aicon_type)
 
         elif self.model == "Divergence":      return DivergenceAICON(self.env_config)
         elif self.model == "Estimator":       return ContingentEstimatorAICON(self.env_config)
@@ -83,6 +83,7 @@ class Analysis:
         self.base_run_config['step_by_step'] = False
 
         self.experiment_config = experiment_config
+        self.name = experiment_config["name"]
         self.model = experiment_config["model_type"]
         self.num_runs = experiment_config["num_runs"]
 
@@ -94,13 +95,15 @@ class Analysis:
         self.foveal_vision_noise_config: List[dict] = experiment_config["foveal_vision_noise_config"]
         
         self.logger = AICONLogger()
-        self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}/"
+        self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
     def run_analysis(self):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
-        total_runs = len(self.aicon_type_config) * len(self.sensor_noise_config) * len(self.moving_target_config) * len(self.observation_loss_config) * self.num_runs
+        total_configs = len(self.aicon_type_config) * len(self.sensor_noise_config) * len(self.moving_target_config) * len(self.observation_loss_config) * len(self.foveal_vision_noise_config)
+        total_runs = total_configs * self.num_runs
+        completed_configs = 0
         with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar, tqdm.external_write_mode(file=sys.stdout):
             for aicon_type in self.aicon_type_config:
                 for sensor_noise in self.sensor_noise_config:
@@ -128,13 +131,18 @@ class Analysis:
                                         runner.video_record_path = video_path
                                     runner.run()
                                     pbar.update(1)
-        self.visualize_graph(aicon=runner.aicon, save=True, show=False)
+                                completed_configs += 1
+                                pbar.set_description(f"Completed Configs: {completed_configs}/{total_configs}")
+                                
+        #self.visualize_graph(aicon=runner.aicon, save=True, show=False)
         self.save()
     
     def save(self):
+        #print("Saving Data ...")
         with open(os.path.join(self.record_dir, 'configs/experiment_config.yaml'), 'w') as file:
             yaml.dump(self.experiment_config, file)
         self.logger.save(self.record_dir)
+        #print("Data Saved.")
 
     def run_demo(self, aicon_type: str, sensor_noise: dict, moving_target: bool, observation_loss: dict, foveal_vision_noise: dict, run_number, record_video=False):
         env_config = self.base_env_config.copy()

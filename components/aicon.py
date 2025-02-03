@@ -68,13 +68,14 @@ class AICON(ABC):
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
             if logger is not None:
+                buffer_dict = self.get_buffer_dict()
                 logger.log(
                     step = step,
                     time = self.env.time,
-                    estimators = self.get_buffer_dict(),
+                    estimators = {key: val for key, val in buffer_dict.items() if key in self.REs.keys()},
                     env_state = self.env.get_state(),
                     observation = {key: {"measurement": self.last_observation[0][key], "noise": (self.last_observation[1][key])} for key in self.last_observation[0].keys()},
-                    goal_loss = {key: goal.loss_function_from_buffer(self.get_buffer_dict()) for key, goal in self.goals.items()},
+                    goal_loss = {key: goal.loss_function_from_buffer(buffer_dict) for key, goal in self.goals.items()},
                     action = action,
                     gradients = gradients,
                 )
@@ -183,7 +184,7 @@ class AICON(ABC):
         return gradients, self.compute_action_from_gradient({key: gradient["total"] for key, gradient in gradients.items()})
 
     def compute_action_gradients(self):
-        prints = True
+        prints = False
         gradients: Dict[str, Dict[str,torch.Tensor]] = {}
         for goal_key, goal in self.goals.items():
             gradients[goal_key] = self.compute_goal_action_gradient(goal)
