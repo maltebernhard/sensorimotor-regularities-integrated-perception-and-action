@@ -1,5 +1,5 @@
 from components.analysis import Analysis
-from run_analysis import get_relevant_noise_keys, noise_dict
+from run_analysis import noise_dict
 
 # ==================================================================================
 
@@ -22,7 +22,7 @@ def create_axes(experiment_variations: dict, smc_key: str):
             "DistanceSensor": variation["aicon_type"]["DistanceSensor"],
         },
         "sensor_noise": noise,
-        "target_movement": variation["moving_target"],
+        "moving_target": variation["moving_target"],
         "observation_loss": variation["observation_loss"],
         "foveal_vision_noise": variation["foveal_vision_noise"],
     } for control_key, control in plotting_controls.items() for noise_key, noise in noise_dict.items() for variation in experiment_variations if \

@@ -70,10 +70,10 @@ class AICONLogger:
             #print(f"Couldn't find existing config for {config_id}")
             return 1
 
-    def set_config(self, aicon_type: str, sensor_noise: Dict[str,float], target_movement: str, observation_loss: Dict[str,float], foveal_vision_noise: Dict[str,float]):
+    def set_config(self, aicon_type: str, sensor_noise: Dict[str,float], moving_target: str, observation_loss: Dict[str,float], foveal_vision_noise: Dict[str,float]):
         self.aicon_type = self.get_config_id("aicon_types", aicon_type)
         self.sensor_noise = self.get_config_id("sensor_noises", sensor_noise)
-        self.target_movement = self.get_config_id("target_movements", target_movement)
+        self.target_movement = self.get_config_id("target_movements", moving_target)
         self.observation_loss = self.get_config_id("observation_losses", observation_loss)
         self.foveal_vision_noise = self.get_config_id("foveal_vision_noises", foveal_vision_noise)
 
