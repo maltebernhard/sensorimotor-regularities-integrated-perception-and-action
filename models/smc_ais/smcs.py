@@ -5,44 +5,138 @@ import torch
 
 # ========================================================================================================
 
-class SMC_MM(SensorimotorContingency):
-    def __init__(self, object_name:str="Target", smcs=[], sensor_noise:dict={}, foveal_vision_noise:dict={}) -> None:
+class Distance_MM(SensorimotorContingency):
+    def __init__(self, object_name:str="Target", sensor_noise:dict={}, foveal_vision_noise:dict={}) -> None:
         self.object_name = object_name
-        self.smcs = smcs
+        self.sensor_noise = sensor_noise
+        self.foveal_vision_noise = foveal_vision_noise
+        sensory_components = [f"{object_name.lower()}_distance"]
+        super().__init__(
+            state_component    = f"Polar{object_name}Pos",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components
+        )
+
+    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
+        if f"{self.object_name.lower()}_distance" in self.foveal_vision_noise.keys():
+            covs = [(get_foveal_noise(state[1], f"{self.object_name.lower()}_distance", self.foveal_vision_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[f"{self.object_name.lower()}_distance"]))**2]
+        else:
+            covs = None
+        return torch.atleast_1d(state[0]), covs
+
+
+class Robot_Vel_MM(SensorimotorContingency):
+    def __init__(self) -> None:
+        sensory_components = ['vel_frontal', 'vel_lateral', 'vel_rot']
+        super().__init__(
+            state_component    = "RobotVel",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components
+        )
+
+    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
+        return state, None
+
+class Angle_MM(SensorimotorContingency):
+    def __init__(self, object_name:str="Target", sensor_noise:dict={}, foveal_vision_noise:dict={}) -> None:
+        self.object_name = object_name
         self.sensor_noise = sensor_noise
         self.foveal_vision_noise = foveal_vision_noise
         sensory_components = [f"{self.object_name.lower()}_offset_angle"]
-        if 'Triangulation' in smcs: sensory_components += [f"{self.object_name.lower()}_offset_angle_dot"]
-        if 'Divergence' in smcs: sensory_components    += [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
+        super().__init__(
+            state_component    = f"Polar{object_name}Pos",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components
+        )
+
+    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
+        if f"{self.object_name.lower()}_offset_angle" in self.foveal_vision_noise.keys():
+            covs = [(get_foveal_noise(state[1], f"{self.object_name.lower()}_offset_angle", self.foveal_vision_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[f"{self.object_name.lower()}_offset_angle"]))**2]
+        else:
+            covs = None
+        return torch.atleast_1d(state[1]), covs
+    
+class Triangulation_SMC(SensorimotorContingency):
+    def __init__(self, object_name:str="Target", sensor_noise:dict={}, foveal_vision_noise:dict={}) -> None:
+        self.object_name = object_name
+        self.sensor_noise = sensor_noise
+        self.foveal_vision_noise = foveal_vision_noise
+        sensory_components = [f"{self.object_name.lower()}_offset_angle_dot"]
         super().__init__(
             state_component    = f"Polar{self.object_name}Pos",
             action_component   = "RobotVel",
             sensory_components = sensory_components
         )
 
-    # def transform_measurements_to_innovation_space(self, meas_dict: dict):
-    #     return torch.stack([
-    #         meas_dict[f'{self.object_name.lower()}_offset_angle'],
-    #         meas_dict[f'{self.object_name.lower()}_offset_angle_dot'],
-    #         meas_dict[f'{self.object_name.lower()}_visual_angle_dot']/torch.tan(meas_dict[f'{self.object_name.lower()}_visual_angle']/2)
-    #     ]).squeeze()
+    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
+        rtf_vel = rotate_vector_2d(-state[1], action[:2])
+        meas = - rtf_vel[1]/state[0] - action[2]
+        if f"{self.object_name.lower()}_offset_angle_dot" in self.foveal_vision_noise.keys():
+            covs = [(get_foveal_noise(state[1], f"{self.object_name.lower()}_offset_angle_dot", self.foveal_vision_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[f"{self.object_name.lower()}_offset_angle_dot"]))**2]
+        else:
+            covs = None
+        return torch.atleast_1d(meas), covs
+    
+class Divergence_SMC(SensorimotorContingency):
+    def __init__(self, object_name:str="Target", sensor_noise:dict={}, foveal_vision_noise:dict={}) -> None:
+        self.object_name = object_name
+        self.sensor_noise = sensor_noise
+        self.foveal_vision_noise = foveal_vision_noise
+        sensory_components = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
+        super().__init__(
+            state_component    = f"Polar{self.object_name}Pos",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components
+        )
 
     def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2])
-        meas = [state[1]]
-        if 'Triangulation' in self.smcs:
-            meas += [
-                - rtf_vel[1]/state[0] - action[2],
-            ]
-        if 'Divergence' in self.smcs:
-            meas += [
-                state[2],
-                2 / state[0] * torch.tan(state[2]/2) * rtf_vel[0]
-            ]
+        meas = [
+            state[2],
+            2 / state[0] * torch.tan(state[2]/2) * rtf_vel[0]
+        ]
         
-        if "FovealVision" in self.smcs:
-            covs = torch.stack([(get_foveal_noise(state[1], obs, self.foveal_vision_noise, 2*torch.pi) + (torch.tensor(self.sensor_noise[obs]) if obs in self.sensor_noise.keys() else torch.zeros(1)))**2 if obs in self.foveal_vision_noise.keys() else (torch.tensor(self.sensor_noise[obs]) if obs in self.sensor_noise.keys() else torch.zeros(1)).pow(2) for obs in self.required_observations]).squeeze()
+        fv_keys = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
+        if all(key in self.foveal_vision_noise.keys() for key in fv_keys):
+            covs = []
+            for key in fv_keys:
+                covs.append((get_foveal_noise(state[1], key, self.foveal_vision_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[key]))**2)
         else:
             covs = None
 
         return torch.stack(meas).squeeze(), covs
+
+# class SMC_MM(SensorimotorContingency):
+#     def __init__(self, object_name:str="Target", smcs=[], sensor_noise:dict={}, foveal_vision_noise:dict={}) -> None:
+#         self.object_name = object_name
+#         self.smcs = smcs
+#         self.sensor_noise = sensor_noise
+#         self.foveal_vision_noise = foveal_vision_noise
+#         sensory_components = [f"{self.object_name.lower()}_offset_angle"]
+#         if 'Triangulation' in smcs: sensory_components += [f"{self.object_name.lower()}_offset_angle_dot"]
+#         if 'Divergence' in smcs: sensory_components    += [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
+#         super().__init__(
+#             state_component    = f"Polar{self.object_name}Pos",
+#             action_component   = "RobotVel",
+#             sensory_components = sensory_components
+#         )
+
+#     def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
+#         rtf_vel = rotate_vector_2d(-state[1], action[:2])
+#         meas = [state[1]]
+#         if 'Triangulation' in self.smcs:
+#             meas += [
+#                 - rtf_vel[1]/state[0] - action[2],
+#             ]
+#         if 'Divergence' in self.smcs:
+#             meas += [
+#                 state[2],
+#                 2 / state[0] * torch.tan(state[2]/2) * rtf_vel[0]
+#             ]
+        
+#         if "FovealVision" in self.smcs:
+#             covs = torch.stack([(get_foveal_noise(state[1], obs, self.foveal_vision_noise, 2*torch.pi) + (torch.tensor(self.sensor_noise[obs]) if obs in self.sensor_noise.keys() else torch.zeros(1)))**2 if obs in self.foveal_vision_noise.keys() else (torch.tensor(self.sensor_noise[obs]) if obs in self.sensor_noise.keys() else torch.zeros(1)).pow(2) for obs in self.required_observations]).squeeze()
+#         else:
+#             covs = None
+
+#         return torch.stack(meas).squeeze(), covs

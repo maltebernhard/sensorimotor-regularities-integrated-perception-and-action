@@ -20,35 +20,36 @@ if __name__ == "__main__":
         "Divergence": {},
         "GlobalVel": {},
         "SMC": {
-            "DistanceSensor": True,
-            "Contingencies": ["Triangulation", "Divergence"],
-        },
+            1: {
+                "SMCs":           ["Divergence"],   # ["Triangulation", "Divergence"],
+                "DistanceSensor": False,
+                "Control":        True,
+            }
+        }
         # 6: "Estimator",
         # # ---- ACTUAL SMCs ----
         # 7: "Divergence",
         # 8: "Visibility",
     }
 
-    model_type = "ExperimentFovealVision"
-    aicon_type = 2
+    model_type = "SMC"
+    aicon_type = 1
 
     # --------------------- config ---------------------
 
     observation_noise = {
-        "target_offset_angle":        0.01,
+        "target_offset_angle":        0.02,
         "target_offset_angle_dot":    0.01,
         #"target_offset_angle":         0.2,
         #"target_offset_angle_dot":     0.1,
-        "obstacle1_offset_angle":     0.01,
-        "obstacle1_offset_angle_dot": 0.01,
-        # "target_visual_angle":        0.01,
-        # "target_visual_angle_dot":    0.01,
-        "target_visual_angle":        0.2,
-        "target_visual_angle_dot":    0.2,
-        "target_distance":            1.0,
-        "vel_frontal":                0.01,
-        "vel_lateral":                0.01,
-        "vel_rot":                    0.001
+        "target_visual_angle":        0.01,
+        "target_visual_angle_dot":    0.01,
+        # "target_visual_angle":        0.2,
+        # "target_visual_angle_dot":    0.2,
+        "target_distance":            0.05,
+        "vel_frontal":                0.05,
+        "vel_lateral":                0.05,
+        "vel_rot":                    0.05
     }
     use_observation_noise = True
 
