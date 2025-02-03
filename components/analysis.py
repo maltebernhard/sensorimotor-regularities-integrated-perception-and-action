@@ -186,8 +186,8 @@ class Analysis:
     def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, save: bool=False, show: bool=True):
         self.logger.plot_state_runs(plotting_config, config_id, save_path=self.record_dir if save else None, show=show)
 
-    def plot_goal_losses(self, plotting_config:dict, save:bool=True, show:bool=False):
-        self.logger.plot_goal_losses(plotting_config, save_path=self.record_dir if save else None, show=show)
+    def plot_goal_losses(self, plotting_config:dict, plot_subgoals:bool=False, save:bool=True, show:bool=False):
+        self.logger.plot_goal_losses(plotting_config, plot_subgoals, save_path=self.record_dir if save else None, show=show)
 
     def visualize_graph(self, aicon:Type[AICON], save:bool=True, show:bool=False):
         save_path = os.path.join(self.record_dir, 'configs') if save else None

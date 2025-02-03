@@ -317,7 +317,7 @@ class AICONLogger:
             time.sleep(0.1)
             self.save_fig(fig, path, show)
 
-    def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+    def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], plot_subgoals:bool, save_path:str=None, show:bool=False):
         num_goals = len(plotting_config["goals"])
         # Plot goal losses
         fig_goal, axs_goal = plt.subplots(1, num_goals, figsize=(12, 10*num_goals))
@@ -331,8 +331,9 @@ class AICONLogger:
                 for subgoal_key in self.current_data[1]["goal_loss"][goal_key].keys():
                     goal_losses = np.array([run["goal_loss"][goal_key][subgoal_key] for run in self.current_data.values()])
                     total_loss += goal_losses
-                    goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
-                    self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"{goal_key} loss", f"{label} {subgoal_key} loss", "Loss Mean and Stddev", "Timestep", True)
+                    if plot_subgoals:
+                        goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
+                        self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"{goal_key} loss", f"{label} {subgoal_key} loss", "Loss Mean and Stddev", "Timestep", True)
                 total_loss_means, total_loss_stddevs = self.compute_mean_and_stddev(total_loss)
                 self.plot_mean_stddev(axs_goal[i], total_loss_means, total_loss_stddevs, f"{goal_key} loss", f"{label} total loss", "Loss Mean and Stddev", "Timestep", True)
                 axs_goal[i].set_ylim(ybounds[0], ybounds[1])
