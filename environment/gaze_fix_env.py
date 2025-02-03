@@ -485,18 +485,24 @@ class GazeFixEnv(BaseEnv):
 
         # apply sensor noise
         observation_noise = {}
+        observation_noise_factor = {}
         for key, value in real_observation.items():
             if real_observation[key] is not None:
-                observation_noise[key] = 0.0
                 if key in self.observation_noise.keys():
+                    observation_noise[key] = self.observation_noise[key]
                     if key == "vel_frontal":
-                        observation_noise[key] += self.observation_noise[key] * np.abs(self.robot.vel[0]) / self.robot.max_vel
+                        observation_noise_factor[key] = np.abs(self.robot.vel[0])
                     elif key == "vel_lateral":
-                        observation_noise[key] += self.observation_noise[key] * np.abs(self.robot.vel[1]) / self.robot.max_vel
+                        observation_noise_factor[key] = np.abs(self.robot.vel[1])
                     elif key == "vel_rot":
-                        observation_noise[key] += self.observation_noise[key] * np.abs(self.robot.vel_rot) / self.robot.max_vel_rot
+                        observation_noise_factor[key] = np.abs(self.robot.vel_rot)
+                    elif "distance" in key:
+                        observation_noise_factor[key] = np.abs(self.compute_distance(self.target))
                     else:
-                        observation_noise[key] += self.observation_noise[key]
+                        observation_noise_factor[key] = 1.0
+                else:
+                    observation_noise[key] = 0.0
+                    observation_noise_factor[key] = 1.0
                 if key in self.foveal_vision_noise.keys():
                     if "target" in key: obj = self.target
                     elif "obstacle1" in key: obj = self.obstacles[0]
@@ -504,8 +510,9 @@ class GazeFixEnv(BaseEnv):
                     else:
                         raise NotImplementedError
                     observation_noise[key] += self.foveal_vision_noise[key] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
-                real_observation[key] = value + observation_noise[key] * np.random.randn()
-        return real_observation, observation_noise
+                #print("NOISE:", key, observation_noise[key], observation_noise_factor[key])
+                real_observation[key] = value + observation_noise[key] * observation_noise_factor[key] * np.random.randn()
+        return real_observation, observation_noise_factor
     
     def compute_offset_angle(self, obj: EnvObject) -> float:
         return self.normalize_angle(np.arctan2(obj.pos[1]-self.robot.pos[1], obj.pos[0]-self.robot.pos[0]) - self.robot.orientation)
