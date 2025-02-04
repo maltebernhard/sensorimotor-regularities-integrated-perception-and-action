@@ -70,7 +70,17 @@ class AICONLogger:
             #print(f"Couldn't find existing config for {config_id}")
             return 1
 
-    def set_config(self, aicon_type: str, sensor_noise: Dict[str,float], moving_target: str, observation_loss: Dict[str,float], foveal_vision_noise: Dict[str,float]):
+    def set_config(self, smcs: list[str], control: bool, distance_sensor: bool, sensor_noise: Dict[str,float], moving_target: str, observation_loss: Dict[str,float], foveal_vision_noise: Dict[str,float]):
+        # aicon_type = {
+        #     "smcs":            smcs,
+        #     "control":         control,
+        #     "distance_sensor": distance_sensor,
+        # }
+        aicon_type = {
+            "SMCs":            smcs,
+            "Control":         control,
+            "DistanceSensor": distance_sensor,
+        }
         self.aicon_type = self.get_config_id("aicon_types", aicon_type)
         self.sensor_noise = self.get_config_id("sensor_noises", sensor_noise)
         self.target_movement = self.get_config_id("target_movements", moving_target)
@@ -256,8 +266,11 @@ class AICONLogger:
     def save_fig(self, fig:plt.Figure, save_path:str=None, show:bool=False):
         if save_path is not None:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            fig.tight_layout()
+            time.sleep(0.3)
+            print(f"Saving to {save_path}...")
             fig.savefig(save_path)
-            print("Saving...")
+            plt.close(fig)
         if show:
             fig.show()
             input("Press Enter to continue...")
@@ -291,18 +304,20 @@ class AICONLogger:
                     axs[2][i].set_ylim(ybounds[2][i])
             # save / show
             path = os.path.join(save_path, f"records/state_{plotting_config['name']}.png") if save_path is not None else None
-            time.sleep(0.1)
             self.save_fig(fig, path, show)
 
-    def plot_state_runs(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], axs_id: str, save_path:str=None, show:bool=False):
+    def plot_state_runs(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], axs_id: str, runs: list[int], save_path:str=None, show:bool=False):
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
             labels = config["labels"]
             ybounds = config["ybounds"]
             fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
+            if len(indices) == 1:
+                axs = [[ax] for ax in axs]
             config = plotting_config["axes"][axs_id]
             self.set_config(**config)
-            runs = plotting_config["runs"] if "runs" in plotting_config else list(self.current_data.keys())
+            if runs is None:
+                runs = list(self.current_data.keys())
             states = np.array([np.array(self.current_data[run]["task_state"][state_id])[:,indices] for run in runs])
             ucttys = np.array([np.array(self.current_data[run]["estimators"][state_id]["uncertainty"])[:,indices] for run in runs])
             errors = np.array([np.array(self.current_data[run]["estimation_error"][state_id])[:,indices] for run in runs])
@@ -314,8 +329,7 @@ class AICONLogger:
                 axs[1][i].set_ylim(ybounds[1][i])
                 axs[2][i].set_ylim(ybounds[2][i])
             # save / show
-            path = os.path.join(save_path, f"records/state_runs_{plotting_config['name']}_{axs_id}.png") if save_path is not None else None
-            time.sleep(0.1)
+            path = os.path.join(save_path, f"records/state_runs_{axs_id}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], plot_subgoals:bool, save_path:str=None, show:bool=False):
@@ -340,7 +354,6 @@ class AICONLogger:
                 axs_goal[i].set_ylim(ybounds[0], ybounds[1])
         # save / show
         loss_path = os.path.join(save_path, f"records/loss_{plotting_config['name']}.png") if save_path is not None else None
-        time.sleep(0.1)
         self.save_fig(fig_goal, loss_path, show)
 
     # ================================ saving & loading ================================

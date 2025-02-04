@@ -120,7 +120,7 @@ class AICON(ABC):
         for estimator in self.REs.values():
             estimator.call_predict(u, buffer_dict)
 
-        #print("Pre:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        print("Pre:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
 
         # measurement updates
         if new_step:
@@ -128,7 +128,7 @@ class AICON(ABC):
         else:
             self.contingent_meas_updates(buffer_dict)
 
-        #print("Post:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        print("Post:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
 
         # interconnection updates
         return self.eval_interconnections(buffer_dict)

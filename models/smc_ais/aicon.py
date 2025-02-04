@@ -13,9 +13,9 @@ from models.smc_ais.smcs import Angle_MM, Distance_MM, Robot_Vel_MM, Triangulati
 class SMCAICON(AICON):
     def __init__(self, env_config, aicon_type):
         #assert aicon_type in [""], f"Invalid aicon_type: {aicon_type}"
-        self.smcs = aicon_type["SMCs"]
-        self.distance_sensor = aicon_type["DistanceSensor"]
-        self.control = aicon_type["Control"]
+        self.smcs = aicon_type["smcs"]
+        self.distance_sensor = aicon_type["distance_sensor"]
+        self.control = aicon_type["control"]
         super().__init__(env_config)
 
     def define_estimators(self):

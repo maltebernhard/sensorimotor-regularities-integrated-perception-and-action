@@ -1,3 +1,4 @@
+from typing import Dict
 from components.analysis import Analysis
 
 # ========================================================================================================
@@ -65,11 +66,11 @@ huge_distance_noise = {
     "target_distance":          0.8,
 }
 noise_dict = {
-    "SmallNoise": general_small_noise,
-    "LargeNoise": general_large_noise,
-    "TriNoise": large_triang_noise,
-    "DivNoise": large_divergence_noise,
-    "DistNoise": large_distance_noise,
+    "SmallNoise":    general_small_noise,
+    "LargeNoise":    general_large_noise,
+    "TriNoise":      large_triang_noise,
+    "DivNoise":      large_divergence_noise,
+    "DistNoise":     large_distance_noise,
     "HugeDistNoise": huge_distance_noise,
 }
 
@@ -97,6 +98,42 @@ fv_noise = {
     "target_distance":          0.3,
 }
 
+# ---------------------------------------------
+
+config_dicts: Dict[str,dict] = {
+    "smcs": {
+        "None": [],
+        "Both": ["Divergence", "Triangulation"],
+        "Tri":  ["Triangulation"],
+        "Div":  ["Divergence"],
+    },
+    "control": {
+        "AICON": False,
+        "CONTROL": True,
+    },
+    "sensor_noise": {
+        "SmallNoise":    general_small_noise,
+        "LargeNoise":    general_large_noise,
+        "TriNoise":      large_triang_noise,
+        "DivNoise":      large_divergence_noise,
+        "DistNoise":     large_distance_noise,
+        "HugeDistNoise": huge_distance_noise,
+    },
+    "foveal_vision_noise": {
+        "FVNoise": fv_noise,
+        "NoFVNoise": {},
+    },
+    "moving_target": {
+        "stationary": "false",
+        "linear":     "linear",
+        "sine":       "sine",
+        "flight":     "flight",
+    },
+    "observation_loss": {
+        "NoObsLoss": {},
+    },
+}
+
 # ==================================================================================
 
 def create_aicon_type_configs(experiment_id):
@@ -110,26 +147,26 @@ def create_aicon_type_configs(experiment_id):
             for distance_sensor in aicon_type_distance_sensors:
                 if experiment_id == 1 and not distance_sensor and not len(smcs)==0:
                     aicon_type_configs.append({
-                        "SMCs":           smcs,
-                        "Control":        control,
-                        "DistanceSensor": distance_sensor,
+                        "smcs":            smcs,
+                        "control":         control,
+                        "distance_sensor": distance_sensor,
                     })
                 elif experiment_id == 2 and distance_sensor and not control:
                     aicon_type_configs.append({
-                        "SMCs":           smcs,
-                        "Control":        control,
-                        "DistanceSensor": distance_sensor,
+                        "smcs":           smcs,
+                        "control":        control,
+                        "distance_sensor": distance_sensor,
                     })
     return aicon_type_configs
 
 def get_relevant_noise_keys(aicon_type_config, experiment_id):
     if experiment_id == 1:
         relevant_noise_keys = ["SmallNoise", "LargeNoise"]
-        if len(aicon_type_config["SMCs"]) == 2:
+        if len(aicon_type_config["smcs"]) == 2:
             relevant_noise_keys += ["TriNoise", "DivNoise"]
     elif experiment_id == 2:
         relevant_noise_keys = ["SmallNoise", "LargeNoise", "DistNoise", "HugeDistNoise"]
-        if len(aicon_type_config["SMCs"]) == 2:
+        if len(aicon_type_config["smcs"]) == 2:
             relevant_noise_keys += ["TriNoise", "DivNoise"]
     return relevant_noise_keys
 
@@ -140,10 +177,6 @@ def get_foveal_vision_noise_config(aicon_type_config, experiment_id):
         return [{}, fv_noise]
 
 def get_moving_target_config(aicon_type_config, experiment_id):
-    # "false"  - target is stationary
-    # "linear" - target moves linearly
-    # "sine"   - target moves in a sine wave
-    # "flight" - target moves in a flight pattern
     if experiment_id == 1:
         return ["false"]
     elif experiment_id == 2:
@@ -163,7 +196,9 @@ def create_configs(experiment):
                 for moving_target_config in get_moving_target_config(aicon_type_config, experiment):
                     for observation_loss_config in get_observation_loss_config(aicon_type_config, experiment):
                         exp_configs.append({
-                            "aicon_type":          aicon_type_config,
+                            "smcs":                aicon_type_config["smcs"],
+                            "control":             aicon_type_config["control"],
+                            "distance_sensor":     aicon_type_config["distance_sensor"],
                             "moving_target":       moving_target_config,
                             "sensor_noise":        observation_noise_config,
                             "observation_loss":    observation_loss_config,

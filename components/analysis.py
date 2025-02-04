@@ -107,16 +107,21 @@ class Analysis:
         completed_configs = 0
         with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar, tqdm.external_write_mode(file=sys.stdout):
             for variation in variations:
-                self.logger.set_config(variation['aicon_type'], variation['sensor_noise'], variation['moving_target'], variation['observation_loss'], variation['foveal_vision_noise'])
+                self.logger.set_config(**variation)
                 env_config = self.base_env_config.copy()
                 env_config["observation_noise"] = variation["sensor_noise"]
                 env_config["moving_target"] = variation["moving_target"]
                 env_config["observation_loss"] = variation["observation_loss"]
                 env_config["foveal_vision_noise"] = variation["foveal_vision_noise"]
                 config_id = self.logger.config
+                aicon_type = {
+                    "smcs": variation["smcs"],
+                    "control": variation["control"],
+                    "distance_sensor": variation["distance_sensor"],
+                }
                 runner = Runner(
                     model = self.model,
-                    aicon_type = variation['aicon_type'],
+                    aicon_type = aicon_type,
                     run_config = self.base_run_config,
                     env_config = env_config,
                     logger = self.logger
@@ -143,19 +148,19 @@ class Analysis:
 
     def run_demo(self, config: dict, run_number, record_video=False):
         env_config = self.base_env_config.copy()
-        aicon_type = config["aicon_type"]
-        sensor_noise = config["sensor_noise"]
-        moving_target = config["target_movement"]
-        observation_loss = config["observation_loss"]
-        foveal_vision_noise = config["foveal_vision_noise"]
-        env_config["observation_noise"] = sensor_noise
-        env_config["moving_target"] = moving_target
-        env_config["observation_loss"] = observation_loss
-        env_config["foveal_vision_noise"] = foveal_vision_noise
+        env_config["observation_noise"] = config["sensor_noise"]
+        env_config["moving_target"] = config["moving_target"]
+        env_config["observation_loss"] = config["observation_loss"]
+        env_config["foveal_vision_noise"] = config["foveal_vision_noise"]
         run_config = self.base_run_config.copy()
         run_config['render'] = True
         run_config['prints'] = 1
         run_config['step_by_step'] = False
+        aicon_type = {
+            "smcs": config["smcs"],
+            "control": config["control"],
+            "distance_sensor": config["distance_sensor"],
+        }
         runner = Runner(
             model = self.model,
             aicon_type = aicon_type,
@@ -164,7 +169,7 @@ class Analysis:
         )
         runner.num_run = run_number-1
         if record_video:
-            self.logger.set_config(aicon_type, sensor_noise, moving_target, observation_loss, foveal_vision_noise)
+            self.logger.set_config(**config)
             config_id = self.logger.config
             video_path = self.record_dir + f"/records/{config_id[0]}_{config_id[1][0]}_{config_id[1][1]}_{config_id[1][2]}_{config_id[1][3]}.mp4"
             runner.video_record_path = video_path
@@ -180,8 +185,8 @@ class Analysis:
         """
         self.logger.plot_states(plotting_config, save_path=self.record_dir if save else None, show=show)
 
-    def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, save: bool=False, show: bool=True):
-        self.logger.plot_state_runs(plotting_config, config_id, save_path=self.record_dir if save else None, show=show)
+    def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, runs: list[int]=None, save: bool=False, show: bool=True):
+        self.logger.plot_state_runs(plotting_config, config_id, runs, save_path=self.record_dir if save else None, show=show)
 
     def plot_goal_losses(self, plotting_config:dict, plot_subgoals:bool=False, save:bool=True, show:bool=False):
         self.logger.plot_goal_losses(plotting_config, plot_subgoals, save_path=self.record_dir if save else None, show=show)
