@@ -281,9 +281,11 @@ class AICONLogger:
             indices = np.array(config["indices"])
             labels = config["labels"]
             ybounds = config["ybounds"]
-            fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
             if len(indices) == 1:
+                fig, axs = plt.subplots(len(indices), 3, figsize=(21, 6))
                 axs = [[ax] for ax in axs]
+            else:
+                fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
 
             for label, config in plotting_config["axes"].items():
                 self.set_config(**config)
@@ -296,9 +298,9 @@ class AICONLogger:
                 error_means, error_stddevs = self.compute_mean_and_stddev(errors)
                 uctty_means, uctty_stddevs = self.compute_mean_and_stddev(ucttys)
                 for i in range(len(indices)):
-                    self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], f"{state_id} {labels[i]}", label, "State" if i==0 else None, None, True)
-                    self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], None, label, "Estimation Error" if i==0 else None, None, True)
-                    self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], None, label, "Estimation Uncertainty" if i==0 else None, "Time Step", True)    
+                    self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], None, label, f"{labels[i]} State" if i==0 else None, "Time Step", True)
+                    self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], None, label, f"{labels[i]} Estimation Error" if i==0 else None, "Time Step", True)
+                    self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], None, label, f"{labels[i]} Estimation Uncertainty" if i==0 else None, "Time Step", True)    
                     axs[0][i].set_ylim(ybounds[0][i])
                     axs[1][i].set_ylim(ybounds[1][i])
                     axs[2][i].set_ylim(ybounds[2][i])

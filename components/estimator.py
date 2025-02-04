@@ -54,10 +54,7 @@ class Observation(State):
         self.update_uncertainty: torch.Tensor = update_uncertainty
 
     def set_observation(self, obs: torch.Tensor, custom_obs_noise: torch.Tensor=None, time=None):
-        real_noise = self.sensor_noise
-        if "vel" in self.id or "distance" in self.id:
-            real_noise = real_noise * obs.item()
-        self.set_state(obs, (real_noise + custom_obs_noise)**2 if custom_obs_noise is not None else real_noise**2)
+        self.set_state(obs, custom_obs_noise**2)
         self.updated = True
         self.last_updated = time
 

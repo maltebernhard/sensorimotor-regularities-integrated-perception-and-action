@@ -98,12 +98,26 @@ class SMCAICON(AICON):
         return update_uncertainty
 
     def get_custom_sensor_noise(self, obs: dict):
-        observation_noise = {}
+        # get foveal vision noise and estimations
+        expected_obs_with_noise = self.get_contingent_measurements()
         for key in obs.keys():
-            if key in self.env_config["foveal_vision_noise"].keys(): observation_noise[key] = get_foveal_noise(obs["target_offset_angle"], key, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])
-            else: observation_noise[key] = 0.0
-        return {key: val*torch.eye(1) for key, val in observation_noise.items()}
+            # get noise scaling with measurement
+            if "vel" in key or "distance" in key:
+                expected_obs_with_noise[key]['noise'] += self.obs[key].sensor_noise * expected_obs_with_noise[key]['mean']
+            else:
+                expected_obs_with_noise[key]['noise'] += self.obs[key].sensor_noise
+        return {key: expected_obs_with_noise[key]['noise'] for key in obs.keys()}
     
+    def get_contingent_measurements(self):
+        obs_dict = {}
+        for smc_key, smc in [(key, val[0]) for key, val in self.MMs.items()]:
+            sensor_vals, sensor_covs = smc.transform_state_to_innovation_space(self.REs[smc.state_component].state_mean, self.REs['RobotVel'].state_mean)
+            for i, val in enumerate(sensor_vals):
+                obs_dict[smc.required_observations[i]] = {'mean': val, 'noise': 0.0*torch.eye(1)}
+                if sensor_covs is not None:
+                    obs_dict[smc.required_observations[i]]['noise'] = sensor_covs[i].sqrt()
+        return obs_dict
+
     def adapt_contingent_measurements(self, buffer_dict: dict):
         for smc_key, smc in [(key, val[0]) for key, val in self.MMs.items()]:
             sensor_vals, sensor_covs = smc.transform_state_to_innovation_space(buffer_dict[smc.state_component]['state_mean'], buffer_dict['RobotVel']['state_mean'])

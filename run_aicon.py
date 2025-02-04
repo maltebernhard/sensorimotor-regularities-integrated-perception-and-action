@@ -22,9 +22,9 @@ if __name__ == "__main__":
         "GlobalVel": {},
         "SMC": {
             1: {
-                "smcs":            ["Triangulation"],   # ["Triangulation", "Divergence"],
+                "smcs":            ["Triangulation", "Divergence"],   # ["Triangulation", "Divergence"],
                 "distance_sensor": False,
-                "control":         True,
+                "control":         False,
             }
         }
         # 6: "Estimator",
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     foveal_vision_noise =     config_dicts["foveal_vision_noise"]["FVNoise"]
     use_observation_noise =   True
     use_observation_loss =    False
-    use_foveal_vision_noise = True
+    use_foveal_vision_noise = False
 
     env_config = {
         "vel_control":          True,

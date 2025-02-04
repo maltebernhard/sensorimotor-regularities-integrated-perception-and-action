@@ -39,9 +39,11 @@ def get_relevant_noise_keys(aicon_type_config, experiment_id):
 
 def get_foveal_vision_noise_config(aicon_type_config, experiment_id):
     if experiment_id == 1:
-        return [config_dicts["foveal_vision_noise"]["NoFVNoise"], config_dicts["foveal_vision_noise"]["FVNoise"]]
+        #return [config_dicts["foveal_vision_noise"]["NoFVNoise"], config_dicts["foveal_vision_noise"]["FVNoise"]]
+        return [config_dicts["foveal_vision_noise"]["NoFVNoise"]]
     elif experiment_id == 2:
-        return [config_dicts["foveal_vision_noise"]["NoFVNoise"], config_dicts["foveal_vision_noise"]["FVNoise"]]
+        #return [config_dicts["foveal_vision_noise"]["NoFVNoise"], config_dicts["foveal_vision_noise"]["FVNoise"]]
+        return [config_dicts["foveal_vision_noise"]["NoFVNoise"]]
 
 def get_moving_target_config(aicon_type_config, experiment_id):
     if experiment_id == 1:
@@ -89,26 +91,14 @@ base_run_config = {
 }
 
 if __name__ == "__main__":
-    exp1_analysis = Analysis({
-        # general
-        "name":                       "Experiment1",
+    experiment_type = 2
+    exp_analysis = Analysis({
+        "name":                       f"Experiment{experiment_type}",
         "num_runs":                   20,
         "model_type":                 "SMC",
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
         "record_videos":              False,
-        "variations":                 create_configs(1),
+        "variations":                 create_configs(experiment_type),
     })
-
-    exp2_analysis = Analysis({
-        "name":                       "Experiment2",
-        "num_runs":                   20,
-        "model_type":                 "SMC",
-        "base_env_config":            base_env_config,
-        "base_run_config":            base_run_config,
-        "record_videos":              False,
-        "variations":                 create_configs(2),
-    })
-
-    exp1_analysis.run_analysis()
-    exp2_analysis.run_analysis()
+    exp_analysis.run_analysis()

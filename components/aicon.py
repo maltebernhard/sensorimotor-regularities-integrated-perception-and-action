@@ -120,7 +120,7 @@ class AICON(ABC):
         for estimator in self.REs.values():
             estimator.call_predict(u, buffer_dict)
 
-        print("Pre:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        #print("Pre:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
 
         # measurement updates
         if new_step:
@@ -128,7 +128,7 @@ class AICON(ABC):
         else:
             self.contingent_meas_updates(buffer_dict)
 
-        print("Post:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        #print("Post:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
 
         # interconnection updates
         return self.eval_interconnections(buffer_dict)
@@ -372,7 +372,7 @@ class AICON(ABC):
         Returns noise based on the model's knowledge of environment properties (e.g. foveal vision), which is added to static sensor noise.
         Only to be implemented if there is any noise depending on the state.
         """
-        return {key: 0.0 * torch.eye(1) for key in obs.keys()}
+        return {key: self.obs[key].sensor_noise * torch.eye(1) for key in obs.keys()}
     
     def contingent_meas_updates(self, buffer_dict: dict):
         """

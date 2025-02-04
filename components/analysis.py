@@ -146,7 +146,7 @@ class Analysis:
         self.logger.save(self.record_dir)
         #print("Data Saved.")
 
-    def run_demo(self, config: dict, run_number, record_video=False):
+    def run_demo(self, config: dict, run_number, step_by_step:bool=False, record_video=False):
         env_config = self.base_env_config.copy()
         env_config["observation_noise"] = config["sensor_noise"]
         env_config["moving_target"] = config["moving_target"]
@@ -155,7 +155,7 @@ class Analysis:
         run_config = self.base_run_config.copy()
         run_config['render'] = True
         run_config['prints'] = 1
-        run_config['step_by_step'] = False
+        run_config['step_by_step'] = step_by_step
         aicon_type = {
             "smcs": config["smcs"],
             "control": config["control"],

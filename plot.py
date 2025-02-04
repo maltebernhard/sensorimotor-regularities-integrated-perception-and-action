@@ -1,5 +1,7 @@
+from typing import Dict, List, Tuple
 from components.analysis import Analysis
 from run_analysis import config_dicts
+from itertools import product
 
 # ==================================================================================
 
@@ -18,9 +20,9 @@ def count_variations(variations, invariant_key: str):
     return len(seen_variations)
 
 
-def create_axes(experiment_variations: list, invariants: dict):
+def create_axes(experiment_variations: list, invariants: Dict[str,list]):
     axes = {
-        "_".join([get_key_from_value(config_dicts[key], variation[key]) for key in config_dicts.keys() if key not in invariants.keys() and count_variations(experiment_variations, key)>1]): {
+        "_".join([get_key_from_value(config_dicts[key], variation[key]) for key in config_dicts.keys() if (key not in invariants.keys() or len(invariants[key])>1) and count_variations(experiment_variations, key)>1]): {
             "smcs":                variation["smcs"],
             "control":             variation["control"],
             "distance_sensor":     variation["distance_sensor"],
@@ -28,7 +30,7 @@ def create_axes(experiment_variations: list, invariants: dict):
             "moving_target":       variation["moving_target"],
             "observation_loss":    variation["observation_loss"],
             "foveal_vision_noise": variation["foveal_vision_noise"],
-        } for variation in experiment_variations if all([invariants[key]==variation[key] for key in invariants.keys()])
+        } for variation in experiment_variations if all([variation[key] in invariants[key] for key in invariants.keys()])
     }
     return axes
 
@@ -44,24 +46,22 @@ def create_plotting_config(name: str, state_config: dict, axes_config: dict):
         "axes": axes_config
     }
 
-def create_names_and_invariants(experiment_variations: list, experiment_id: dict):
-    if experiment_id == 1:
-        smc_invariants = [smc for smc in config_dicts["smcs"].values() if smc in [variation["smcs"] for variation in experiment_variations]]
-        fv_invariants = [fv for fv in config_dicts["foveal_vision_noise"].values() if fv in [variation["foveal_vision_noise"] for variation in experiment_variations]]
-        configs = [(f"{get_key_from_value(config_dicts["smcs"], smc)}_{get_key_from_value(config_dicts["foveal_vision_noise"], fv)}", {
-            "smcs": smc,
-            "foveal_vision_noise": fv,
-        }) for smc in smc_invariants for fv in fv_invariants]
-    elif experiment_id == 2:
-        noise_invariants = [noise for noise in config_dicts["sensor_noise"].values() if noise in [variation["sensor_noise"] for variation in experiment_variations]]
-        fv_invariants = [fv for fv in config_dicts["foveal_vision_noise"].values() if fv in [variation["foveal_vision_noise"] for variation in experiment_variations]]
-        configs = [(f"{get_key_from_value(config_dicts["sensor_noise"], noise)}_{get_key_from_value(config_dicts["foveal_vision_noise"], fv)}", {
-            "sensor_noise": noise,
-            "foveal_vision_noise": fv,
-        }) for noise in noise_invariants for fv in fv_invariants]
+def create_names_and_invariants(experiment_variations: list, invariance_config = Dict[str,Tuple[str,List[object]]]):
+    # list containing invariant names and values
+    invariants: Dict[str,Tuple[str,object]] = {}
+    for config_key in invariance_config:
+        if invariance_config[config_key] is None:
+            invariants[config_key] = [(get_key_from_value(config_dicts[config_key], val), [val]) for val in config_dicts[config_key].values() if val in [variation[config_key] for variation in experiment_variations]]
+        else:
+            invariants[config_key] = [(invariance_config[config_key][0], invariance_config[config_key][1])]
+    configs = []
+    for combination in product(*[invariants[key] for key in invariants.keys()]):
+        config_name = "_".join([item[0] for item in combination])
+        config_dict = {key: item[1] for key, item in zip(invariants.keys(), combination)}
+        configs.append((config_name, config_dict))
     return configs
 
-def plot_states_and_losses(analysis: Analysis):
+def plot_states_and_losses(analysis: Analysis, invariant_config):
     if "Experiment1" in analysis.record_dir:
         exp_id = 1
     elif "Experiment2" in analysis.record_dir:
@@ -70,7 +70,7 @@ def plot_states_and_losses(analysis: Analysis):
         raise ValueError("Unknown experiment ID")
     
     experiment_variations = analysis.variations
-    configs = create_names_and_invariants(experiment_variations, exp_id)
+    configs = create_names_and_invariants(experiment_variations, invariant_config)
     for config in configs:
         axes = create_axes(experiment_variations, config[1])
         plotting_config = create_plotting_config(config[0], plotting_states, axes)
@@ -84,27 +84,52 @@ plotting_states = {
         "indices": [0],
         "labels" : ["Distance"],
         "ybounds": [
-            [(-1, 10)],
+            [(-1, 20)],
             [(-1, 2)],
             [(0, 4)],
         ]
     },
 }
 
-path = "records/2025_02_04_09_24_Experiment1"
+path = "records/2025_02_04_15_11_Experiment2"
 
 if __name__ == "__main__":
     analysis = Analysis.load(path)
-    plot_states_and_losses(analysis)
 
-    # axes = create_axes(analysis.variations, {
-    #     "smcs": ["Triangulation"],
-    #     "foveal_vision_noise": config_dicts["foveal_vision_noise"]["NoFVNoise"],
-    # })
-    # plotting_config = create_plotting_config("Tri", plotting_states, axes)
+    if "Experiment1" in path:
+        """
+        Explanation of the invariant_config dictionary:
+        - The key is the name of the configuration parameter that should be invariant for one plot
+        - The value is either
+            - None: All possible values for this parameter will be plotted
+            - A tuple:
+                - The first element will be in the filename, the second element is a list of the values that should be plotted together
+        """
+        # invariant_config = {
+        #     "smcs": None,
+        #     "foveal_vision_noise": None,
+        # }
+        invariant_config = {
+            "smcs":                 ("Both",          [config_dicts["smcs"]["Both"]]),
+            "foveal_vision_noise":  ("NoFVNoise",     [config_dicts["foveal_vision_noise"]["NoFVNoise"]]),
+            "sensor_noise":         ("OnlyTwoNoises", [config_dicts["sensor_noise"]["SmallNoise"], config_dicts["sensor_noise"]["LargeNoise"]]),
+        }
+    elif "Experiment2" in path:
+        # invariant_config = {
+        #     "sensor_noise": None,
+        #     "foveal_vision_noise": None,
+        # }
+        invariant_config = {
+            "sensor_noise":         ("HugeDistNoise", [config_dicts["sensor_noise"]["HugeDistNoise"]]),
+            "foveal_vision_noise":  ("NoFVNoise",     [config_dicts["foveal_vision_noise"]["NoFVNoise"]]),
+        }
 
-    # ax = "AICON_SmallNoise_FVNoise_stationary_NoObsLoss"
-    # analysis.plot_state_runs(plotting_config, ax, runs=[6,16], save=True, show=False)
+    #plot_states_and_losses(analysis, invariant_config)
 
-    # analysis.run_demo(plotting_config["axes"][ax], run_number=6, record_video=False)
-    # analysis.plot_state_runs(plotting_config, "Test", save=True, show=False)
+    configs = create_names_and_invariants(analysis.variations, invariant_config)
+    for config in configs:
+        axes = create_axes(analysis.variations, config[1])
+        print(axes.keys())
+        # plotting_config = create_plotting_config(config[0], plotting_states, axes)
+        # analysis.plot_state_runs(plotting_config, ax, runs=[6,16], save=True, show=False)
+        analysis.run_demo(axes['Both'], run_number=1, step_by_step=True, record_video=False)

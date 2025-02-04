@@ -4,10 +4,10 @@ from typing import Dict
 
 
 general_small_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.002,
-    "target_visual_angle_dot":  0.002,
+    "target_offset_angle":      0.02,
+    "target_offset_angle_dot":  0.02,
+    "target_visual_angle":      0.01,
+    "target_visual_angle_dot":  0.01,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
@@ -16,8 +16,8 @@ general_small_noise = {
 general_large_noise = {
     "target_offset_angle":      0.1,
     "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.02,
-    "target_visual_angle_dot":  0.02,
+    "target_visual_angle":      0.05,
+    "target_visual_angle_dot":  0.05,
     "vel_frontal":              0.2,
     "vel_lateral":              0.2,
     "vel_rot":                  0.1,
@@ -26,42 +26,42 @@ general_large_noise = {
 large_triang_noise = {
     "target_offset_angle":      0.1,
     "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.002,
-    "target_visual_angle_dot":  0.002,
+    "target_visual_angle":      0.01,
+    "target_visual_angle_dot":  0.01,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
     "target_distance":          0.2,
 }
 large_divergence_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.02,
-    "target_visual_angle_dot":  0.02,
+    "target_offset_angle":      0.02,
+    "target_offset_angle_dot":  0.02,
+    "target_visual_angle":      0.05,
+    "target_visual_angle_dot":  0.05,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
     "target_distance":          0.2,
 }
 large_distance_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.002,
-    "target_visual_angle_dot":  0.002,
+    "target_offset_angle":      0.02,
+    "target_offset_angle_dot":  0.02,
+    "target_visual_angle":      0.01,
+    "target_visual_angle_dot":  0.01,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
     "target_distance":          0.2,
 }
 huge_distance_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.002,
-    "target_visual_angle_dot":  0.002,
+    "target_offset_angle":      0.02,
+    "target_offset_angle_dot":  0.02,
+    "target_visual_angle":      0.01,
+    "target_visual_angle_dot":  0.01,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
     "vel_rot":                  0.01,
-    "target_distance":          0.8,
+    "target_distance":          0.5,
 }
 noise_dict = {
     "SmallNoise":    general_small_noise,
