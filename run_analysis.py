@@ -1,138 +1,5 @@
-from typing import Dict
 from components.analysis import Analysis
-
-# ========================================================================================================
-
-# --------------------- sensor noise configs -------------------------
-
-general_small_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.002,
-    "target_visual_angle_dot":  0.002,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.02,
-}
-general_large_noise = {
-    "target_offset_angle":      0.1,
-    "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.02,
-    "target_visual_angle_dot":  0.02,
-    "vel_frontal":              0.2,
-    "vel_lateral":              0.2,
-    "vel_rot":                  0.1,
-    "target_distance":          0.2,
-}
-large_triang_noise = {
-    "target_offset_angle":      0.1,
-    "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.002,
-    "target_visual_angle_dot":  0.002,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
-}
-large_divergence_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.02,
-    "target_visual_angle_dot":  0.02,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
-}
-large_distance_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.002,
-    "target_visual_angle_dot":  0.002,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
-}
-huge_distance_noise = {
-    "target_offset_angle":      0.01,
-    "target_offset_angle_dot":  0.01,
-    "target_visual_angle":      0.002,
-    "target_visual_angle_dot":  0.002,
-    "vel_frontal":              0.02,
-    "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.8,
-}
-noise_dict = {
-    "SmallNoise":    general_small_noise,
-    "LargeNoise":    general_large_noise,
-    "TriNoise":      large_triang_noise,
-    "DivNoise":      large_divergence_noise,
-    "DistNoise":     large_distance_noise,
-    "HugeDistNoise": huge_distance_noise,
-}
-
-# --------------------- observation loss configs ---------------------
-
-# for each observation key, deactivate sensor readings in given ranges of seconds
-double_loss = {
-    "target_offset_angle": [
-        (5.0, 6.0),
-        (10.0, 11.0),
-    ],
-    "target_offset_angle_dot": [
-        (5.0, 6.0),
-        (10.0, 11.0),
-    ],
-},
-
-# --------------------- foveal vision noise configs ---------------------
-
-fv_noise = {
-    "target_offset_angle":      0.3,
-    "target_offset_angle_dot":  0.3,
-    "target_visual_angle":      0.3,
-    "target_visual_angle_dot":  0.3,
-    "target_distance":          0.3,
-}
-
-# ---------------------------------------------
-
-config_dicts: Dict[str,dict] = {
-    "smcs": {
-        "None": [],
-        "Both": ["Divergence", "Triangulation"],
-        "Tri":  ["Triangulation"],
-        "Div":  ["Divergence"],
-    },
-    "control": {
-        "AICON": False,
-        "CONTROL": True,
-    },
-    "sensor_noise": {
-        "SmallNoise":    general_small_noise,
-        "LargeNoise":    general_large_noise,
-        "TriNoise":      large_triang_noise,
-        "DivNoise":      large_divergence_noise,
-        "DistNoise":     large_distance_noise,
-        "HugeDistNoise": huge_distance_noise,
-    },
-    "foveal_vision_noise": {
-        "FVNoise": fv_noise,
-        "NoFVNoise": {},
-    },
-    "moving_target": {
-        "stationary": "false",
-        "linear":     "linear",
-        "sine":       "sine",
-        "flight":     "flight",
-    },
-    "observation_loss": {
-        "NoObsLoss": {},
-    },
-}
+from configs import config_dicts
 
 # ==================================================================================
 
@@ -172,26 +39,26 @@ def get_relevant_noise_keys(aicon_type_config, experiment_id):
 
 def get_foveal_vision_noise_config(aicon_type_config, experiment_id):
     if experiment_id == 1:
-        return [{}, fv_noise]
+        return [config_dicts["foveal_vision_noise"]["NoFVNoise"], config_dicts["foveal_vision_noise"]["FVNoise"]]
     elif experiment_id == 2:
-        return [{}, fv_noise]
+        return [config_dicts["foveal_vision_noise"]["NoFVNoise"], config_dicts["foveal_vision_noise"]["FVNoise"]]
 
 def get_moving_target_config(aicon_type_config, experiment_id):
     if experiment_id == 1:
-        return ["false"]
+        return [config_dicts["moving_target"]["stationary"]]
     elif experiment_id == 2:
-        return ["false"]
+        return [config_dicts["moving_target"]["stationary"]]
     
 def get_observation_loss_config(aicon_type_config, experiment_id):
     if experiment_id == 1:
-        return [{}]
+        return [config_dicts["observation_loss"]["NoObsLoss"]]
     elif experiment_id == 2:
-        return [{}]
+        return [config_dicts["observation_loss"]["NoObsLoss"]]
 
 def create_configs(experiment):
     exp_configs = []
     for aicon_type_config in create_aicon_type_configs(experiment):
-        for observation_noise_config in [noise for noise_key, noise in noise_dict.items() if noise_key in get_relevant_noise_keys(aicon_type_config, experiment)]:
+        for observation_noise_config in [noise for noise_key, noise in config_dicts["sensor_noise"].items() if noise_key in get_relevant_noise_keys(aicon_type_config, experiment)]:
             for foveal_vision_noise_config in get_foveal_vision_noise_config(aicon_type_config, experiment):
                 for moving_target_config in get_moving_target_config(aicon_type_config, experiment):
                     for observation_loss_config in get_observation_loss_config(aicon_type_config, experiment):

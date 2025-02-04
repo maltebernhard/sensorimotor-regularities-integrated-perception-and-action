@@ -66,7 +66,7 @@ class SMCAICON(AICON):
             unc_vel_tangential = 5e-1 * self.REs["PolarTargetPos"].state_cov[0][0] if "Triangulation" in self.smcs else 0.0
             unc_vel_radial     = 1e-1 * self.REs["PolarTargetPos"].state_cov[0][0] * task_vel_radial.sign() if "Divergence" in self.smcs else 0
             unc_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([unc_vel_radial, unc_vel_tangential])).squeeze()
-            unc_grad[2] = - 1e-2 * self.REs["PolarTargetPos"].state_cov[0][0] * self.REs["PolarTargetPos"].state_mean[1].sign() if len(self.env.foveal_vision_noise) > 0 else 0.0
+            unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].state_cov[0][0] * self.REs["PolarTargetPos"].state_mean[1].sign() if len(self.env.foveal_vision_noise) > 0 else 0.0
             
             return {"PolarGoToTarget": {
                 "task_gradient": task_grad,
@@ -77,7 +77,7 @@ class SMCAICON(AICON):
     def compute_action_from_gradient(self, gradients):
         # TODO: improve timestep scaling of action generation
         decay = 0.9 ** (self.env_config["timestep"] / 0.05)
-        gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 1e2]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+        gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 3e2]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):

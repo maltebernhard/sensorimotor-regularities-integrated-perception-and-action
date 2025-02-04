@@ -1,4 +1,5 @@
 from components.analysis import Runner
+from configs import config_dicts
 
 # ========================================================================================================
 
@@ -21,9 +22,9 @@ if __name__ == "__main__":
         "GlobalVel": {},
         "SMC": {
             1: {
-                "SMCs":           ["Triangulation"],   # ["Triangulation", "Divergence"],
-                "DistanceSensor": False,
-                "Control":        True,
+                "smcs":            ["Triangulation"],   # ["Triangulation", "Divergence"],
+                "distance_sensor": False,
+                "control":         True,
             }
         }
         # 6: "Estimator",
@@ -37,34 +38,11 @@ if __name__ == "__main__":
 
     # --------------------- config ---------------------
 
-    observation_noise = {
-        "target_offset_angle":        0.02,
-        "target_offset_angle_dot":    0.01,
-        #"target_offset_angle":         0.2,
-        #"target_offset_angle_dot":     0.1,
-        "target_visual_angle":        0.01,
-        "target_visual_angle_dot":    0.01,
-        # "target_visual_angle":        0.2,
-        # "target_visual_angle_dot":    0.2,
-        "target_distance":            0.05,
-        "vel_frontal":                0.05,
-        "vel_lateral":                0.05,
-        "vel_rot":                    0.05
-    }
-    use_observation_noise = True
-
-    observation_loss = {
-        "target_offset_angle":      (3.0, 5.0),
-        "target_offset_angle_dot":  (3.0, 5.0),
-    }
-    use_observation_loss = False
-
-    foveal_vision_noise = {
-        "target_offset_angle":        0.5,
-        "target_offset_angle_dot":    0.5,
-        "obstacle1_offset_angle":     0.5,
-        "obstacle1_offset_angle_dot": 0.5,
-    }
+    observation_noise =       config_dicts["sensor_noise"]["SmallNoise"]
+    observation_loss =        config_dicts["observation_loss"]["NoObsLoss"]
+    foveal_vision_noise =     config_dicts["foveal_vision_noise"]["FVNoise"]
+    use_observation_noise =   True
+    use_observation_loss =    False
     use_foveal_vision_noise = True
 
     env_config = {
