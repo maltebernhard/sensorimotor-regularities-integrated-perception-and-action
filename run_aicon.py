@@ -23,7 +23,7 @@ if __name__ == "__main__":
             1: {
                 "SMCs":           ["Triangulation"],   # ["Triangulation", "Divergence"],
                 "DistanceSensor": False,
-                "Control":        False,
+                "Control":        True,
             }
         }
         # 6: "Estimator",

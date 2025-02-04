@@ -46,7 +46,7 @@ plotting_states = {
     },
 }
 
-path = "records/2025_02_03_17_12_Experiment1"
+path = "records/2025_02_03_23_55_Experiment2"
 
 if __name__ == "__main__":
     analysis = Analysis.load(path)

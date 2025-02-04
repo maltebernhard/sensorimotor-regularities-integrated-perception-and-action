@@ -52,29 +52,27 @@ class SMCAICON(AICON):
     def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         return buffer_dict
 
-    def compute_action(self):
+    def compute_action_gradients(self):
         if not self.control:
-            return super().compute_action()
+            return super().compute_action_gradients()
         else:
-            action = torch.zeros(3)
-
             # goal control
-            vel_radial = 2e-1 * (self.REs["PolarTargetPos"].state_mean[0] - self.goals["PolarGoToTarget"].desired_distance)
-            vel_tangential = 0.0
+            task_grad = torch.zeros(3)
+            task_vel_radial = 2e-1 * (self.REs["PolarTargetPos"].state_mean[0] - self.goals["PolarGoToTarget"].desired_distance)
+            task_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([task_vel_radial, 0.0])).squeeze()
 
             # smc control
-            if "Triangulation" in self.smcs:
-                vel_tangential += 5e-1 * self.REs["PolarTargetPos"].state_cov[0][0]
-            if "Divergence" in self.smcs:
-                vel_radial    += 1e-1 * self.REs["PolarTargetPos"].state_cov[0][0] * vel_radial.sign()
-
-            # rotation control
-            if len(self.env.foveal_vision_noise) > 0:
-                action[2] = 3.0 * self.REs["PolarTargetPos"].state_mean[1]
-
-            action[:2] = rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([vel_radial, vel_tangential])).squeeze()
+            unc_grad = torch.zeros(3)
+            unc_vel_tangential = 5e-1 * self.REs["PolarTargetPos"].state_cov[0][0] if "Triangulation" in self.smcs else 0.0
+            unc_vel_radial     = 1e-1 * self.REs["PolarTargetPos"].state_cov[0][0] * task_vel_radial.sign() if "Divergence" in self.smcs else 0
+            unc_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([unc_vel_radial, unc_vel_tangential])).squeeze()
+            unc_grad[2] = - 1e-2 * self.REs["PolarTargetPos"].state_cov[0][0] * self.REs["PolarTargetPos"].state_mean[1].sign() if len(self.env.foveal_vision_noise) > 0 else 0.0
             
-            return {}, action
+            return {"PolarGoToTarget": {
+                "task_gradient": task_grad,
+                "uncertainty_gradient": unc_grad,
+                "total": task_grad + unc_grad
+            }}
 
     def compute_action_from_gradient(self, gradients):
         # TODO: improve timestep scaling of action generation

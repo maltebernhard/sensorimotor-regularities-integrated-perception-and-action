@@ -89,8 +89,8 @@ fv_noise = {
 # ==================================================================================
 
 def create_aicon_type_configs(experiment_id):
-    #aicon_type_smcs = [[], ["Divergence"], ["Triangulation"], ["Divergence", "Triangulation"]]
-    aicon_type_smcs = [["Divergence", "Triangulation"]]
+    aicon_type_smcs = [[], ["Divergence"], ["Triangulation"], ["Divergence", "Triangulation"]]
+    #aicon_type_smcs = [["Divergence", "Triangulation"]]
     aicon_type_controls = [True, False]
     aicon_type_distance_sensors = [True, False]
     aicon_type_configs = []
@@ -114,11 +114,11 @@ def create_aicon_type_configs(experiment_id):
 def get_relevant_noise_keys(aicon_type_config, experiment_id):
     if experiment_id == 1:
         relevant_noise_keys = ["SmallNoise", "LargeNoise"]
-        if aicon_type_config["SMCs"] == "Both":
+        if len(aicon_type_config["SMCs"]) == 2:
             relevant_noise_keys += ["TriNoise", "DivNoise"]
     elif experiment_id == 2:
         relevant_noise_keys = ["SmallNoise", "LargeNoise", "DistNoise"]
-        if aicon_type_config["SMCs"] == "Both":
+        if len(aicon_type_config["SMCs"]) == 2:
             relevant_noise_keys += ["TriNoise", "DivNoise"]
     return relevant_noise_keys
 
@@ -170,7 +170,7 @@ base_env_config = {
 }
 
 base_run_config = {
-    "num_steps":        300,
+    "num_steps":        200,
     "initial_action":   [0.0, 0.0, 0.0],
     "seed":             1,
 }
@@ -179,7 +179,7 @@ if __name__ == "__main__":
     exp1_analysis = Analysis({
         # general
         "name":                       "Experiment1",
-        "num_runs":                   20,
+        "num_runs":                   30,
         "model_type":                 "SMC",
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
@@ -189,7 +189,7 @@ if __name__ == "__main__":
 
     exp2_analysis = Analysis({
         "name":                       "Experiment2",
-        "num_runs":                   1,
+        "num_runs":                   30,
         "model_type":                 "SMC",
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
