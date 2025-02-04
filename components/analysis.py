@@ -93,14 +93,20 @@ class Analysis:
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
-    def run_analysis(self):
+    def add_and_run_variations(self, variations: List[dict]):
+        self.variations += variations
+        self.run_analysis(variations)
+
+    def run_analysis(self, variations: List[dict] = None):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
-        total_configs = len(self.variations)
+        if variations is None:
+            variations = self.variations
+        total_configs = len(variations)
         total_runs = total_configs * self.num_runs
         completed_configs = 0
         with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar, tqdm.external_write_mode(file=sys.stdout):
-            for variation in self.variations:
+            for variation in variations:
                 self.logger.set_config(variation['aicon_type'], variation['sensor_noise'], variation['moving_target'], variation['observation_loss'], variation['foveal_vision_noise'])
                 env_config = self.base_env_config.copy()
                 env_config["observation_noise"] = variation["sensor_noise"]

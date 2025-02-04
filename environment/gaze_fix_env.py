@@ -133,7 +133,7 @@ class GazeFixEnv(BaseEnv):
         if self.moving_obstacles:
             self.move_obstacles()
         self.last_state, rewards, done, trun, info = self._get_state(), self.get_rewards(), self.get_terminated(), False, self.get_info()
-        self.last_observation, noise = self.apply_noise(self.last_state.copy())
+        self.last_observation, noise = self.get_observation_from_state(self.last_state.copy())
 
         # add observation to history
         self.real_state_history[self.current_step] = self.last_state.copy()
@@ -172,7 +172,7 @@ class GazeFixEnv(BaseEnv):
         self.generate_obstacles()
 
         self.last_state, info = self._get_state(), self.get_info()
-        self.last_observation, noise = self.apply_noise(self.last_state.copy())
+        self.last_observation, noise = self.get_observation_from_state(self.last_state.copy())
         self.real_state_history[self.current_step] = self.last_state.copy()
         self.observation_history[self.current_step] = (self.last_observation.copy(), noise.copy())
 
@@ -463,32 +463,33 @@ class GazeFixEnv(BaseEnv):
 
     # -------------------------------------- observation functions -------------------------------------------
 
-    def apply_noise(self, observation: Dict[str, float]) -> Dict[str, float]:
-        """Applies gaussion noise and occlusions to real state."""
-        real_observation = observation.copy()
+    # TODO: restructure for-loops to work object-wise
+    def isolate_sensor_readings_from_observations(self, env_state: Dict[str, float]) -> Dict[str, float]:
+        observation = env_state.copy()
         # delete all observations not provided to any measurement model
-        keys_to_delete = [key for key in real_observation if key not in self.required_observations] + [key for key, time_range in self.observation_loss.items() if self.time >= time_range[0] and self.time < time_range[1]]
+        keys_to_delete = [key for key in observation if key not in self.required_observations] + [key for key, time_range in self.observation_loss.items() if self.time >= time_range[0] and self.time < time_range[1]]
         for key in keys_to_delete:
-            del real_observation[key]
+            del observation[key]
         # delete all occluded observations
-        for key, value in real_observation.items():
+        for key, value in observation.items():
             if self.robot.sensor_angle < 2*np.pi and key[-12:] == "offset_angle":
                 if "target" in key: obj = self.target
                 else: obj = self.obstacles[int(key[8])-1]
-                if abs(real_observation[key]) > self.robot.sensor_angle / 2 + observation[f"{key[:-12]}visual_angle"] / 2:   # if target/obstacle is outside of camera angle, remove observations:
-                    real_observation[key] = None                                                    # angle
-                    if key+"_dot" in real_observation.keys():
-                        real_observation[key+"_dot"] = None                                         # del angle
-                    if key[:-12] + "visual_angle" in real_observation.keys():
-                        real_observation[key[:-12] + "visual_angle"] = None                         # visual angle
-                    if key[:-12] + "visual_angle_dot" in real_observation.keys():
-                        real_observation[key[:-12]+"visual_angle_dot"] = None                       # del visual angle   
-
-        # apply sensor noise
+                if abs(observation[key]) > self.robot.sensor_angle / 2 + env_state[f"{key[:-12]}visual_angle"] / 2:   # if target/obstacle is outside of camera angle, remove observations:
+                    observation[key] = None                                                    # angle
+                    if key+"_dot" in observation.keys():
+                        observation[key+"_dot"] = None                                         # del angle
+                    if key[:-12] + "visual_angle" in observation.keys():
+                        observation[key[:-12] + "visual_angle"] = None                         # visual angle
+                    if key[:-12] + "visual_angle_dot" in observation.keys():
+                        observation[key[:-12]+"visual_angle_dot"] = None                       # del visual angle
+        return observation
+    
+    def apply_sensor_noise(self, observation: Dict[str, float]) -> Dict[str, float]:
         observation_noise = {}
         observation_noise_factor = {}
-        for key, value in real_observation.items():
-            if real_observation[key] is not None:
+        for key, value in observation.items():
+            if observation[key] is not None:
                 if key in self.observation_noise.keys():
                     observation_noise[key] = self.observation_noise[key]
                     if key == "vel_frontal":
@@ -512,8 +513,14 @@ class GazeFixEnv(BaseEnv):
                         raise NotImplementedError
                     observation_noise[key] += self.foveal_vision_noise[key] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
                 #print("NOISE:", key, observation_noise[key], observation_noise_factor[key])
-                real_observation[key] = value + observation_noise[key] * observation_noise_factor[key] * np.random.randn()
-        return real_observation, observation_noise_factor
+                observation[key] = value + observation_noise[key] * observation_noise_factor[key] * np.random.randn()
+        return observation, {key: observation_noise[key] * observation_noise_factor[key] for key in observation.keys()}
+
+    def get_observation_from_state(self, env_state: Dict[str, float]) -> Dict[str, float]:
+        """Applies gaussion noise and occlusions to real state."""
+        observation = self.isolate_sensor_readings_from_observations(env_state)
+        observation, observation_noise = self.apply_sensor_noise(observation)
+        return observation, observation_noise
     
     def compute_offset_angle(self, obj: EnvObject) -> float:
         return self.normalize_angle(np.arctan2(obj.pos[1]-self.robot.pos[1], obj.pos[0]-self.robot.pos[0]) - self.robot.orientation)

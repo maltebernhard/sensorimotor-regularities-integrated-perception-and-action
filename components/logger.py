@@ -119,6 +119,7 @@ class AICONLogger:
                 for goal_key in gradients.keys()},
                 "action":           [],     # action
                 "desired_distance": env_state["desired_target_distance"],
+                # TODO: log run seed and config Analysis to skip runs which are already logged
             }
 
         # extract real state from env_state, matching to estimator structure

@@ -54,12 +54,23 @@ large_distance_noise = {
     "vel_rot":                  0.01,
     "target_distance":          0.2,
 }
+huge_distance_noise = {
+    "target_offset_angle":      0.01,
+    "target_offset_angle_dot":  0.01,
+    "target_visual_angle":      0.002,
+    "target_visual_angle_dot":  0.002,
+    "vel_frontal":              0.02,
+    "vel_lateral":              0.02,
+    "vel_rot":                  0.01,
+    "target_distance":          0.8,
+}
 noise_dict = {
     "SmallNoise": general_small_noise,
     "LargeNoise": general_large_noise,
     "TriNoise": large_triang_noise,
     "DivNoise": large_divergence_noise,
     "DistNoise": large_distance_noise,
+    "HugeDistNoise": huge_distance_noise,
 }
 
 # --------------------- observation loss configs ---------------------
@@ -117,7 +128,7 @@ def get_relevant_noise_keys(aicon_type_config, experiment_id):
         if len(aicon_type_config["SMCs"]) == 2:
             relevant_noise_keys += ["TriNoise", "DivNoise"]
     elif experiment_id == 2:
-        relevant_noise_keys = ["SmallNoise", "LargeNoise", "DistNoise"]
+        relevant_noise_keys = ["SmallNoise", "LargeNoise", "DistNoise", "HugeDistNoise"]
         if len(aicon_type_config["SMCs"]) == 2:
             relevant_noise_keys += ["TriNoise", "DivNoise"]
     return relevant_noise_keys
@@ -179,7 +190,7 @@ if __name__ == "__main__":
     exp1_analysis = Analysis({
         # general
         "name":                       "Experiment1",
-        "num_runs":                   30,
+        "num_runs":                   20,
         "model_type":                 "SMC",
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
@@ -189,7 +200,7 @@ if __name__ == "__main__":
 
     exp2_analysis = Analysis({
         "name":                       "Experiment2",
-        "num_runs":                   30,
+        "num_runs":                   20,
         "model_type":                 "SMC",
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
