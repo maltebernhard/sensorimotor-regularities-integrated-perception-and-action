@@ -84,14 +84,15 @@ plotting_states = {
         "indices": [0],
         "labels" : ["Distance"],
         "ybounds": [
-            [(-1, 20)],
+            [(-1, 4)],
             [(-1, 2)],
-            [(0, 4)],
+            [(0.5, 3)],
         ]
     },
 }
 
-path = "records/2025_02_04_15_11_Experiment2"
+#path = "records/2025_02_04_17_59_Experiment1"
+path = "records/2025_02_04_17_49_Experiment2"
 
 if __name__ == "__main__":
     analysis = Analysis.load(path)
@@ -109,27 +110,32 @@ if __name__ == "__main__":
         #     "smcs": None,
         #     "foveal_vision_noise": None,
         # }
-        invariant_config = {
-            "smcs":                 ("Both",          [config_dicts["smcs"]["Both"]]),
-            "foveal_vision_noise":  ("NoFVNoise",     [config_dicts["foveal_vision_noise"]["NoFVNoise"]]),
-            "sensor_noise":         ("OnlyTwoNoises", [config_dicts["sensor_noise"]["SmallNoise"], config_dicts["sensor_noise"]["LargeNoise"]]),
-        }
-    elif "Experiment2" in path:
         # invariant_config = {
-        #     "sensor_noise": None,
-        #     "foveal_vision_noise": None,
+        #     "smcs":                 ("Both",          [config_dicts["smcs"]["Both"]]),
+        #     "foveal_vision_noise":  ("NoFVNoise",     [config_dicts["foveal_vision_noise"]["NoFVNoise"]]),
+        #     "sensor_noise":         ("OnlyTwoNoises", [config_dicts["sensor_noise"]["SmallNoise"], config_dicts["sensor_noise"]["LargeNoise"]]),
         # }
         invariant_config = {
-            "sensor_noise":         ("HugeDistNoise", [config_dicts["sensor_noise"]["HugeDistNoise"]]),
+            "smcs":                 ("Both",           [config_dicts["smcs"]["Both"]]),
             "foveal_vision_noise":  ("NoFVNoise",     [config_dicts["foveal_vision_noise"]["NoFVNoise"]]),
+            "sensor_noise":         ("2Noises",    [config_dicts["sensor_noise"]["SmallNoise"], config_dicts["sensor_noise"]["LargeNoise"]]),
         }
+    elif "Experiment2" in path:
+        invariant_config = {
+            "sensor_noise": None,
+            "foveal_vision_noise": None,
+        }
+        # invariant_config = {
+        #     "sensor_noise":         ("HugeDistNoise", [config_dicts["sensor_noise"]["HugeDistNoise"]]),
+        #     "foveal_vision_noise":  ("NoFVNoise",     [config_dicts["foveal_vision_noise"]["NoFVNoise"]]),
+        # }
 
-    #plot_states_and_losses(analysis, invariant_config)
+    plot_states_and_losses(analysis, invariant_config)
 
-    configs = create_names_and_invariants(analysis.variations, invariant_config)
-    for config in configs:
-        axes = create_axes(analysis.variations, config[1])
-        print(axes.keys())
-        # plotting_config = create_plotting_config(config[0], plotting_states, axes)
-        # analysis.plot_state_runs(plotting_config, ax, runs=[6,16], save=True, show=False)
-        analysis.run_demo(axes['Both'], run_number=1, step_by_step=True, record_video=False)
+    # configs = create_names_and_invariants(analysis.variations, invariant_config)
+    # for config in configs:
+    #     axes = create_axes(analysis.variations, config[1])
+    #     plotting_config = create_plotting_config(config[0], plotting_states, axes)
+    #     print(axes.keys())
+    #     analysis.plot_state_runs(plotting_config, 'AICON', save=True, show=False)
+    #     #analysis.run_demo(axes['AICON'], run_number=1, step_by_step=True, record_video=False)

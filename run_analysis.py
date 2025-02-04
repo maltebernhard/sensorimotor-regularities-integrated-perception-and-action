@@ -91,7 +91,7 @@ base_run_config = {
 }
 
 if __name__ == "__main__":
-    experiment_type = 2
+    experiment_type = 1
     exp_analysis = Analysis({
         "name":                       f"Experiment{experiment_type}",
         "num_runs":                   20,
