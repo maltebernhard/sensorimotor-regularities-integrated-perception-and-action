@@ -49,7 +49,7 @@ class AICONLogger:
                 "sensor_noises":        {},
                 "target_movements":     {},
                 "observation_losses":   {},
-                "foveal_vision_noises": {},
+                "fv_noises": {},
             },
         }
         self.run = 0
@@ -70,7 +70,7 @@ class AICONLogger:
             #print(f"Couldn't find existing config for {config_id}")
             return 1
 
-    def set_config(self, smcs: list[str], control: bool, distance_sensor: bool, sensor_noise: Dict[str,float], moving_target: str, observation_loss: Dict[str,float], foveal_vision_noise: Dict[str,float]):
+    def set_config(self, smcs: list[str], control: bool, distance_sensor: bool, sensor_noise: Dict[str,float], moving_target: str, observation_loss: Dict[str,float], fv_noise: Dict[str,float]):
         # aicon_type = {
         #     "smcs":            smcs,
         #     "control":         control,
@@ -85,9 +85,9 @@ class AICONLogger:
         self.sensor_noise = self.get_config_id("sensor_noises", sensor_noise)
         self.target_movement = self.get_config_id("target_movements", moving_target)
         self.observation_loss = self.get_config_id("observation_losses", observation_loss)
-        self.foveal_vision_noise = self.get_config_id("foveal_vision_noises", foveal_vision_noise)
+        self.fv_noise = self.get_config_id("fv_noises", fv_noise)
 
-        self.config = (self.aicon_type, (self.sensor_noise, self.target_movement, self.observation_loss, self.foveal_vision_noise))
+        self.config = (self.aicon_type, (self.sensor_noise, self.target_movement, self.observation_loss, self.fv_noise))
         if self.config not in self.data["records"]:
             self.data["records"][self.config] = {}
         self.current_data = self.data["records"][self.config]

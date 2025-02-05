@@ -10,16 +10,16 @@ import networkx as nx
 
 from components.aicon import AICON
 from components.logger import AICONLogger
-from models.base.aicon import BaseAICON
-from models.experiment1.aicon import Experiment1AICON
-from models.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
-from models.divergence.aicon import DivergenceAICON
-from models.global_vels.aicon import GlobalVelAICON
-from models.single_estimator.aicon import SingleEstimatorAICON
+from models.old.base.aicon import BaseAICON
+from models.old.experiment1.aicon import Experiment1AICON
+from models.old.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
+from models.old.divergence.aicon import DivergenceAICON
+from models.old.global_vels.aicon import GlobalVelAICON
+from models.old.single_estimator.aicon import SingleEstimatorAICON
 from models.smc_ais.aicon import SMCAICON
 
-from models.old.experiment_estimator.aicon import ContingentEstimatorAICON
-from models.old.experiment_visibility.aicon import VisibilityAICON
+from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
+from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
 
 # ========================================================================================================
 
@@ -112,7 +112,7 @@ class Analysis:
                 env_config["observation_noise"] = variation["sensor_noise"]
                 env_config["moving_target"] = variation["moving_target"]
                 env_config["observation_loss"] = variation["observation_loss"]
-                env_config["foveal_vision_noise"] = variation["foveal_vision_noise"]
+                env_config["fv_noise"] = variation["fv_noise"]
                 config_id = self.logger.config
                 aicon_type = {
                     "smcs": variation["smcs"],
@@ -151,7 +151,7 @@ class Analysis:
         env_config["observation_noise"] = config["sensor_noise"]
         env_config["moving_target"] = config["moving_target"]
         env_config["observation_loss"] = config["observation_loss"]
-        env_config["foveal_vision_noise"] = config["foveal_vision_noise"]
+        env_config["fv_noise"] = config["fv_noise"]
         run_config = self.base_run_config.copy()
         run_config['render'] = True
         run_config['prints'] = 1

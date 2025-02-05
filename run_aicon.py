@@ -1,49 +1,20 @@
 from components.analysis import Runner
-from configs import config_dicts
+from configs import config_dicts as cd
 
 # ========================================================================================================
 
 if __name__ == "__main__":
-
-    model_types = {
-        # ------ SANDBOX ------
-        "Base": {},
-        # ------ Experiments ------
-        "Experiment1": {
-            1: "Baseline",
-            2: "Control",
-            3: "Goal",
-            4: "FovealVision",
-            5: "Interconnection",
-        },
-        "ExperimentFovealVision": {},
-        "SingleEstimator": {},
-        "Divergence": {},
-        "GlobalVel": {},
-        "SMC": {
-            1: {
-                "smcs":            ["Triangulation", "Divergence"],   # ["Triangulation", "Divergence"],
-                "distance_sensor": False,
-                "control":         False,
-            }
-        }
-        # 6: "Estimator",
-        # # ---- ACTUAL SMCs ----
-        # 7: "Divergence",
-        # 8: "Visibility",
-    }
-
     model_type = "SMC"
     aicon_type = 1
 
     # --------------------- config ---------------------
 
-    observation_noise =       config_dicts["sensor_noise"]["SmallNoise"]
-    observation_loss =        config_dicts["observation_loss"]["NoObsLoss"]
-    foveal_vision_noise =     config_dicts["foveal_vision_noise"]["FVNoise"]
-    use_observation_noise =   True
-    use_observation_loss =    False
-    use_foveal_vision_noise = False
+    smcs                    = ["Triangulation", "Divergence"]   # ["Triangulation", "Divergence"],
+    distance_sensor         = False
+    control                 = False
+    observation_noise       = cd.sensor_noise.small_noise
+    observation_loss        = cd.observation_loss.no_obs_loss
+    fv_noise                = cd.fv_noise.no_fv_noise
 
     env_config = {
         "vel_control":          True,
@@ -51,9 +22,9 @@ if __name__ == "__main__":
         "sensor_angle_deg":     360,
         "num_obstacles":        0,
         "timestep":             0.05,
-        "observation_noise":    observation_noise if use_observation_noise else {},
-        "observation_loss":     observation_loss if use_observation_loss else {},
-        "foveal_vision_noise":  foveal_vision_noise if use_foveal_vision_noise else {},
+        "observation_noise":    observation_noise,
+        "observation_loss":     observation_loss,
+        "fv_noise":             fv_noise,
     }
 
     run_config = {
@@ -68,9 +39,13 @@ if __name__ == "__main__":
     # --------------------- run ---------------------
 
     runner = Runner(
-        model=model_type,
+        model="SMC",
         run_config=run_config,
         env_config=env_config,
-        aicon_type=model_types[model_type][aicon_type] if len(model_types[model_type]) > 0 else None,
+        aicon_type={
+            "smcs": smcs,
+            "distance_sensor": distance_sensor,
+            "control": control,
+        },
     )
     runner.run()

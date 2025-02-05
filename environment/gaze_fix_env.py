@@ -91,7 +91,7 @@ class GazeFixEnv(BaseEnv):
         self.moving_obstacles: bool = config["moving_obstacles"]
         self.observation_noise: Dict[str,float] = config["observation_noise"]
         self.observation_loss: Dict[str,float] = config["observation_loss"]
-        self.foveal_vision_noise: Dict[str,float] = config["foveal_vision_noise"]
+        self.fv_noise: Dict[str,float] = config["fv_noise"]
 
         # env dimensions
         self.world_size = config["world_size"]
@@ -505,13 +505,13 @@ class GazeFixEnv(BaseEnv):
                 else:
                     observation_noise[key] = 0.0
                     observation_noise_factor[key] = 1.0
-                if key in self.foveal_vision_noise.keys():
+                if key in self.fv_noise.keys():
                     if "target" in key: obj = self.target
                     elif "obstacle1" in key: obj = self.obstacles[0]
                     elif "obstacle2" in key: obj = self.obstacles[1]
                     else:
                         raise NotImplementedError
-                    observation_noise[key] += self.foveal_vision_noise[key] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
+                    observation_noise[key] += self.fv_noise[key] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
                 #print("NOISE:", key, observation_noise[key], observation_noise_factor[key])
                 observation[key] = value + observation_noise[key] * observation_noise_factor[key] * np.random.randn()
         return observation, {key: observation_noise[key] * observation_noise_factor[key] for key in observation.keys()}

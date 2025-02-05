@@ -73,8 +73,8 @@ class BaseAICON(AICON):
     def get_custom_sensor_noise(self, obs: dict):
         observation_noise = {}
         for key in obs.keys():
-            if   key == "target_offset_angle"     and key in self.env_config["foveal_vision_noise"].keys(): observation_noise[key] = get_foveal_noise(obs["target_offset_angle"], 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])
-            elif key == "target_offset_angle_dot" and key in self.env_config["foveal_vision_noise"].keys(): observation_noise[key] = get_foveal_noise(obs["target_offset_angle"], 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"])
+            if   key == "target_offset_angle"     and key in self.env_config["fv_noise"].keys(): observation_noise[key] = get_foveal_noise(obs["target_offset_angle"], 0, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"])
+            elif key == "target_offset_angle_dot" and key in self.env_config["fv_noise"].keys(): observation_noise[key] = get_foveal_noise(obs["target_offset_angle"], 1, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"])
             else: observation_noise[key] = 0.0
         return {key: val*torch.eye(1) for key, val in observation_noise.items()}
     
@@ -85,9 +85,9 @@ class BaseAICON(AICON):
         buffer_dict['vel_frontal']['state_mean']             = buffer_dict['RobotVel']['state_mean'][0]
         buffer_dict['vel_lateral']['state_mean']             = buffer_dict['RobotVel']['state_mean'][1]
         buffer_dict['vel_rot']['state_mean']                 = buffer_dict['RobotVel']['state_mean'][2]
-        if "target_offset_angle" in self.env_config["foveal_vision_noise"].keys():
-            buffer_dict['target_offset_angle']['state_cov']     = 10 * (self.obs["target_offset_angle"].sensor_noise + get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]))# ** 2
-        if "target_offset_angle_dot" in self.env_config["foveal_vision_noise"].keys():
-            buffer_dict['target_offset_angle_dot']['state_cov'] = 10 * (self.obs["target_offset_angle_dot"].sensor_noise + get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]))# ** 2
-            print(f"Cont. meas angle: {buffer_dict['target_offset_angle']['state_cov'].item():.3f} | {self.obs["target_offset_angle"].sensor_noise.item():.3f} , {get_foveal_noise(predicted_angle, 0, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")
-            print(f"Cont. meas angle_dot: {buffer_dict['target_offset_angle_dot']['state_cov'].item():.3f} | {self.obs["target_offset_angle_dot"].sensor_noise.item():.3f} , {get_foveal_noise(predicted_angle, 1, self.env_config["foveal_vision_noise"], self.env_config["robot_sensor_angle"]):.3f}")
+        if "target_offset_angle" in self.env_config["fv_noise"].keys():
+            buffer_dict['target_offset_angle']['state_cov']     = 10 * (self.obs["target_offset_angle"].sensor_noise + get_foveal_noise(predicted_angle, 0, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]))# ** 2
+        if "target_offset_angle_dot" in self.env_config["fv_noise"].keys():
+            buffer_dict['target_offset_angle_dot']['state_cov'] = 10 * (self.obs["target_offset_angle_dot"].sensor_noise + get_foveal_noise(predicted_angle, 1, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]))# ** 2
+            print(f"Cont. meas angle: {buffer_dict['target_offset_angle']['state_cov'].item():.3f} | {self.obs["target_offset_angle"].sensor_noise.item():.3f} , {get_foveal_noise(predicted_angle, 0, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]):.3f}")
+            print(f"Cont. meas angle_dot: {buffer_dict['target_offset_angle_dot']['state_cov'].item():.3f} | {self.obs["target_offset_angle_dot"].sensor_noise.item():.3f} , {get_foveal_noise(predicted_angle, 1, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]):.3f}")

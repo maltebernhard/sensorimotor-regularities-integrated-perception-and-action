@@ -120,7 +120,8 @@ class AICON(ABC):
         for estimator in self.REs.values():
             estimator.call_predict(u, buffer_dict)
 
-        #print("Pre:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        if self.prints > 0 and self.current_step % self.prints == 0:
+            print("Pre Meas: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
 
         # measurement updates
         if new_step:
@@ -128,7 +129,8 @@ class AICON(ABC):
         else:
             self.contingent_meas_updates(buffer_dict)
 
-        #print("Post:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        if self.prints > 0 and self.current_step % self.prints == 0:
+            print("Post Meas:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
 
         # interconnection updates
         return self.eval_interconnections(buffer_dict)
@@ -409,7 +411,7 @@ class DroneEnvAICON(AICON):
         self.timestep = env_config["timestep"]
         self.config_observation_noise = env_config["observation_noise"]
         self.config_observation_loss = env_config["observation_loss"]
-        self.config_foveal_vision_noise = env_config["foveal_vision_noise"]
+        self.config_fv_noise = env_config["fv_noise"]
         super().__init__()
 
     def define_env(self):
@@ -423,7 +425,7 @@ class DroneEnvAICON(AICON):
             self.env_config["timestep"] = self.timestep
             self.env_config["observation_noise"] = self.config_observation_noise
             self.env_config["observation_loss"] = self.config_observation_loss
-            self.env_config["foveal_vision_noise"] = self.config_foveal_vision_noise
+            self.env_config["fv_noise"] = self.config_fv_noise
         return GazeFixEnv(self.env_config)
 
     def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):

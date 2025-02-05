@@ -4,7 +4,6 @@ import torch
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
 from models.smc_ais.estimators import Polar_Pos_Estimator, Robot_Vel_Estimator
-from models.smc_ais.helpers import get_foveal_noise
 from models.smc_ais.goals import PolarGoToTargetGoal
 from models.smc_ais.smcs import Angle_MM, Distance_MM, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC
 
@@ -12,7 +11,6 @@ from models.smc_ais.smcs import Angle_MM, Distance_MM, Robot_Vel_MM, Triangulati
 
 class SMCAICON(AICON):
     def __init__(self, env_config, aicon_type):
-        #assert aicon_type in [""], f"Invalid aicon_type: {aicon_type}"
         self.smcs = aicon_type["smcs"]
         self.distance_sensor = aicon_type["distance_sensor"]
         self.control = aicon_type["control"]
@@ -27,16 +25,16 @@ class SMCAICON(AICON):
 
     def define_measurement_models(self):
         sensor_noise = self.env_config["observation_noise"]
-        foveal_vision_noise = self.env_config["foveal_vision_noise"]
+        fv_noise = self.env_config["fv_noise"]
         meas_models = {}
         if self.distance_sensor:
-            meas_models["DistanceMM"] = (Distance_MM(sensor_noise=sensor_noise, foveal_vision_noise=foveal_vision_noise), ["PolarTargetPos"])
+            meas_models["DistanceMM"] = (Distance_MM(sensor_noise=sensor_noise, fv_noise=fv_noise), ["PolarTargetPos"])
         meas_models["VelMM"]   = (Robot_Vel_MM(), ["RobotVel"])
         meas_models["AngleMM"] = (Angle_MM(),     ["PolarTargetPos"])
         if "Triangulation" in self.smcs:
-            meas_models["TriangulationSMC"] = (Triangulation_SMC(sensor_noise=sensor_noise, foveal_vision_noise=foveal_vision_noise), ["PolarTargetPos", "RobotVel"])
+            meas_models["TriangulationSMC"] = (Triangulation_SMC(sensor_noise=sensor_noise, fv_noise=fv_noise), ["PolarTargetPos", "RobotVel"])
         if "Divergence" in self.smcs:
-            meas_models["DivergenceSMC"] = (Divergence_SMC(sensor_noise=sensor_noise, foveal_vision_noise=foveal_vision_noise), ["PolarTargetPos", "RobotVel"])
+            meas_models["DivergenceSMC"] = (Divergence_SMC(sensor_noise=sensor_noise, fv_noise=fv_noise), ["PolarTargetPos", "RobotVel"])
         return meas_models
 
     def define_active_interconnections(self):
@@ -66,7 +64,7 @@ class SMCAICON(AICON):
             unc_vel_tangential = 5e-1 * self.REs["PolarTargetPos"].state_cov[0][0] if "Triangulation" in self.smcs else 0.0
             unc_vel_radial     = 1e-1 * self.REs["PolarTargetPos"].state_cov[0][0] * task_vel_radial.sign() if "Divergence" in self.smcs else 0
             unc_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([unc_vel_radial, unc_vel_tangential])).squeeze()
-            unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].state_cov[0][0] * self.REs["PolarTargetPos"].state_mean[1].sign() if len(self.env.foveal_vision_noise) > 0 else 0.0
+            unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].state_cov[0][0] * self.REs["PolarTargetPos"].state_mean[1].sign() if len(self.env.fv_noise) > 0 else 0.0
             
             return {"PolarGoToTarget": {
                 "task_gradient": task_grad,

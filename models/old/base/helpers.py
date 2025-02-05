@@ -7,4 +7,7 @@ def smooth_abs(x, margin=1.0):
     return torch.where(abs_x <= margin, smooth_part, linear_part)
 
 def get_foveal_noise(angle, index, fv_noise, sensor_angle):
-    return (abs(angle) * fv_noise[index]/(sensor_angle/2))
+    if index == 0:
+        return (abs(angle) * fv_noise["target_offset_angle"]/(sensor_angle/2))
+    else:
+        return (abs(angle) * fv_noise["target_offset_angle_dot"]/(sensor_angle/2))

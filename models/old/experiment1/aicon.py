@@ -19,7 +19,7 @@ class Experiment1AICON(AICON):
     def define_estimators(self):
         estimators = {
             "RobotVel":         Robot_Vel_Estimator(),
-            "PolarTargetPos":   Polar_Pos_Estimator() if self.type != "FovealVision" else Polar_Pos_FovealVision_Estimator(foveal_vision_noise=self.env_config["foveal_vision_noise"], sensor_angle=self.env_config["robot_sensor_angle"]),
+            "PolarTargetPos":   Polar_Pos_Estimator() if self.type != "FovealVision" else Polar_Pos_FovealVision_Estimator(foveal_vision_noise=self.env_config["fv_noise"], sensor_angle=self.env_config["robot_sensor_angle"]),
         }
         return estimators
 

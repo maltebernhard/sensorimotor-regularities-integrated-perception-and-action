@@ -1,8 +1,5 @@
 # --------------------- sensor noise configs -------------------------
 
-from typing import Dict
-
-
 general_small_noise = {
     "target_offset_angle":      0.02,
     "target_offset_angle_dot":  0.02,
@@ -63,6 +60,7 @@ huge_distance_noise = {
     "vel_rot":                  0.01,
     "target_distance":          0.5,
 }
+
 noise_dict = {
     "SmallNoise":    general_small_noise,
     "LargeNoise":    general_large_noise,
@@ -98,36 +96,47 @@ fv_noise = {
 
 # ---------------------- collection with keys -----------------------
 
-config_dicts: Dict[str,dict] = {
-    "smcs": {
-        "None": [],
-        "Both": ["Divergence", "Triangulation"],
-        "Tri":  ["Triangulation"],
-        "Div":  ["Divergence"],
-    },
-    "control": {
-        "AICON": False,
-        "CONTROL": True,
-    },
-    "sensor_noise": {
-        "SmallNoise":    general_small_noise,
-        "LargeNoise":    general_large_noise,
-        "TriNoise":      large_triang_noise,
-        "DivNoise":      large_divergence_noise,
-        "DistNoise":     large_distance_noise,
-        "HugeDistNoise": huge_distance_noise,
-    },
-    "foveal_vision_noise": {
-        "FVNoise": fv_noise,
-        "NoFVNoise": {},
-    },
-    "moving_target": {
-        "stationary": "false",
-        "linear":     "linear",
-        "sine":       "sine",
-        "flight":     "flight",
-    },
-    "observation_loss": {
-        "NoObsLoss": {},
-    },
-}
+class SMCConfig:
+    nosmcs = []
+    both = ["Divergence", "Triangulation"]
+    tri = ["Triangulation"]
+    div = ["Divergence"]
+
+class ControlConfig:
+    aicon = False
+    control = True
+
+class DistanceSensorConfig:
+    dist_sensor = False
+    no_dist_sensor = True
+
+class SensorNoiseConfig:
+    small_noise = general_small_noise
+    large_noise = general_large_noise
+    tri_noise = large_triang_noise
+    div_noise = large_divergence_noise
+    dist_noise = large_distance_noise
+    huge_dist_noise = huge_distance_noise
+
+class FovealVisionNoiseConfig:
+    fv_noise = fv_noise
+    no_fv_noise = {}
+
+class MovingTargetConfig:
+    stationary_target = "false"
+    linear_target = "linear"
+    sine_target = "sine"
+    flight_target = "flight"
+
+class ObservationLossConfig:
+    no_obs_loss = {}
+
+class ExperimentConfig:
+    keys = ["smcs", "control", "distance_sensor", "sensor_noise", "fv_noise", "moving_target", "observation_loss"]
+    smcs = SMCConfig
+    control = ControlConfig
+    sensor_noise = SensorNoiseConfig
+    control = ControlConfig
+    fv_noise = FovealVisionNoiseConfig
+    moving_target = MovingTargetConfig
+    observation_loss = ObservationLossConfig
