@@ -2,11 +2,11 @@ from typing import Dict
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from models.base.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator
-from models.base.active_interconnections import Triangulation_AI
-from models.base.helpers import get_foveal_noise
-from models.base.measurement_models import Robot_Vel_MM, Angle_MM
-from models.base.goals import PolarGoToTargetGoal
+from models.old.base.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator
+from models.old.base.active_interconnections import Triangulation_AI
+from models.old.base.helpers import get_foveal_noise
+from models.old.base.measurement_models import Robot_Vel_MM, Angle_MM
+from models.old.base.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 

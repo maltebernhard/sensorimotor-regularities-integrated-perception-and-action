@@ -2,9 +2,9 @@ from typing import Dict
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from models.global_vels.estimators import PolarPos_Tri_Div_Global_Estimator
-from models.global_vels.measurement_models import Angle_MM
-from models.global_vels.goals import PolarGoToTargetGoal
+from models.old.global_vels.estimators import PolarPos_Tri_Div_Global_Estimator
+from models.old.global_vels.measurement_models import Angle_MM
+from models.old.global_vels.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 

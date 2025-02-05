@@ -2,10 +2,10 @@ from typing import Dict
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from models.single_estimator.estimators import Polar_Pos_Estimator
-from models.single_estimator.helpers import get_foveal_noise
-from models.single_estimator.measurement_models import Angle_MM
-from models.single_estimator.goals import PolarGoToTargetGoal
+from models.old.single_estimator.estimators import Polar_Pos_Estimator
+from models.old.single_estimator.helpers import get_foveal_noise
+from models.old.single_estimator.measurement_models import Angle_MM
+from models.old.single_estimator.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 

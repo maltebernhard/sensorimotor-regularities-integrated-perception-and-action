@@ -94,9 +94,15 @@ class Divergence_SMC(SensorimotorContingency):
 
     def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2])
+
+        vis_angle = 2 * torch.asin(state[2] / state[0]) if not state[2] / state[0] >= 1.0 else torch.pi
+
         meas = [
-            state[2],
-            2 / state[0] * torch.tan(state[2]/2) * rtf_vel[0] if state[2] < 2*torch.pi else torch.tensor(0.0)
+            vis_angle,
+            # getting divergence from estimated vis angle
+            #2 / state[0] * torch.tan(state[2]/2) * rtf_vel[0] if state[2] < 2*torch.pi else torch.tensor(0.0)
+            # getting divergence from estimated radius
+            2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi else torch.tensor(0.0)
         ]
         
         fv_keys = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']

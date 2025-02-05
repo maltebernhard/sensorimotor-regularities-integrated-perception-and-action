@@ -2,9 +2,9 @@ from typing import Dict
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from models.divergence.estimators import PolarPos_Tri_Div_Estimator
-from models.divergence.measurement_models import Angle_MM
-from models.divergence.goals import PolarGoToTargetGoal
+from models.old.divergence.estimators import PolarPos_Tri_Div_Estimator
+from models.old.divergence.measurement_models import Angle_MM
+from models.old.divergence.goals import PolarGoToTargetGoal
 
 # ========================================================================================================
 

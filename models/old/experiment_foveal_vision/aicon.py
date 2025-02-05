@@ -3,11 +3,11 @@ import numpy as np
 import torch
 
 from components.aicon import DroneEnvAICON as AICON
-from models.experiment_foveal_vision.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator
-from models.experiment_foveal_vision.active_interconnections import Triangulation_AI
-from models.experiment_foveal_vision.helpers import get_foveal_noise
-from models.experiment_foveal_vision.measurement_models import Distance_MM, Robot_Vel_MM, Angle_MM
-from models.experiment_foveal_vision.goals import PolarGoToTargetFovealVisionGoal
+from models.old.experiment_foveal_vision.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator
+from models.old.experiment_foveal_vision.active_interconnections import Triangulation_AI
+from models.old.experiment_foveal_vision.helpers import get_foveal_noise
+from models.old.experiment_foveal_vision.measurement_models import Distance_MM, Robot_Vel_MM, Angle_MM
+from models.old.experiment_foveal_vision.goals import PolarGoToTargetFovealVisionGoal
 
 # ========================================================================================================
 

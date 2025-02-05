@@ -3,10 +3,10 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from models.experiment1.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator, Polar_Pos_FovealVision_Estimator
-from models.experiment1.active_interconnections import Triangulation_AI, Gaze_Fixation_AI
-from models.experiment1.measurement_models import Robot_Vel_MM, Angle_MM
-from models.experiment1.goals import PolarGoToTargetGoal, PolarGoToTargetFovealVisionGoal, PolarGoToTargetGazeFixationGoal
+from models.old.experiment1.estimators import Robot_Vel_Estimator, Polar_Pos_Estimator, Polar_Pos_FovealVision_Estimator
+from models.old.experiment1.active_interconnections import Triangulation_AI, Gaze_Fixation_AI
+from models.old.experiment1.measurement_models import Robot_Vel_MM, Angle_MM
+from models.old.experiment1.goals import PolarGoToTargetGoal, PolarGoToTargetFovealVisionGoal, PolarGoToTargetGazeFixationGoal
 
 # ========================================================================================================
 

@@ -8,10 +8,10 @@ from models.old.old_component_instances.estimators import Rad_Estimator, Robot_V
 from models.old.old_component_instances.measurement_models import Robot_Vel_MM, Pos_Angle_MM#, Angle_MM
 #from components.instances.active_interconnections import Triangulation_AI
 
-from models.old.experiment_visibility.estimators import Target_Visibility_Estimator, Polar_Distance_Estimator, Polar_Angle_Estimator
-from models.old.experiment_visibility.active_interconnections import Radius_Pos_VisAngle_AI, Triangulation_Detached_AI, Visibility_Angle_AI, Triangulation_Visibility_AI, Visibility_Detached_AI
-from models.old.experiment_visibility.goals import AvoidObstacleGoal, PolarGoToTargetGazeFixationGoal, PolarGoToTargetGoal
-from models.old.experiment_visibility.measurement_models import Visibility_MM, Angle_MM
+from models.old.even_older.experiment_visibility.estimators import Target_Visibility_Estimator, Polar_Distance_Estimator, Polar_Angle_Estimator
+from models.old.even_older.experiment_visibility.active_interconnections import Radius_Pos_VisAngle_AI, Triangulation_Detached_AI, Visibility_Angle_AI, Triangulation_Visibility_AI, Visibility_Detached_AI
+from models.old.even_older.experiment_visibility.goals import AvoidObstacleGoal, PolarGoToTargetGazeFixationGoal, PolarGoToTargetGoal
+from models.old.even_older.experiment_visibility.measurement_models import Visibility_MM, Angle_MM
 
 # =============================================================================================================================================================
 

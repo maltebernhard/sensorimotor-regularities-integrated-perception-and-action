@@ -1,7 +1,7 @@
 import torch
 from components.estimator import RecursiveEstimator
 from components.helpers import rotate_vector_2d
-from models.experiment_foveal_vision.helpers import get_foveal_noise
+from models.old.experiment_foveal_vision.helpers import get_foveal_noise
 
 # ==================================== Specific Implementations ==============================================
 

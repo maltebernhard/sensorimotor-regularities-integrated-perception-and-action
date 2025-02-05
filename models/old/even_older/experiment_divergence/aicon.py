@@ -8,9 +8,9 @@ from models.old.old_component_instances.measurement_models import Robot_Vel_MM
 from models.old.old_component_instances.active_interconnections import Triangulation_AI
 from models.old.old_component_instances.goals import PolarGoToTargetGoal
 
-from models.old.experiment_divergence.active_interconnections import VisAngle_Rad_AI
-from models.old.experiment_divergence.estimators import Vis_Angle_Estimator
-from models.old.experiment_divergence.measurement_models import Vis_Angle_MM, Angle_MM
+from models.old.even_older.experiment_divergence.active_interconnections import VisAngle_Rad_AI
+from models.old.even_older.experiment_divergence.estimators import Vis_Angle_Estimator
+from models.old.even_older.experiment_divergence.measurement_models import Vis_Angle_MM, Angle_MM
 
 # ========================================================================================================
 
