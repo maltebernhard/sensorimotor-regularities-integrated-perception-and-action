@@ -11,11 +11,11 @@ class PolarGoToTargetGoal(Goal):
 
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         # penalty for distance to target
-        estimated_distance = buffer_dict['PolarTargetPos']['state_mean'][0]
+        estimated_distance = buffer_dict['PolarTargetPos']['mean'][0]
         loss_mean = torch.concat([
             0.0 * 2e0 * torch.atleast_1d(estimated_distance - self.desired_distance),
         ]).pow(2).sum()
-        cov = buffer_dict['PolarTargetPos']['state_cov'].diag()
+        cov = buffer_dict['PolarTargetPos']['cov'].diag()
         # penalty for uncertainty in distance
         # TODO: we want this to make the robot turn due to foveal vision
         loss_cov_distance1 = 9e0 * cov[0]# / max(1.0, (estimated_distance/100)) 
@@ -23,7 +23,7 @@ class PolarGoToTargetGoal(Goal):
         loss_cov_distance2 = 1e0 * cov[2]
         
         # this one works nicely, since it works directly on observation uncertainties
-        loss_cov_angle1 = 1e2 * buffer_dict['target_offset_angle']['state_cov'][0,0]
+        loss_cov_angle1 = 1e2 * buffer_dict['target_offset_angle']['cov'][0,0]
         # TODO: compare with the one related to the estimate
         #loss_cov_angle1 = 0.0 * 1e4 * cov[1].sqrt()
 

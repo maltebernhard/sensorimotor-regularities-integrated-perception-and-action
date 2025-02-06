@@ -1,5 +1,5 @@
 from components.analysis import Runner
-from configs import ExperimentConfig as cd
+from configs import ExperimentConfig as config
 
 # ========================================================================================================
 
@@ -9,16 +9,17 @@ if __name__ == "__main__":
 
     # --------------------- config ---------------------
 
-    smcs                    = ["Triangulation", "Divergence"]   # ["Triangulation", "Divergence"],
-    distance_sensor         = False
-    control                 = False
-    observation_noise       = cd.sensor_noise.small_noise
-    observation_loss        = cd.observation_loss.no_obs_loss
-    fv_noise                = cd.fv_noise.no_fv_noise
+    smcs                    = config.smcs.both
+    distance_sensor         = config.distance_sensor.no_dist_sensor
+    control                 = config.control.aicon
+    moving_target           = config.moving_target.sine_target
+    observation_noise       = config.sensor_noise.small_noise
+    observation_loss        = config.observation_loss.no_obs_loss
+    fv_noise                = config.fv_noise.no_fv_noise
 
     env_config = {
         "vel_control":          True,
-        "moving_target":        "false",        #"false", "sine", "linear", "flight"
+        "moving_target":        moving_target,
         "sensor_angle_deg":     360,
         "num_obstacles":        0,
         "timestep":             0.05,

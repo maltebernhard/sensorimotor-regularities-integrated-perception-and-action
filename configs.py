@@ -103,12 +103,12 @@ class SMCConfig:
     div = ["Divergence"]
 
 class ControlConfig:
-    aicon = False
-    control = True
+    aicon   = "aicon"
+    control = "manual"
 
 class DistanceSensorConfig:
-    dist_sensor = False
-    no_dist_sensor = True
+    dist_sensor = "distsensor"
+    no_dist_sensor = "nodistsensor"
 
 class SensorNoiseConfig:
     small_noise = general_small_noise
@@ -123,7 +123,7 @@ class FovealVisionNoiseConfig:
     no_fv_noise = {}
 
 class MovingTargetConfig:
-    stationary_target = "false"
+    stationary_target = "stationary"
     linear_target = "linear"
     sine_target = "sine"
     flight_target = "flight"
@@ -135,6 +135,7 @@ class ExperimentConfig:
     keys = ["smcs", "control", "distance_sensor", "sensor_noise", "fv_noise", "moving_target", "observation_loss"]
     smcs = SMCConfig
     control = ControlConfig
+    distance_sensor = DistanceSensorConfig
     sensor_noise = SensorNoiseConfig
     control = ControlConfig
     fv_noise = FovealVisionNoiseConfig

@@ -1,29 +1,26 @@
+from typing import Dict
 from components.measurement_model import SensorimotorContingency
 from components.helpers import rotate_vector_2d
-from models.smc_ais.helpers import get_foveal_noise
 import torch
 
 # ========================================================================================================
 
-class Distance_MM(SensorimotorContingency):
-    def __init__(self, object_name:str="Target", sensor_noise:dict={}, fv_noise:dict={}) -> None:
-        self.object_name = object_name
-        self.sensor_noise = sensor_noise
-        self.fv_noise = fv_noise
-        sensory_components = [f"{object_name.lower()}_distance"]
-        super().__init__(
-            state_component    = f"Polar{object_name}Pos",
-            action_component   = "RobotVel",
-            sensory_components = sensory_components
-        )
+class FV_SMC(SensorimotorContingency):
+    def __init__(self, state_component:str, action_component:str, sensory_components:list, fv_noise:dict, sensor_angle:float) -> None:
+        self.fv_noise:dict = fv_noise
+        self.sensor_angle = sensor_angle
+        super().__init__(state_component, action_component, sensory_components)
 
-    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
-        if f"{self.object_name.lower()}_distance" in self.fv_noise.keys():
-            covs = [(get_foveal_noise(state[1], f"{self.object_name.lower()}_distance", self.fv_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[f"{self.object_name.lower()}_distance"]))**2]
+    def get_foveal_noise(self, angle, key):
+        if key in self.fv_noise:
+            return (abs(angle) * self.fv_noise[key]/(self.sensor_angle/2))
         else:
-            covs = None
-        return torch.atleast_1d(state[0]), covs
+            return 0.0
 
+    def get_contingent_noise(self, state: torch.Tensor):
+        return {key: self.get_foveal_noise(state[1], key) for key in self.required_observations}
+
+# ----------------------------------------------------------------------
 
 class Robot_Vel_MM(SensorimotorContingency):
     def __init__(self) -> None:
@@ -34,83 +31,125 @@ class Robot_Vel_MM(SensorimotorContingency):
             sensory_components = sensory_components
         )
 
-    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
-        return state, None
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
+        return {
+            'vel_frontal': state[0],
+            'vel_lateral': state[1],
+            'vel_rot':     state[2]
+        }
 
-class Angle_MM(SensorimotorContingency):
-    def __init__(self, object_name:str="Target", sensor_noise:dict={}, fv_noise:dict={}) -> None:
+class Distance_MM(FV_SMC):
+    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
-        self.sensor_noise = sensor_noise
-        self.fv_noise = fv_noise
+        sensory_components = [f"{object_name.lower()}_distance"]
+        super().__init__(
+            state_component    = f"Polar{object_name}Pos",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components,
+            sensor_angle       = sensor_angle,
+            fv_noise           = fv_noise
+        )
+
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
+        return {
+            f"{self.object_name.lower()}_distance": state[0]
+        }
+
+class Angle_MM(FV_SMC):
+    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
+        self.object_name = object_name
         sensory_components = [f"{self.object_name.lower()}_offset_angle"]
         super().__init__(
             state_component    = f"Polar{object_name}Pos",
             action_component   = "RobotVel",
-            sensory_components = sensory_components
+            sensory_components = sensory_components,
+            sensor_angle       = sensor_angle,
+            fv_noise           = fv_noise
         )
 
     def implicit_interconnection_model(self, meas_dict):
-        return (self.transform_state_to_innovation_space(meas_dict[self.state_component], meas_dict[self.action_component])[0] - self.transform_measurements_to_innovation_space(meas_dict) + torch.pi) % (2 * torch.pi) - torch.pi
+        # overwritten to handle the case when angles like -0.9*pi and 0.9*pi are compared
+        key = f"{self.object_name.lower()}_offset_angle"
+        return torch.atleast_1d(self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key] - meas_dict[key] + torch.pi) % (2 * torch.pi) - torch.pi
 
-    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
-        if f"{self.object_name.lower()}_offset_angle" in self.fv_noise.keys():
-            covs = [(get_foveal_noise(state[1], f"{self.object_name.lower()}_offset_angle", self.fv_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[f"{self.object_name.lower()}_offset_angle"]))**2]
-        else:
-            covs = None
-        return torch.atleast_1d(state[1]), covs
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
+        return {
+            f"{self.object_name.lower()}_offset_angle": state[1]
+        }
     
-class Triangulation_SMC(SensorimotorContingency):
-    def __init__(self, object_name:str="Target", sensor_noise:dict={}, fv_noise:dict={}) -> None:
+class Triangulation_SMC(FV_SMC):
+    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
-        self.sensor_noise = sensor_noise
-        self.fv_noise = fv_noise
         sensory_components = [f"{self.object_name.lower()}_offset_angle_dot"]
         super().__init__(
             state_component    = f"Polar{self.object_name}Pos",
             action_component   = "RobotVel",
-            sensory_components = sensory_components
+            sensory_components = sensory_components,
+            sensor_angle       = sensor_angle,
+            fv_noise           = fv_noise
         )
 
-    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2])
-        meas = - rtf_vel[1]/state[0] - action[2]
-        if f"{self.object_name.lower()}_offset_angle_dot" in self.fv_noise.keys():
-            covs = [(get_foveal_noise(state[1], f"{self.object_name.lower()}_offset_angle_dot", self.fv_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[f"{self.object_name.lower()}_offset_angle_dot"]))**2]
-        else:
-            covs = None
-        return torch.atleast_1d(meas), covs
+        return{
+            f"{self.object_name.lower()}_offset_angle_dot": - rtf_vel[1]/state[0] - action[2]
+        }
     
-class Divergence_SMC(SensorimotorContingency):
-    def __init__(self, object_name:str="Target", sensor_noise:dict={}, fv_noise:dict={}) -> None:
+class TriangulationVel_SMC(FV_SMC):
+    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
-        self.sensor_noise = sensor_noise
-        self.fv_noise = fv_noise
+        sensory_components = [f"{self.object_name.lower()}_offset_angle_dot"]
+        super().__init__(
+            state_component    = f"Polar{self.object_name}Pos",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components,
+            sensor_angle       = sensor_angle,
+            fv_noise           = fv_noise
+        )
+
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
+        lateral_vel = rotate_vector_2d(-state[1], action[:2])[1] - state[3]*state[0]
+        return {
+            f"{self.object_name.lower()}_offset_angle_dot": - lateral_vel/state[0] - action[2]
+        }
+    
+class Divergence_SMC(FV_SMC):
+    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
+        self.object_name = object_name
         sensory_components = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
         super().__init__(
             state_component    = f"Polar{self.object_name}Pos",
             action_component   = "RobotVel",
-            sensory_components = sensory_components
+            sensory_components = sensory_components,
+            sensor_angle       = sensor_angle,
+            fv_noise           = fv_noise
         )
 
-    def transform_state_to_innovation_space(self, state: torch.Tensor, action: torch.Tensor):
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2])
-
+        # TODO: instead of estimating radius to calculate expected visual angle, compare single value in innovation space
         vis_angle = 2 * torch.asin(state[2] / state[0]) if not state[2] / state[0] >= 1.0 else torch.pi
+        return {
+            f"{self.object_name.lower()}_visual_angle": vis_angle,
+            f"{self.object_name.lower()}_visual_angle_dot": 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi else torch.tensor(0.0)
+        }
 
-        meas = [
-            vis_angle,
-            # getting divergence from estimated vis angle
-            #2 / state[0] * torch.tan(state[2]/2) * rtf_vel[0] if state[2] < 2*torch.pi else torch.tensor(0.0)
-            # getting divergence from estimated radius
-            2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi else torch.tensor(0.0)
-        ]
-        
-        fv_keys = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
-        if all(key in self.fv_noise.keys() for key in fv_keys):
-            covs = []
-            for key in fv_keys:
-                covs.append((get_foveal_noise(state[1], key, self.fv_noise, 2*torch.pi) + torch.tensor(self.sensor_noise[key]))**2)
-        else:
-            covs = None
+class DivergenceVel_SMC(FV_SMC):
+    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
+        self.object_name = object_name
+        sensory_components = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
+        super().__init__(
+            state_component    = f"Polar{self.object_name}Pos",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components,
+            sensor_angle       = sensor_angle,
+            fv_noise           = fv_noise
+        )
 
-        return torch.stack(meas).squeeze(), covs
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
+        rtf_vel = rotate_vector_2d(-state[1], action[:2]) - torch.stack([state[2], state[3]*state[0]])
+        vis_angle = 2 * torch.asin(state[4] / state[0]) if not state[4] / state[0] >= 1.0 else torch.pi
+        return {
+            f'{self.object_name.lower()}_visual_angle': vis_angle,
+            f'{self.object_name.lower()}_visual_angle_dot': 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi else torch.tensor(0.0),
+        }

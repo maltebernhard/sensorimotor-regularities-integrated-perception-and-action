@@ -83,7 +83,7 @@ class GazeFixEnv(BaseEnv):
         self.num_obstacles: int = config["num_obstacles"]
         self.use_obstacles: bool = config["use_obstacles"]
         # moving_target variations:
-        # "false"  - target is stationary
+        # "stationary"  - target is stationary
         # "linear" - target moves linearly
         # "sine"   - target moves in a sine wave
         # "flight" - target moves in a flight pattern
@@ -128,7 +128,7 @@ class GazeFixEnv(BaseEnv):
         self.action = self.limit_action(action) # make sure acceleration / velocity vector is within bounds
         self.update_robot_velocity()
         self.move_robot()
-        if self.moving_target != "false":
+        if self.moving_target != "stationary":
             self.move_target()
         if self.moving_obstacles:
             self.move_obstacles()
@@ -536,7 +536,7 @@ class GazeFixEnv(BaseEnv):
         return offset_angle_dot
     
     def compute_offset_angle_dot_object_component(self, obj: EnvObject):
-        if (type(obj) == Target and self.moving_target != "false") or (type(obj) == EnvObject and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
         else:
@@ -552,7 +552,7 @@ class GazeFixEnv(BaseEnv):
         return object_distance_dot
     
     def compute_distance_dot_object_component(self, obj: EnvObject):
-        if (type(obj) == Target and self.moving_target != "false") or (type(obj) == EnvObject and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
         else:
@@ -596,7 +596,7 @@ class GazeFixEnv(BaseEnv):
         if self.action_mode in [1,2]:
             # draw an arrow for the robot's velocity
             self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.robot.vel[1],self.robot.vel[0]), self.robot.size*10*(np.linalg.norm(self.robot.vel)/self.robot.max_vel), self.robot.size*1.5, BLUE)
-        if self.moving_target != "false":
+        if self.moving_target != "stationary":
             # draw an arrow for the target's movement
             self.draw_arrow(self.target.pos, self.target.current_movement_direction, self.robot.size*10*self.target.vel/self.robot.max_vel, self.robot.size*1.5, DARK_GREEN)
 

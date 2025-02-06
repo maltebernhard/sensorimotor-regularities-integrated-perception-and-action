@@ -3,9 +3,9 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from models.smc_ais.estimators import Polar_Pos_Estimator, Robot_Vel_Estimator
+from models.smc_ais.estimators import Polar_Pos_Estimator, Polar_PosVel_Estimatior, Robot_Vel_Estimator
 from models.smc_ais.goals import PolarGoToTargetGoal
-from models.smc_ais.smcs import Angle_MM, Distance_MM, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC
+from models.smc_ais.smcs import Angle_MM, Distance_MM, DivergenceVel_SMC, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC, TriangulationVel_SMC
 
 # ========================================================================================================
 
@@ -19,22 +19,24 @@ class SMCAICON(AICON):
     def define_estimators(self):
         estimators = {
             "RobotVel":         Robot_Vel_Estimator(),
-            "PolarTargetPos":   Polar_Pos_Estimator(),
+            "PolarTargetPos":   Polar_Pos_Estimator() if self.env_config["moving_target"] == "stationary" else Polar_PosVel_Estimatior(),
         }
         return estimators
 
     def define_measurement_models(self):
-        sensor_noise = self.env_config["observation_noise"]
         fv_noise = self.env_config["fv_noise"]
+        sensor_angle = self.env_config["robot_sensor_angle"]
         meas_models = {}
-        if self.distance_sensor:
-            meas_models["DistanceMM"] = (Distance_MM(sensor_noise=sensor_noise, fv_noise=fv_noise), ["PolarTargetPos"])
+        if self.distance_sensor == "distsensor":
+            meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
         meas_models["VelMM"]   = (Robot_Vel_MM(), ["RobotVel"])
-        meas_models["AngleMM"] = (Angle_MM(),     ["PolarTargetPos"])
+        meas_models["AngleMM"] = (Angle_MM(fv_noise=fv_noise, sensor_angle=sensor_angle),     ["PolarTargetPos"])
         if "Triangulation" in self.smcs:
-            meas_models["TriangulationSMC"] = (Triangulation_SMC(sensor_noise=sensor_noise, fv_noise=fv_noise), ["PolarTargetPos", "RobotVel"])
+            smc = Triangulation_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else TriangulationVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
+            meas_models["TriangulationSMC"] = (smc, ["PolarTargetPos", "RobotVel"])
         if "Divergence" in self.smcs:
-            meas_models["DivergenceSMC"] = (Divergence_SMC(sensor_noise=sensor_noise, fv_noise=fv_noise), ["PolarTargetPos", "RobotVel"])
+            smc = Divergence_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else DivergenceVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
+            meas_models["DivergenceSMC"] = (smc, ["PolarTargetPos", "RobotVel"])
         return meas_models
 
     def define_active_interconnections(self):
@@ -51,20 +53,20 @@ class SMCAICON(AICON):
         return buffer_dict
 
     def compute_action_gradients(self):
-        if not self.control:
+        if self.control == "aicon":
             return super().compute_action_gradients()
         else:
             # goal control
             task_grad = torch.zeros(3)
-            task_vel_radial = 2e-1 * (self.REs["PolarTargetPos"].state_mean[0] - self.goals["PolarGoToTarget"].desired_distance)
-            task_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([task_vel_radial, 0.0])).squeeze()
+            task_vel_radial = 2e-1 * (self.REs["PolarTargetPos"].mean[0] - self.goals["PolarGoToTarget"].desired_distance)
+            task_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].mean[1], torch.tensor([task_vel_radial, 0.0])).squeeze()
 
             # smc control
             unc_grad = torch.zeros(3)
-            unc_vel_tangential = 5e-1 * self.REs["PolarTargetPos"].state_cov[0][0] if "Triangulation" in self.smcs else 0.0
-            unc_vel_radial     = 1e-1 * self.REs["PolarTargetPos"].state_cov[0][0] * task_vel_radial.sign() if "Divergence" in self.smcs else 0
-            unc_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([unc_vel_radial, unc_vel_tangential])).squeeze()
-            unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].state_cov[0][0] * self.REs["PolarTargetPos"].state_mean[1].sign() if len(self.env.fv_noise) > 0 else 0.0
+            unc_vel_tangential = 5e-1 * self.REs["PolarTargetPos"].cov[0][0] if "Triangulation" in self.smcs else 0.0
+            unc_vel_radial     = 1e-1 * self.REs["PolarTargetPos"].cov[0][0] * task_vel_radial.sign() if "Divergence" in self.smcs else 0
+            unc_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].mean[1], torch.tensor([unc_vel_radial, unc_vel_tangential])).squeeze()
+            unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].cov[0][0] * self.REs["PolarTargetPos"].mean[1].sign() if len(self.env.fv_noise) > 0 else 0.0
             
             return {"PolarGoToTarget": {
                 "task_gradient": task_grad,
@@ -81,45 +83,16 @@ class SMCAICON(AICON):
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
-        state = buffer_dict['PolarTargetPos']['state_mean'] if buffer_dict is not None else self.REs['PolarTargetPos'].state_mean
-        self.print_vector(state - torch.tensor([env_state['target_distance'], env_state['target_offset_angle'], env_state['target_visual_angle']]), "PolarTargetPos Err.")
+        state = buffer_dict['PolarTargetPos']['mean'] if buffer_dict is not None else self.REs['PolarTargetPos'].mean
+        #self.print_vector(state - torch.tensor([env_state['target_distance'], env_state['target_offset_angle'], env_state['target_visual_angle']]), "PolarTargetPos Err.")
         #print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}]")#, {env_state['target_radius']:.3f}]")
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
     
-    def get_observation_update_uncertainty(self, key):
-        if "angle" in key or "_rot" in key:
+    def get_observation_update_noise(self, key):
+        if "angle" in key or "rot" in key:
             update_uncertainty: torch.Tensor = 5e-2 * torch.eye(1)
         else:
             update_uncertainty: torch.Tensor = 2e-1 * torch.eye(1)
         return update_uncertainty
-
-    def get_custom_sensor_noise(self, obs: dict):
-        # get foveal vision noise and estimations
-        expected_obs_with_noise = self.get_contingent_measurements()
-        for key in obs.keys():
-            # get noise scaling with measurement
-            if "vel" in key or "distance" in key:
-                expected_obs_with_noise[key]['noise'] += self.obs[key].sensor_noise * expected_obs_with_noise[key]['mean']
-            else:
-                expected_obs_with_noise[key]['noise'] += self.obs[key].sensor_noise
-        return {key: expected_obs_with_noise[key]['noise'] for key in obs.keys()}
-    
-    def get_contingent_measurements(self):
-        obs_dict = {}
-        for smc_key, smc in [(key, val[0]) for key, val in self.MMs.items()]:
-            sensor_vals, sensor_covs = smc.transform_state_to_innovation_space(self.REs[smc.state_component].state_mean, self.REs['RobotVel'].state_mean)
-            for i, val in enumerate(sensor_vals):
-                obs_dict[smc.required_observations[i]] = {'mean': val, 'noise': 0.0*torch.eye(1)}
-                if sensor_covs is not None:
-                    obs_dict[smc.required_observations[i]]['noise'] = sensor_covs[i].sqrt()
-        return obs_dict
-
-    def adapt_contingent_measurements(self, buffer_dict: dict):
-        for smc_key, smc in [(key, val[0]) for key, val in self.MMs.items()]:
-            sensor_vals, sensor_covs = smc.transform_state_to_innovation_space(buffer_dict[smc.state_component]['state_mean'], buffer_dict['RobotVel']['state_mean'])
-            for i, val in enumerate(sensor_vals):
-                buffer_dict[smc.required_observations[i]]['state_mean'] = val
-                if sensor_covs is not None:
-                    buffer_dict[smc.required_observations[i]]['state_cov'] = sensor_covs[i]

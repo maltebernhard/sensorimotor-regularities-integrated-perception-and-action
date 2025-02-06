@@ -63,12 +63,12 @@ class GeneralTestAICON(AICON):
         return goals
 
     def render(self):
-        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].mean, self.REs["PolarTargetPos"].cov)
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         for i in range(1, self.num_obstacles + 1):
-            estimator_means[f"CartesianObstacle{i}Pos"] = self.REs[f"CartesianObstacle{i}Pos"].state_mean
-            rad = self.REs[f"Obstacle{i}Rad"].state_mean
+            estimator_means[f"CartesianObstacle{i}Pos"] = self.REs[f"CartesianObstacle{i}Pos"].mean
+            rad = self.REs[f"Obstacle{i}Rad"].mean
             estimator_covs[f"CartesianObstacle{i}Pos"] = torch.tensor([[rad**2, 0], [0, rad**2]])
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
@@ -92,7 +92,7 @@ class GeneralTestAICON(AICON):
                 action -= 1e0 * gradients[f"AvoidObstacle{i+1}"] / self.num_obstacles
         # manual gaze fixation
         # if self.vel_control:
-        #     action[2] = 0.05 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
+        #     action[2] = 0.05 * self.REs["PolarTargetPos"].mean[1] + 0.01 * self.REs["PolarTargetPos"].mean[3]
         return action
 
     def print_estimators(self, buffer_dict=None):

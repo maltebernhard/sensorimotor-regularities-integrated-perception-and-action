@@ -53,7 +53,7 @@ class ContingentEstimatorAICON(AICON):
             return self.last_action - 1e-2 * gradients["GoToTarget"]
 
     def render(self):
-        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["RobotState"].state_mean, self.REs["RobotState"].state_cov)
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["RobotState"].mean, self.REs["RobotState"].cov)
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})

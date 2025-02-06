@@ -54,7 +54,7 @@ class DivergenceAICON(AICON):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
     
     def adapt_contingent_measurements(self, buffer_dict: dict):
-        predicted_angle = buffer_dict['PolarTargetPos']['state_mean'][1]
-        buffer_dict['target_offset_angle']['state_mean']     = predicted_angle
-        buffer_dict['target_offset_angle_dot']['state_mean'] = buffer_dict['PolarTargetPos']['state_mean'][3]
-        buffer_dict['target_visual_angle_dot']['state_mean'] = buffer_dict['PolarTargetPos']['state_mean'][5]
+        predicted_angle = buffer_dict['PolarTargetPos']['mean'][1]
+        buffer_dict['target_offset_angle']['mean']     = predicted_angle
+        buffer_dict['target_offset_angle_dot']['mean'] = buffer_dict['PolarTargetPos']['mean'][3]
+        buffer_dict['target_visual_angle_dot']['mean'] = buffer_dict['PolarTargetPos']['mean'][5]

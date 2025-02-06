@@ -59,12 +59,12 @@ class VisibilityAICON(AICON):
     def render(self):
         polar_state = torch.zeros(2, device=self.device)
         polar_cov = torch.eye(2, device=self.device)
-        polar_state[0] = self.REs["PolarTargetDistance"].state_mean[0]
-        polar_state[1] = self.REs["PolarTargetAngle"].state_mean[0]
-        polar_cov[0, 0] = self.REs["PolarTargetDistance"].state_cov[0, 0]
-        polar_cov[1, 1] = self.REs["PolarTargetAngle"].state_cov[0, 0]
+        polar_state[0] = self.REs["PolarTargetDistance"].mean[0]
+        polar_state[1] = self.REs["PolarTargetAngle"].mean[0]
+        polar_cov[0, 0] = self.REs["PolarTargetDistance"].cov[0, 0]
+        polar_cov[1, 1] = self.REs["PolarTargetAngle"].cov[0, 0]
         target_mean, target_cov = self.convert_polar_to_cartesian_state(polar_state, polar_cov)
-        #target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
+        #target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].mean, self.REs["PolarTargetPos"].cov)
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})

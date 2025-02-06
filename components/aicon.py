@@ -51,11 +51,11 @@ class AICON(ABC):
             self.last_action = initial_action
         self.update_observations()
         buffer_dict = self.get_buffer_dict()
+        self.prints = prints
         self.meas_updates(buffer_dict)
         self.eval_interconnections(buffer_dict)
         for key, state_buffer_dict in buffer_dict.items():
             self.REs[key].load_state_dict(state_buffer_dict) if key in self.REs.keys() else None
-        self.prints = prints
         if prints > 0:
             print(f"======================= Initial State ===========================")
             self.print_estimators()
@@ -66,8 +66,9 @@ class AICON(ABC):
 
             # est_jac, est = self.compute_estimator_action_gradient("PolarTargetPos", self.last_action)
             # for i in range(3):
-            #     print(f"Estimator Jacobian {i}:\n", est_jac['state_cov'][:,:,i])
-
+            #     print(f"Estimator Jacobian {i}:\n", est_jac['cov'][:,:,i])
+            if prints > 0 and step % prints == 0:
+                print("-------- Comuting Action Gradient ---------")
             gradients, action = self.compute_action()
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
@@ -115,13 +116,11 @@ class AICON(ABC):
         if new_step:
             self.update_observations()
         buffer_dict = self.get_buffer_dict()
+
         # estimator forward models
         u = self.get_control_input(action)
         for estimator in self.REs.values():
             estimator.call_predict(u, buffer_dict)
-
-        if self.prints > 0 and self.current_step % self.prints == 0:
-            print("Pre Meas: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
 
         # measurement updates
         if new_step:
@@ -129,11 +128,35 @@ class AICON(ABC):
         else:
             self.contingent_meas_updates(buffer_dict)
 
-        if self.prints > 0 and self.current_step % self.prints == 0:
-            print("Post Meas:"), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
-
         # interconnection updates
         return self.eval_interconnections(buffer_dict)
+
+    def meas_updates(self, buffer_dict):
+        if self.prints > 0 and self.current_step % self.prints == 0:
+            print("Pre Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+            print("Pre Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+        for meas_model, estimator_keys in self.MMs.values():
+            if meas_model.all_observations_updated():
+                for estimator_key in estimator_keys:
+                    self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
+        if self.prints > 0 and self.current_step % self.prints == 0:
+            print("Post Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+            print("Post Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+
+    def contingent_meas_updates(self, buffer_dict: dict):
+        """
+        Updates the estimators with the expected measurements AND (important!) expected measurement noise. SHOULD be overwritten by user.
+        """
+        if self.prints > 0 and self.current_step % self.prints == 0:
+            print("Pre Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+            print("Pre Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+        for meas_model, estimator_keys in self.MMs.values():
+            # TODO: only predict measurements when the sensors work
+            for estimator_key in estimator_keys:
+                self.REs[estimator_key].call_update_with_smc(meas_model, buffer_dict)
+        if self.prints > 0 and self.current_step % self.prints == 0:
+            print("Post Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+            print("Post Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
 
     def set_observations(self):
         obs: Dict[str, Observation] = {}
@@ -141,7 +164,7 @@ class AICON(ABC):
         observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
-            obs[key] = Observation(key, 1, torch.eye(1)*observation_noise[key], self.get_observation_update_uncertainty(key))
+            obs[key] = Observation(key, 1, torch.eye(1)*observation_noise[key], self.get_observation_update_noise(key))
         self.last_observation: Tuple[dict,dict] = None
         return obs
 
@@ -251,15 +274,15 @@ class AICON(ABC):
     def print_estimator(self, id, print_mean:bool=True, print_cov:int=0, buffer_dict=None):
         if print_mean:
             if buffer_dict is None:
-                mean = self.REs[id].state_mean if id in self.REs.keys() else self.obs[id].state_mean
+                mean = self.REs[id].mean if id in self.REs.keys() else self.obs[id].mean
             else:
-                mean = buffer_dict[id]["state_mean"]
+                mean = buffer_dict[id]['mean']
             self.print_vector(mean, id + " Mean" if print_cov else id)
         if print_cov != 0:
             if buffer_dict is None:
-                cov = self.REs[id].state_cov if id in self.REs.keys() else self.obs[id].state_cov
+                cov = self.REs[id].cov if id in self.REs.keys() else self.obs[id].cov
             else:
-                cov = buffer_dict[id]["state_cov"]
+                cov = buffer_dict[id]['cov']
             if print_cov == 1:
                 self.print_matrix(cov, f"{id} Cov")
             elif print_cov == 2:
@@ -273,12 +296,6 @@ class AICON(ABC):
         obs, _ = self.env.reset(seed, video_path)
         self.update_observations()
         self.custom_reset()
-
-    def meas_updates(self, buffer_dict):
-        for meas_model, estimator_keys in self.MMs.values():
-            if meas_model.all_observations_updated():
-                for estimator_key in estimator_keys:
-                    self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
 
     @abstractmethod
     def define_env(self) -> BaseEnv:
@@ -362,7 +379,7 @@ class AICON(ABC):
         """
         return {key: state.get_buffer_dict() for key, state in list(self.REs.items()) + list(self.obs.items())}
     
-    def get_observation_update_uncertainty(self, key):
+    def get_observation_update_noise(self, key):
         """
         Returns the uncertainty to be added to inflate observation covariances for updates.
         This is done to increase Kalman Filter stability. SHOULD be overwritten by user.
@@ -375,18 +392,6 @@ class AICON(ABC):
         Only to be implemented if there is any noise depending on the state.
         """
         return {key: self.obs[key].sensor_noise * torch.eye(1) for key in obs.keys()}
-    
-    def contingent_meas_updates(self, buffer_dict: dict):
-        """
-        Updates the estimators with the expected measurements AND (important!) expected measurement noise. SHOULD be overwritten by user.
-        """
-        try:
-            self.adapt_contingent_measurements(buffer_dict)
-            for meas_model, estimator_keys in self.MMs.values():
-                for estimator_key in estimator_keys:
-                    self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
-        except NotImplementedError:
-            return
 
     def adapt_contingent_measurements(self, buffer_dict: dict):
         """
@@ -447,7 +452,7 @@ class DroneEnvAICON(AICON):
         return torch.concat([torch.tensor([0.05], device=self.device), env_action])
     
     def render(self):
-        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].mean, self.REs["PolarTargetPos"].cov)
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})

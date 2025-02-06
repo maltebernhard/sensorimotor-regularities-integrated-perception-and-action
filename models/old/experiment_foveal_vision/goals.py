@@ -20,16 +20,16 @@ class PolarGoToTargetFovealVisionGoal(Goal):
         relevance_target = round(relevance_target)
         relevance_obstacle = round(relevance_obstacle)
 
-        target_loss_mean =   2e0 * (buffer_dict['PolarTargetPos']['state_mean'][0] - self.desired_distance)
-        obstacle_loss_mean = 2e0 * (buffer_dict['PolarObstacle1Pos']['state_mean'][0] - self.desired_distance)
+        target_loss_mean =   2e0 * (buffer_dict['PolarTargetPos']['mean'][0] - self.desired_distance)
+        obstacle_loss_mean = 2e0 * (buffer_dict['PolarObstacle1Pos']['mean'][0] - self.desired_distance)
 
         loss_mean_1 = relevance_target * target_loss_mean.pow(2)
         loss_mean_2 = relevance_obstacle * obstacle_loss_mean.pow(2)
 
-        tar_cov = buffer_dict['PolarTargetPos']['state_cov'].diag()
-        obs_cov = buffer_dict['PolarObstacle1Pos']['state_cov'].diag()
-        tar_loss_cov = 2e4 * (tar_cov[1] + tar_cov[3]).sqrt() / buffer_dict['PolarTargetPos']['state_mean'][0]
-        obs_loss_cov = 2e4 * (obs_cov[1] + obs_cov[3]).sqrt() / buffer_dict['PolarObstacle1Pos']['state_mean'][0]
+        tar_cov = buffer_dict['PolarTargetPos']['cov'].diag()
+        obs_cov = buffer_dict['PolarObstacle1Pos']['cov'].diag()
+        tar_loss_cov = 2e4 * (tar_cov[1] + tar_cov[3]).sqrt() / buffer_dict['PolarTargetPos']['mean'][0]
+        obs_loss_cov = 2e4 * (obs_cov[1] + obs_cov[3]).sqrt() / buffer_dict['PolarObstacle1Pos']['mean'][0]
 
         loss_cov_1 = relevance_target * tar_loss_cov
         loss_cov_2 = relevance_obstacle * obs_loss_cov

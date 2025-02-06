@@ -66,8 +66,8 @@ class ExperimentFovealVisionAICON(AICON):
         print("--------------------------------------------------------")
 
     def render(self):
-        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].state_mean, self.REs["PolarTargetPos"].state_cov)
-        obs_mean, obs_cov = self.convert_polar_to_cartesian_state(self.REs["PolarObstacle1Pos"].state_mean, self.REs["PolarObstacle1Pos"].state_cov)
+        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].mean, self.REs["PolarTargetPos"].cov)
+        obs_mean, obs_cov = self.convert_polar_to_cartesian_state(self.REs["PolarObstacle1Pos"].mean, self.REs["PolarObstacle1Pos"].cov)
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean, "PolarObstacle1Pos": obs_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov, "PolarObstacle1Pos": obs_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
@@ -75,7 +75,7 @@ class ExperimentFovealVisionAICON(AICON):
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
 
-    def get_observation_update_uncertainty(self, key):
+    def get_observation_update_noise(self, key):
         if "angle" in key or "_rot" in key:
             update_uncertainty = 1e-1
         else:
@@ -98,18 +98,18 @@ class ExperimentFovealVisionAICON(AICON):
         return {key: val*torch.eye(1) for key, val in observation_noise.items()}
         
     def adapt_contingent_measurements(self, buffer_dict: dict):
-        predicted_angle_target = buffer_dict['PolarTargetPos']['state_mean'][1]
-        buffer_dict['target_offset_angle']['state_mean']     = predicted_angle_target
-        buffer_dict['target_offset_angle']['state_cov']      = get_foveal_noise(predicted_angle_target, 0, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]) ** 2
-        buffer_dict['target_offset_angle_dot']['state_mean'] = buffer_dict['PolarTargetPos']['state_mean'][3]
-        buffer_dict['target_offset_angle_dot']['state_cov']  = get_foveal_noise(predicted_angle_target, 1, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]) ** 2
+        predicted_angle_target = buffer_dict['PolarTargetPos']['mean'][1]
+        buffer_dict['target_offset_angle']['mean']     = predicted_angle_target
+        buffer_dict['target_offset_angle']['cov']      = get_foveal_noise(predicted_angle_target, 0, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]) ** 2
+        buffer_dict['target_offset_angle_dot']['mean'] = buffer_dict['PolarTargetPos']['mean'][3]
+        buffer_dict['target_offset_angle_dot']['cov']  = get_foveal_noise(predicted_angle_target, 1, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]) ** 2
         
-        predicted_angle_obstacle = buffer_dict['PolarObstacle1Pos']['state_mean'][1]
-        buffer_dict['obstacle1_offset_angle']['state_mean']     = predicted_angle_obstacle
-        buffer_dict['obstacle1_offset_angle']['state_cov']      = get_foveal_noise(predicted_angle_obstacle, 0, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]) ** 2
-        buffer_dict['obstacle1_offset_angle_dot']['state_mean'] = buffer_dict['PolarObstacle1Pos']['state_mean'][3]
-        buffer_dict['obstacle1_offset_angle_dot']['state_cov']  = get_foveal_noise(predicted_angle_obstacle, 1, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]) ** 2
+        predicted_angle_obstacle = buffer_dict['PolarObstacle1Pos']['mean'][1]
+        buffer_dict['obstacle1_offset_angle']['mean']     = predicted_angle_obstacle
+        buffer_dict['obstacle1_offset_angle']['cov']      = get_foveal_noise(predicted_angle_obstacle, 0, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]) ** 2
+        buffer_dict['obstacle1_offset_angle_dot']['mean'] = buffer_dict['PolarObstacle1Pos']['mean'][3]
+        buffer_dict['obstacle1_offset_angle_dot']['cov']  = get_foveal_noise(predicted_angle_obstacle, 1, self.env_config["fv_noise"], self.env_config["robot_sensor_angle"]) ** 2
 
-        buffer_dict['vel_frontal']['state_mean']             = buffer_dict['RobotVel']['state_mean'][0]
-        buffer_dict['vel_lateral']['state_mean']             = buffer_dict['RobotVel']['state_mean'][1]
-        buffer_dict['vel_rot']['state_mean']                 = buffer_dict['RobotVel']['state_mean'][2]
+        buffer_dict['vel_frontal']['mean']             = buffer_dict['RobotVel']['mean'][0]
+        buffer_dict['vel_lateral']['mean']             = buffer_dict['RobotVel']['mean'][1]
+        buffer_dict['vel_rot']['mean']                 = buffer_dict['RobotVel']['mean'][2]

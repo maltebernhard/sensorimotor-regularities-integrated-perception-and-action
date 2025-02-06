@@ -15,8 +15,8 @@ class State(Module):
         self.device = device if device is not None else torch.get_default_device()
         self.dtype = dtype if dtype is not None else torch.get_default_dtype()
 
-        self.register_buffer('state_mean', torch.zeros(self.state_dim))
-        self.register_buffer('state_cov', torch.eye(self.state_dim))
+        self.register_buffer('mean', torch.zeros(self.state_dim))
+        self.register_buffer('cov', torch.eye(self.state_dim))
         self.register_buffer('update_uncertainty', 0.0 * torch.eye(self.state_dim))
 
         self.to(device)
@@ -28,7 +28,7 @@ class State(Module):
     def state(self):
         # Just a convenience method to return both mean and cov
         # if required. Otherwise, simply access the buffers directly
-        return self.state_mean, self.state_cov
+        return self.mean, self.cov
 
     def get_buffer_dict(self):
         self.buffer_dict = dict(self.named_buffers())
@@ -38,20 +38,20 @@ class State(Module):
         assert mean.shape == (self.state_dim,), ("Mean shape does not match state_dim")
         if cov is not None:
             assert cov.shape == (self.state_dim, self.state_dim), ("Covariance shape does not match state_dim")
-        self.state_mean = mean
-        self.state_cov = torch.eye(
-            self.state_dim, dtype=self.dtype, device=self.state_mean.device) if cov is None else cov
+        self.mean = mean
+        self.cov = torch.eye(
+            self.state_dim, dtype=self.dtype, device=self.mean.device) if cov is None else cov
         self.get_buffer_dict()
 
 # =========================================================================================
 
 class Observation(State):
-    def __init__(self, id, state_dim, sensor_noise, update_uncertainty, device=None, dtype=None):
+    def __init__(self, id, state_dim, sensor_noise, update_noise: torch.Tensor, device=None, dtype=None):
         super().__init__(id, state_dim, device, dtype)
         self.updated = False
         self.last_updated = -1.0
         self.sensor_noise: torch.Tensor = sensor_noise
-        self.update_uncertainty: torch.Tensor = update_uncertainty
+        self.update_uncertainty: torch.Tensor = update_noise.pow(2)
 
     def set_observation(self, obs: torch.Tensor, custom_obs_noise: torch.Tensor=None, time=None):
         self.set_state(obs, custom_obs_noise**2)
@@ -97,11 +97,11 @@ class RecursiveEstimator(ABC, State):
     def predict(self, u, custom_motion_noise=None):
         u = torch.atleast_1d(u) # Force scalar to be 1D
 
-        self.state_mean, self.state_cov = self.forward_model(self.state_mean, self.state_cov, u)
-        G_t = self.forward_model_jac(self.state_mean, self.state_cov, u)
+        self.mean, self.cov = self.forward_model(self.mean, self.cov, u)
+        G_t = self.forward_model_jac(self.mean, self.cov, u)
 
         forward_noise = self.forward_noise if custom_motion_noise is None else custom_motion_noise
-        self.state_cov = torch.matmul(G_t, torch.matmul(self.state_cov, G_t.t())) + forward_noise
+        self.cov = torch.matmul(G_t, torch.matmul(self.cov, G_t.t())) + forward_noise
 
     def functional_call_to_predict(self, buffers, kwargs):
         """Helper function to use functional_call for predict()
@@ -135,16 +135,16 @@ class RecursiveEstimator(ABC, State):
             meas_dict[key] = torch.atleast_1d(meas_dict[key])
         
         # The direct way would be to call implicit_measurement_model() and implicit_measurement_model_jac()
-        # e.g., H_t, F_t = implicit_meas_model.implicit_measurement_model_jac(self.state_mean, meas)
+        # e.g., H_t, F_t = implicit_meas_model.implicit_measurement_model_jac(self.mean, meas)
         # But to save computation, we can use the auxillary 
         # outputs of jacrev() and both eval and compute Jacobian in one go
-        H_t, F_t_dict, residual = implicit_meas_model.implicit_measurement_model_eval_and_jac(self.state_mean, meas_dict)
+        H_t, F_t_dict, residual = implicit_meas_model.implicit_measurement_model_eval_and_jac(self.mean, meas_dict)
 
         # Below assert is not needed as F_t_dict should be produced from meas_dict
         # Still retaining in case in the future, F_t_dict is produced from some other source
         # assert F_t_dict.keys() == meas_dict.keys()
 
-        K_part_1 = torch.matmul(self.state_cov, H_t.t())
+        K_part_1 = torch.matmul(self.cov, H_t.t())
         K_part_1_2 = torch.matmul(H_t, K_part_1)
         K_part_2 = K_part_1_2 # K_part_2 will get additional terms below
 
@@ -203,7 +203,7 @@ class RecursiveEstimator(ABC, State):
         if implicit_meas_model.regularize_kalman_gain:
             K_part_2 += 1e-6 * torch.eye(K_part_2.shape[0],
                                          dtype=self.dtype,
-                                         device=self.state_mean.device)
+                                         device=self.mean.device)
 
         try:
             K_part_2_inv = torch.inverse(K_part_2)
@@ -237,8 +237,8 @@ class RecursiveEstimator(ABC, State):
                 innovation_distance > implicit_meas_model.outlier_distance_threshold,
                 torch.zeros_like(kalman_gain), kalman_gain)
 
-        self.state_mean = self.state_mean + torch.matmul(kalman_gain, innovation)
-        self.state_cov = self.state_cov - torch.matmul(torch.matmul(kalman_gain, H_t), self.state_cov)
+        self.mean = self.mean + torch.matmul(kalman_gain, innovation)
+        self.cov = self.cov - torch.matmul(torch.matmul(kalman_gain, H_t), self.cov)
 
     def functional_call_to_update_with_specific_meas(self, buffers, implicit_meas_model, kwargs):
         args_to_be_passed = ('update_with_specific_meas', implicit_meas_model)
@@ -290,8 +290,8 @@ class RecursiveEstimator(ABC, State):
         # The naive way would be to simply return dict(self.named_buffers())
         # But it is better to be explicit about persistent (only required) buffers
         return {
-            'state_mean': self.state_mean,
-            'state_cov': self.state_cov
+            'mean': self.mean,
+            'cov': self.cov
         }
     
     def call_predict(self, u, buffer_dict):
@@ -302,4 +302,9 @@ class RecursiveEstimator(ABC, State):
     def call_update_with_active_interconnection(self, active_interconnection, buffer_dict: Dict[str, torch.Tensor]):
         args_to_be_passed = ('update_with_specific_meas', active_interconnection)
         kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id), 'custom_measurement_noise': active_interconnection.get_cov_dict(buffer_dict, self.id)}
+        return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
+    
+    def call_update_with_smc(self, smc, buffer_dict: Dict[str, torch.Tensor]):
+        args_to_be_passed = ('update_with_specific_meas', smc)
+        kwargs = {'meas_dict': smc.get_state_dict_with_expected_meas(buffer_dict, self.id), 'custom_measurement_noise': smc.get_cov_dict(buffer_dict, self.id)}
         return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)

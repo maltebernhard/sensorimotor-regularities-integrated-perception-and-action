@@ -45,7 +45,7 @@ class GlobalVelAICON(AICON):
     
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()
-        self.print_vector(self.REs['PolarTargetPos'].state_mean - torch.tensor([env_state['target_distance'], env_state['target_offset_angle'], env_state['target_distance_dot'], env_state['target_offset_angle_dot']+env_state['vel_rot'], env_state['target_distance_dot_global'], env_state['target_offset_angle_dot_global'], env_state['target_visual_angle'], env_state['target_visual_angle_dot']]), "PolarTargetPos Est. Err.") 
+        self.print_vector(self.REs['PolarTargetPos'].mean - torch.tensor([env_state['target_distance'], env_state['target_offset_angle'], env_state['target_distance_dot'], env_state['target_offset_angle_dot']+env_state['vel_rot'], env_state['target_distance_dot_global'], env_state['target_offset_angle_dot_global'], env_state['target_visual_angle'], env_state['target_visual_angle_dot']]), "PolarTargetPos Est. Err.") 
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_mean=False, print_cov=2)
         print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}, {env_state['target_distance_dot_global']:.3f}, {env_state['target_offset_angle_dot_global']:.3f}, {env_state['target_visual_angle']:.3f}, {env_state['target_visual_angle_dot']:.3f}]")
 
@@ -53,7 +53,7 @@ class GlobalVelAICON(AICON):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
     
     def adapt_contingent_measurements(self, buffer_dict: dict):
-        predicted_angle = buffer_dict['PolarTargetPos']['state_mean'][1]
-        buffer_dict['target_offset_angle']['state_mean']     = predicted_angle
-        buffer_dict['target_offset_angle_dot']['state_mean'] = buffer_dict['PolarTargetPos']['state_mean'][3]
-        buffer_dict['target_visual_angle_dot']['state_mean'] = buffer_dict['PolarTargetPos']['state_mean'][5]
+        predicted_angle = buffer_dict['PolarTargetPos']['mean'][1]
+        buffer_dict['target_offset_angle']['mean']     = predicted_angle
+        buffer_dict['target_offset_angle_dot']['mean'] = buffer_dict['PolarTargetPos']['mean'][3]
+        buffer_dict['target_visual_angle_dot']['mean'] = buffer_dict['PolarTargetPos']['mean'][5]

@@ -101,8 +101,8 @@ class AICONLogger:
                 "step":             [],     # time step
                 "time":             [],     # time in seconds
                 "estimators": {estimator_key: {
-                    "state_mean":   [],     # mean of state estimate
-                    "state_cov":    [],     # covariance of state estimate
+                    'mean':   [],     # mean of state estimate
+                    'cov':    [],     # covariance of state estimate
                     "uncertainty":  [],     # uncertainty of state estimate: sqrt(diag(covariance))
                     "motion_noise": np.array(estimators[estimator_key]["forward_noise"].tolist()),     # static estimator motion noise
                 } for estimator_key in estimators.keys()},
@@ -169,10 +169,10 @@ class AICONLogger:
         self.current_data[self.run]["time"].append(time)
         for state_key in estimators.keys():
             # log estimator values
-            estimator_mean = np.array(estimators[state_key]["state_mean"].tolist())
-            estimator_cov = np.array(estimators[state_key]["state_cov"].tolist())
-            self.current_data[self.run]["estimators"][state_key]["state_mean"].append(estimator_mean)
-            self.current_data[self.run]["estimators"][state_key]["state_cov"].append(estimator_cov)
+            estimator_mean = np.array(estimators[state_key]['mean'].tolist())
+            estimator_cov = np.array(estimators[state_key]['cov'].tolist())
+            self.current_data[self.run]["estimators"][state_key]['mean'].append(estimator_mean)
+            self.current_data[self.run]["estimators"][state_key]['cov'].append(estimator_cov)
             # log uncertainty
             # TODO: remove this hack once noise is always on
             estimator_cov[estimator_cov < 0] = 0

@@ -67,12 +67,12 @@ class Experiment1AICON(AICON):
         else:
             action = torch.zeros(3)
             # go to target control
-            vel_radial = 1.0 / 3.0 * (self.REs["PolarTargetPos"].state_mean[0] - self.goals["PolarGoToTarget"].desired_distance)
+            vel_radial = 1.0 / 3.0 * (self.REs["PolarTargetPos"].mean[0] - self.goals["PolarGoToTarget"].desired_distance)
             # tangential motion control
-            vel_tangential = 1.0 / 10.0 * self.REs["PolarTargetPos"].state_cov[0][0]
-            action[:2] = rotate_vector_2d(self.REs["PolarTargetPos"].state_mean[1], torch.tensor([vel_radial, vel_tangential])).squeeze()
+            vel_tangential = 1.0 / 10.0 * self.REs["PolarTargetPos"].cov[0][0]
+            action[:2] = rotate_vector_2d(self.REs["PolarTargetPos"].mean[1], torch.tensor([vel_radial, vel_tangential])).squeeze()
             # rotation control
-            action[2] = 3.0 * self.REs["PolarTargetPos"].state_mean[1]
+            action[2] = 3.0 * self.REs["PolarTargetPos"].mean[1]
             return action
 
     def compute_action_from_gradient(self, gradients):
@@ -81,7 +81,7 @@ class Experiment1AICON(AICON):
         gradient_action = decay * self.last_action - 6e-1 * self.env_config["timestep"] * gradients["PolarGoToTarget"]
         # control
         if self.type == "Control":
-            gradient_action[2] = 2.0 * self.REs["PolarTargetPos"].state_mean[1] + 0.01 * self.REs["PolarTargetPos"].state_mean[3]
+            gradient_action[2] = 2.0 * self.REs["PolarTargetPos"].mean[1] + 0.01 * self.REs["PolarTargetPos"].mean[3]
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):
@@ -97,7 +97,7 @@ class Experiment1AICON(AICON):
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
 
-    def get_observation_update_uncertainty(self, key):
+    def get_observation_update_noise(self, key):
         if "angle" in key or "_rot" in key:
             update_uncertainty: torch.Tensor = 3e-1 * torch.eye(1)
         else:
