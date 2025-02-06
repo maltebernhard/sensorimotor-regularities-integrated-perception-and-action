@@ -21,6 +21,8 @@ from models.smc_ais.aicon import SMCAICON
 from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
 from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
 
+import wandb
+
 # ========================================================================================================
 
 class Runner:
@@ -94,13 +96,16 @@ class Analysis:
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
+        if 'wandb_project' in self.experiment_config:       
+            self.logger.wandb_project=self.experiment_config['wandb_project']
+
+
     def add_and_run_variations(self, variations: List[dict]):
         self.variations += variations
+        self.experiment_config["variations"] = self.variations
         self.run_analysis(variations)
 
     def run_analysis(self, variations: List[dict] = None):
-        os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
-        os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
         if variations is None:
             variations = self.variations
         total_configs = len(variations)
@@ -125,7 +130,7 @@ class Analysis:
                     aicon_type = aicon_type,
                     run_config = self.base_run_config,
                     env_config = env_config,
-                    logger = self.logger
+                    logger = self.logger,
                 )
                 for run in range(self.num_runs):
                     if self.record_videos and run == self.num_runs-1:
@@ -134,9 +139,10 @@ class Analysis:
                         runner.video_record_path = video_path
                     runner.run()
                     pbar.update(1)
+                    pbar.set_description(f"{completed_configs+1}:{runner.seed+runner.num_run-1}/{total_configs}")
                 completed_configs += 1
-                pbar.set_description(f"Completed Configs: {completed_configs}/{total_configs}")
-                                
+        os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
+        os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
         #self.visualize_graph(aicon=runner.aicon, save=True, show=False)
         self.save()
     

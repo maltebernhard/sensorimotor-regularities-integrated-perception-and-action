@@ -69,7 +69,7 @@ class Polar_Pos_Estimator(RecursiveEstimator):
         
         return ret_mean, cov
     
-class Polar_PosVel_Estimatior(RecursiveEstimator):
+class Polar_PosVel_Estimator(RecursiveEstimator):
     """
     Estimator for Target state x:
     x[0]: target distance

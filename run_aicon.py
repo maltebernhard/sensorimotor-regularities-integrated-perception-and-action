@@ -12,7 +12,7 @@ if __name__ == "__main__":
     smcs                    = config.smcs.both
     distance_sensor         = config.distance_sensor.no_dist_sensor
     control                 = config.control.aicon
-    moving_target           = config.moving_target.sine_target
+    moving_target           = config.moving_target.stationary_target
     observation_noise       = config.sensor_noise.small_noise
     observation_loss        = config.observation_loss.no_obs_loss
     fv_noise                = config.fv_noise.no_fv_noise
@@ -31,7 +31,7 @@ if __name__ == "__main__":
     run_config = {
         "num_steps":        500,
         "initial_action":   [0.1, 0.0, 0.0],
-        "seed":             1,
+        "seed":             10,
         "render":           True,
         "prints":           1,
         "step_by_step":     True,

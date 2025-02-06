@@ -3,7 +3,7 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from models.smc_ais.estimators import Polar_Pos_Estimator, Polar_PosVel_Estimatior, Robot_Vel_Estimator
+from models.smc_ais.estimators import Polar_Pos_Estimator, Polar_PosVel_Estimator, Robot_Vel_Estimator
 from models.smc_ais.goals import PolarGoToTargetGoal
 from models.smc_ais.smcs import Angle_MM, Distance_MM, DivergenceVel_SMC, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC, TriangulationVel_SMC
 
@@ -19,7 +19,7 @@ class SMCAICON(AICON):
     def define_estimators(self):
         estimators = {
             "RobotVel":         Robot_Vel_Estimator(),
-            "PolarTargetPos":   Polar_Pos_Estimator() if self.env_config["moving_target"] == "stationary" else Polar_PosVel_Estimatior(),
+            "PolarTargetPos":   Polar_Pos_Estimator() if self.env_config["moving_target"] == "stationary" else Polar_PosVel_Estimator(),
         }
         return estimators
 
@@ -84,8 +84,8 @@ class SMCAICON(AICON):
         env_state = self.env.get_state()
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         state = buffer_dict['PolarTargetPos']['mean'] if buffer_dict is not None else self.REs['PolarTargetPos'].mean
-        #self.print_vector(state - torch.tensor([env_state['target_distance'], env_state['target_offset_angle'], env_state['target_visual_angle']]), "PolarTargetPos Err.")
-        #print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}, {env_state['target_distance_dot']:.3f}, {env_state['target_offset_angle_dot']+env_state['vel_rot']:.3f}]")#, {env_state['target_radius']:.3f}]")
+        self.print_vector(state[:2] - torch.tensor([env_state['target_distance'], env_state['target_offset_angle']]), "PolarTargetPos Err.")
+        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}")
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance

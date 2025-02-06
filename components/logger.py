@@ -6,7 +6,8 @@ import torch
 import pickle
 import os
 
-from components.helpers import rotate_vector_2d
+import wandb
+os.environ["WANDB_SILENT"] = "true"
 
 # ==================================================================================
 
@@ -40,12 +41,14 @@ class AICONLogger:
             run (int): The current run number, initialized to 0.
         """
         self.task_variation: Tuple[int,int,int,int] = None
-        self.aicon_type: int = None
+        #self.aicon_type: int = None
         self.config = (None, None)
         self.data: Dict[Tuple[int,Tuple[int,int,int,int]], Dict[int,dict]] = {
             "records": {},
             "configs": {
-                "aicon_types":          {},
+                "smcs":                 {},
+                "control":              {},
+                "distance_sensor":      {},
                 "sensor_noises":        {},
                 "target_movements":     {},
                 "observation_losses":   {},
@@ -53,6 +56,8 @@ class AICONLogger:
             },
         }
         self.run = 0
+        self.wandb_project:str = None
+        self.wandb_run = None
 
     def get_config_id(self, config_id: str, target_value):
         config_values = self.data["configs"][config_id]
@@ -71,23 +76,15 @@ class AICONLogger:
             return 1
 
     def set_config(self, smcs: list[str], control: bool, distance_sensor: bool, sensor_noise: Dict[str,float], moving_target: str, observation_loss: Dict[str,float], fv_noise: Dict[str,float]):
-        # aicon_type = {
-        #     "smcs":            smcs,
-        #     "control":         control,
-        #     "distance_sensor": distance_sensor,
-        # }
-        aicon_type = {
-            "SMCs":            smcs,
-            "Control":         control,
-            "DistanceSensor": distance_sensor,
-        }
-        self.aicon_type = self.get_config_id("aicon_types", aicon_type)
+        self.smcs = self.get_config_id("smcs", smcs)
+        self.control = self.get_config_id("control", control)
+        self.distance_sensor = self.get_config_id("distance_sensor", distance_sensor)
         self.sensor_noise = self.get_config_id("sensor_noises", sensor_noise)
         self.target_movement = self.get_config_id("target_movements", moving_target)
         self.observation_loss = self.get_config_id("observation_losses", observation_loss)
         self.fv_noise = self.get_config_id("fv_noises", fv_noise)
 
-        self.config = (self.aicon_type, (self.sensor_noise, self.target_movement, self.observation_loss, self.fv_noise))
+        self.config = (self.smcs, self.control, self.distance_sensor, self.sensor_noise, self.target_movement, self.observation_loss, self.fv_noise)
         if self.config not in self.data["records"]:
             self.data["records"][self.config] = {}
         self.current_data = self.data["records"][self.config]
@@ -131,26 +128,35 @@ class AICONLogger:
                 "desired_distance": env_state["desired_target_distance"],
                 # TODO: log run seed and config Analysis to skip runs which are already logged
             }
+            if self.wandb_project is not None:
+                if self.wandb_run is not None:
+                    self.wandb_run.finish()
+                self.wandb_run = wandb.init(
+                    project=self.wandb_project,
+                    name=f'{self.config}_run{self.run}',
+                    group='_'.join([str(val) for val in self.config]),
+                    config = {
+                        "smcs": self.data["configs"]["smcs"][self.smcs],
+                        "control": self.data["configs"]["control"][self.control],
+                        "distance_sensor": self.data["configs"]["distance_sensor"][self.distance_sensor],
+                        "sensor_noise": self.data["configs"]["sensor_noises"][self.sensor_noise],
+                        "moving_target": self.data["configs"]["target_movements"][self.target_movement],
+                        "observation_loss": self.data["configs"]["observation_losses"][self.observation_loss],
+                        "fv_noise": self.data["configs"]["fv_noises"][self.fv_noise],
+                    },
+                    save_code=False,
+                )
 
         # extract real state from env_state, matching to estimator structure
         real_state = {}
         for key in estimators.keys():
             if key[:5] == "Polar" and key[-3:] == "Pos":
-                obj = key[5:-9].lower() if "Global" in key else key[5:-3].lower()
+                obj = key[5:-3].lower()
                 real_state[key] = np.array([
                     env_state[f"{obj}_distance"],
                     env_state[f"{obj}_offset_angle"],
-                    env_state[f"{obj}_visual_angle"],
+                    #env_state[f"{obj}_visual_angle"],
                     #env_state[f"{obj}_offset_angle_dot"]
-                ])
-            elif key[:5] == "Polar" and key[-9:] == "PosRadius":
-                obj = key[5:-9].lower()
-                real_state[key] = np.array([
-                    env_state[f"{obj}_distance"],
-                    env_state[f"{obj}_offset_angle"],
-                    env_state[f"{obj}_distance_dot"],
-                    env_state[f"{obj}_offset_angle_dot"],
-                    env_state[f"{obj}_radius"]
                 ])
             elif key == "RobotVel":
                 real_state[key] = np.array([
@@ -165,6 +171,28 @@ class AICONLogger:
                 ])
 
         # log data
+        if self.wandb_run is not None:
+            index_keys = {
+                "PolarTargetPos": ["distance", "angle"],
+                "RobotVel": ["frontal", "lateral", "rot"],
+                "TargetRadius": ["radius"],
+            }
+            self.wandb_run.log({
+                #"step": step,
+                #"time": time,
+                "estimators": {estimator_key: {
+                    'mean': {index_keys[estimator_key][i]: val for i, val in enumerate(np.array(estimator['mean'].tolist())[:len(index_keys[estimator_key])])},
+                    #'cov': estimator['cov'],
+                    'uncertainty': {index_keys[estimator_key][i]: val for i, val in enumerate(np.sqrt(np.diag(estimator['cov']))[:len(index_keys[estimator_key])])},
+                    'estimation_error': {index_keys[estimator_key][i]: val for i, val in enumerate(real_state[estimator_key] - np.array(estimator['mean'].tolist())[:len(real_state[estimator_key])])},
+                    'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.current_data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state)-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
+                } for estimator_key, estimator in estimators.items()},
+                #"observation": observation,
+                #"goal_loss": goal_loss,
+                #"gradients": gradients,
+                #"action": action,
+            })
+
         self.current_data[self.run]["step"].append(step)
         self.current_data[self.run]["time"].append(time)
         for state_key in estimators.keys():
@@ -180,14 +208,8 @@ class AICONLogger:
             # log env_state
             self.current_data[self.run]["env_state"][state_key].append(real_state[state_key])
             task_state = real_state[state_key]
-            # if state_key == "PolarTargetGlobalPos":
-            #     # NOTE: this is only valid IF target moves and IF the estimator represents global target velocity
-            #     # TODO: implement for decoupled PolarTargetDistance and PolarTargetAngle, IF I plan to use them
-            #     rtf_vel = rotate_vector_2d(-task_state[2], real_state["RobotVel"][:2])
-            #     task_state[2] += rtf_vel[0]
-            #     task_state[3] += real_state["RobotVel"][2]
-            self.current_data[self.run]["estimation_error"][state_key].append(task_state - estimator_mean)
-            if state_key in ["PolarTargetPos", "PolarTargetGlobalPos", "PolarTargetDistance"]:
+            self.current_data[self.run]["estimation_error"][state_key].append(task_state - estimator_mean[:len(task_state)])
+            if state_key == "PolarTargetPos":
                 task_state[0] -= self.current_data[self.run]["desired_distance"]
             self.current_data[self.run]["task_state"][state_key].append(task_state)
         for obs_key in observation.keys():
@@ -361,6 +383,8 @@ class AICONLogger:
     # ================================ saving & loading ================================
 
     def save(self, record_dir):
+        if self.wandb_run is not None:
+            self.wandb_run.finish()
         self.data["records"] = self.convert_to_numpy(self.data["records"])
         with open(os.path.join(record_dir, "records/data.pkl"), 'wb') as f:
             pickle.dump(self.data, f)

@@ -127,11 +127,10 @@ class Divergence_SMC(FV_SMC):
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2])
-        # TODO: instead of estimating radius to calculate expected visual angle, compare single value in innovation space
-        vis_angle = 2 * torch.asin(state[2] / state[0]) if not state[2] / state[0] >= 1.0 else torch.pi
+        vis_angle = torch.asin(state[2] / state[0]) * 2 if not state[2] / state[0] >= 1.0 else torch.tensor(torch.pi-1e-3)
         return {
             f"{self.object_name.lower()}_visual_angle": vis_angle,
-            f"{self.object_name.lower()}_visual_angle_dot": 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi else torch.tensor(0.0)
+            f"{self.object_name.lower()}_visual_angle_dot": 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi-1e-3 else torch.tensor(0.0)
         }
 
 class DivergenceVel_SMC(FV_SMC):
@@ -148,8 +147,8 @@ class DivergenceVel_SMC(FV_SMC):
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2]) - torch.stack([state[2], state[3]*state[0]])
-        vis_angle = 2 * torch.asin(state[4] / state[0]) if not state[4] / state[0] >= 1.0 else torch.pi
+        vis_angle = 2 * torch.asin(state[4] / state[0]) if not state[4] / state[0] >= 1.0 else torch.tensor(torch.pi-1e-3)
         return {
             f'{self.object_name.lower()}_visual_angle': vis_angle,
-            f'{self.object_name.lower()}_visual_angle_dot': 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi else torch.tensor(0.0),
+            f'{self.object_name.lower()}_visual_angle_dot': 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi-1e-3 else torch.tensor(0.0),
         }

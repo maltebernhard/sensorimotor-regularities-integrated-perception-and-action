@@ -4,69 +4,91 @@ from plot import plot_states_and_losses
 
 # ==================================================================================
 
-def create_aicon_type_configs(experiment_id):
+def get_config_values(key) -> dict:
+    return [getattr(config, key).__dict__[subkey] for subkey in getattr(config, key).__dict__.keys() if subkey[0] != "_"]
+
+def get_config_keys(key) -> dict:
+    return [subkey for subkey in getattr(config, key).__dict__.keys() if subkey[0] != "_"]
+
+def create_aicon_type_configs(experiment_id, smcs_list=None):
     aicon_type_configs = []
-    for smcs in config.smcs.__dict__.values():
-        for control in config.control.__dict__.values():
-            for distance_sensor in config.control.__dict__.values():
-                if experiment_id == 1 and not distance_sensor and not len(smcs)==0:
+    for smcs in get_config_keys("smcs") if smcs_list is None else smcs_list:
+        for control in get_config_keys("control"):
+            for distance_sensor in get_config_keys("distance_sensor"):
+                if experiment_id == 1 and distance_sensor=="no_dist_sensor" and smcs!="nosmcs":
                     aicon_type_configs.append({
                         "smcs":            smcs,
                         "control":         control,
                         "distance_sensor": distance_sensor,
                     })
-                elif experiment_id == 2 and distance_sensor and not control:
+                elif experiment_id == 2 and distance_sensor=="dist_sensor" and control=="aicon":
                     aicon_type_configs.append({
-                        "smcs":           smcs,
-                        "control":        control,
+                        "smcs":            smcs,
+                        "control":         control,
                         "distance_sensor": distance_sensor,
                     })
     return aicon_type_configs
 
 def get_sensor_noise_config(aicon_type_config, experiment_id):
     if experiment_id == 1:
-        noise_config = [config.sensor_noise.small_noise, config.sensor_noise.large_noise]
+        # noise_config = ["small_noise", "large_noise"]
+        # if aicon_type_config["smcs"] == "both":
+        #     noise_config += ["tri_noise", "div_noise"]
+        noise_config = ["small_noise"]
     elif experiment_id == 2:
-        noise_config = [config.sensor_noise.small_noise, config.sensor_noise.large_noise, config.sensor_noise.dist_noise, config.sensor_noise.huge_dist_noise]
-    if len(aicon_type_config["smcs"]) == 2:
-        noise_config += [config.sensor_noise.tri_noise, config.sensor_noise.div_noise]
+        noise_config = ["small_noise", "large_noise", "dist_noise", "huge_dist_noise"]
+        if aicon_type_config["smcs"] == "both":
+            noise_config += ["tri_noise", "div_noise"]
     return noise_config
 
-def get_fv_noise_config(aicon_type_config, experiment_id):
+def get_fv_noise_config(experiment_id):
     if experiment_id == 1:
-        #return [cd.fv_noise.no_fv_noise, cd.fv_noise.fv_noise]
-        return [config.fv_noise.no_fv_noise]
+        return ["no_fv_noise"]
     elif experiment_id == 2:
-        #return [cd.fv_noise.no_fv_noise, cd.fv_noise.fv_noise]
-        return [config.fv_noise.no_fv_noise]
+        return ["no_fv_noise"]
 
-def get_moving_target_config(aicon_type_config, experiment_id):
+def get_moving_target_config(experiment_id):
     if experiment_id == 1:
-        return [config.moving_target.stationary_target]
+        # return ["stationary_target"]
+        return ["stationary_target", "sine_target"]
     elif experiment_id == 2:
-        return [config.moving_target.stationary_target]
+        return ["stationary_target"]
     
-def get_observation_loss_config(aicon_type_config, experiment_id):
+def get_observation_loss_config(experiment_id):
     if experiment_id == 1:
-        return [config.observation_loss.no_obs_loss]
+        return ["no_obs_loss"]
     elif experiment_id == 2:
-        return [config.observation_loss.no_obs_loss]
+        return ["no_obs_loss"]
 
-def create_variations(experiment):
+def create_variations(experiment_id):
     exp_configs = []
-    for aicon_type_config in create_aicon_type_configs(experiment):
-        for observation_noise_config in get_sensor_noise_config(aicon_type_config, experiment):
-            for fv_noise_config in get_fv_noise_config(aicon_type_config, experiment):
-                for moving_target_config in get_moving_target_config(aicon_type_config, experiment):
-                    for observation_loss_config in get_observation_loss_config(aicon_type_config, experiment):
+    # aicon_type_configs = create_aicon_type_configs(experiment_id)
+    aicon_type_configs = create_aicon_type_configs(experiment_id, ['both'])
+    observation_noise_configs = get_sensor_noise_config("both" if "both" in [conf["smcs"] for conf in aicon_type_configs] else "", experiment_id)
+    fv_noise_configs = get_fv_noise_config(experiment_id)
+    moving_target_configs = get_moving_target_config(experiment_id)
+    observation_loss_configs = get_observation_loss_config(experiment_id)
+    print(f"Creating experiment {experiment_id} variations for ...")
+    print("AICON Types:")
+    for aicon_config in aicon_type_configs:
+        print(aicon_config)
+    print("Sensor Noises:        ", observation_noise_configs)
+    print("Foveal Vision Noises: ", fv_noise_configs)
+    print("Moving Targets:       ", moving_target_configs)
+    print("Observation Losses:   ", observation_loss_configs)
+    for aicon_type_config in aicon_type_configs:
+        for observation_noise_config in observation_noise_configs:
+            for fv_noise_config in fv_noise_configs:
+                for moving_target_config in moving_target_configs:
+                    for observation_loss_config in observation_loss_configs:
                         exp_configs.append({
-                            "smcs":                aicon_type_config["smcs"],
-                            "control":             aicon_type_config["control"],
-                            "distance_sensor":     aicon_type_config["distance_sensor"],
-                            "moving_target":       moving_target_config,
-                            "sensor_noise":        observation_noise_config,
-                            "observation_loss":    observation_loss_config,
-                            "fv_noise":            fv_noise_config,
+                            "smcs":                config.smcs.__dict__[aicon_type_config["smcs"]],
+                            "control":             config.control.__dict__[aicon_type_config["control"]],
+                            "distance_sensor":     config.distance_sensor.__dict__[aicon_type_config["distance_sensor"]],
+                            "moving_target":       config.moving_target.__dict__[moving_target_config],
+                            "sensor_noise":        config.sensor_noise.__dict__[observation_noise_config],
+                            "observation_loss":    config.observation_loss.__dict__[observation_loss_config],
+                            "fv_noise":            config.fv_noise.__dict__[fv_noise_config],
                         })
     return exp_configs
 
@@ -85,29 +107,21 @@ base_run_config = {
     "seed":             1,
 }
 
-if __name__ == "__main__":
-    experiment_type = 2
-    variations = create_variations(experiment_type)
+runs_per_variation = 10
 
-    # custom test case
-    variations = [{
-        "smcs":                config.smcs.tri,
-        "control":             config.control.aicon,
-        "distance_sensor":     True,
-        "moving_target":       config.moving_target.stationary_target,
-        "sensor_noise":        config.sensor_noise.small_noise,
-        "observation_loss":    config.observation_loss.no_obs_loss,
-        "fv_noise":            config.fv_noise.no_fv_noise,
-    }]
+if __name__ == "__main__":
+    experiment_type = 1
+    variations = create_variations(experiment_type)
 
     analysis = Analysis({
         "name":                       f"Experiment{experiment_type}",
-        "num_runs":                   20,
+        "num_runs":                   runs_per_variation,
         "model_type":                 "SMC",
         "base_env_config":            base_env_config,
         "base_run_config":            base_run_config,
         "record_videos":              False,
         "variations":                 variations,
+        "wandb_project":              "aicon",
     })
     analysis.run_analysis()
 

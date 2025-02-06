@@ -22,7 +22,7 @@ def count_variations(variations, invariant_key: str):
 
 def create_axes(experiment_variations: list, invariants: Dict[str,list]):
     axes = {
-        "_".join([get_key_from_value(vars(configs)[key], variation[key]) for key in configs.keys if (key not in invariants.keys() or len(invariants[key])>1) and count_variations(experiment_variations, key)>1]): {
+        "_".join([get_key_from_value(vars(vars(configs)[key]), variation[key]) for key in configs.keys if (key not in invariants.keys() or len(invariants[key])>1) and count_variations(experiment_variations, key)>1]): {
             "smcs":                variation["smcs"],
             "control":             variation["control"],
             "distance_sensor":     variation["distance_sensor"],
@@ -69,7 +69,7 @@ def create_plot_names_and_invariants(experiment_variations: list, invariance_con
         plot_configs.append((config_name, config_dict))
     return plot_configs
 
-def plot_states_and_losses(analysis: Analysis, invariant_config):
+def plot_states_and_losses(analysis: Analysis, invariant_config, print_ax_keys=False, plot_ax_runs:str=None, run_demo:int=None):
     experiment_variations = analysis.variations
     plot_configs = create_plot_names_and_invariants(experiment_variations, invariant_config)
     for config in plot_configs:
@@ -77,6 +77,13 @@ def plot_states_and_losses(analysis: Analysis, invariant_config):
         plotting_config = create_plotting_config(config[0], plotting_states, axes)
         analysis.plot_states(plotting_config, save=True, show=False)
         analysis.plot_goal_losses(plotting_config, save=True, show=False)
+        if print_ax_keys:
+            print(f"Plot {config[0]} has the following axes:")
+            print([key for key in axes.keys()])
+        if plot_ax_runs is not None:
+            analysis.plot_state_runs(plotting_config, plot_ax_runs[0], plot_ax_runs[1], save=True, show=False)
+            if run_demo is not None:
+                analysis.run_demo(axes[plot_ax_runs[0]], run_number=run_demo, step_by_step=True, record_video=False)
 
 # ==================================================================================
 
@@ -85,17 +92,17 @@ plotting_states = {
         "indices": [0],
         "labels" : ["Distance"],
         "ybounds": [
-            [(-1, 4)],
-            [(-1, 2)],
-            [(0.5, 3)],
+            # Distance State
+            [(-1, 10)],
+            # Distance Estimation Error
+            [(0, 5)],
+            # Distance Estimation Uncertainty
+            [(0, 10)],
         ]
     },
 }
 
-#path = "records/2025_02_04_17_59_Experiment1"
-#path = "records/2025_02_04_17_49_Experiment2"
-
-path = "records/2025_02_05_16_45_Experiment2"
+path = "records/2025_02_06_14_31_Experiment1"
 
 if __name__ == "__main__":
     analysis = Analysis.load(path)
@@ -107,11 +114,12 @@ if __name__ == "__main__":
         - The value is either
             - None: All possible values for this parameter will be plotted
             - A tuple:
-                - The first element will be in the filename, the second element is a list of the values that should be plotted together
+                - The first element will be in the filename, the second element is a list of the values that should be plotted together, excluding all other values
         """
         invariant_config = {
-            "smcs": None,
-            "fv_noise": None,
+            "smcs":          None,
+            "fv_noise":      None,
+            "moving_target": ("TargetMovementComparison", [configs.moving_target.sine_target, configs.moving_target.stationary_target]),
         }
         # invariant_config = {
         #     "smcs":         ("Tri",           [cd.smcs.tri]),
@@ -128,18 +136,4 @@ if __name__ == "__main__":
         #     "fv_noise":     ("NoFVNoise",     [cd.fv_noise.no_fv_noise]),
         # }
 
-    #plot_states_and_losses(analysis, invariant_config)
-    plot_configs = create_plot_names_and_invariants(analysis.variations, invariant_config)
-    for config in plot_configs:
-        axes = create_axes(analysis.variations, config[1])
-        plotting_config = create_plotting_config(config[0], plotting_states, axes)
-        #analysis.plot_state_runs(plotting_config, "", [14], save=True, show=False)
-        analysis.run_demo(axes[''], run_number=14, step_by_step=True, record_video=False)
-
-    # plot_configs = create_names_and_invariants(analysis.variations, invariant_config)
-    # for config in plot_configs:
-    #     axes = create_axes(analysis.variations, config[1])
-    #     plotting_config = create_plotting_config(config[0], plotting_states, axes)
-    #     print(axes.keys())
-    #     analysis.plot_state_runs(plotting_config, 'AICON', save=True, show=False)
-    #     #analysis.run_demo(axes['AICON'], run_number=1, step_by_step=True, record_video=False)
+    plot_states_and_losses(analysis, invariant_config, print_ax_keys=True, plot_ax_runs=("manual_sine_target",None), run_demo=6)
