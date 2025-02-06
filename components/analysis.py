@@ -21,8 +21,6 @@ from models.smc_ais.aicon import SMCAICON
 from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
 from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
 
-import wandb
-
 # ========================================================================================================
 
 class Runner:
@@ -96,9 +94,8 @@ class Analysis:
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
-        if 'wandb_project' in self.experiment_config:       
-            self.logger.wandb_project=self.experiment_config['wandb_project']
-
+        if self.experiment_config['wandb']:       
+            self.logger.wandb_group = f"{experiment_config["name"]}_{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
 
     def add_and_run_variations(self, variations: List[dict]):
         self.variations += variations

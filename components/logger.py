@@ -56,7 +56,8 @@ class AICONLogger:
             },
         }
         self.run = 0
-        self.wandb_project:str = None
+        
+        self.wandb_group: str = None
         self.wandb_run = None
 
     def get_config_id(self, config_id: str, target_value):
@@ -128,13 +129,13 @@ class AICONLogger:
                 "desired_distance": env_state["desired_target_distance"],
                 # TODO: log run seed and config Analysis to skip runs which are already logged
             }
-            if self.wandb_project is not None:
+            if self.wandb_group is not None:
                 if self.wandb_run is not None:
                     self.wandb_run.finish()
                 self.wandb_run = wandb.init(
-                    project=self.wandb_project,
+                    project="aicon",
                     name=f'{self.config}_run{self.run}',
-                    group='_'.join([str(val) for val in self.config]),
+                    group=self.wandb_group,
                     config = {
                         "smcs": self.data["configs"]["smcs"][self.smcs],
                         "control": self.data["configs"]["control"][self.control],
