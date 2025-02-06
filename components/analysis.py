@@ -10,16 +10,16 @@ import networkx as nx
 
 from components.aicon import AICON
 from components.logger import AICONLogger
-# from models.old.base.aicon import BaseAICON
-# from models.old.experiment1.aicon import Experiment1AICON
-# from models.old.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
-# from models.old.divergence.aicon import DivergenceAICON
-# from models.old.global_vels.aicon import GlobalVelAICON
-# from models.old.single_estimator.aicon import SingleEstimatorAICON
+from models.old.base.aicon import BaseAICON
+from models.old.experiment1.aicon import Experiment1AICON
+from models.old.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
+from models.old.divergence.aicon import DivergenceAICON
+from models.old.global_vels.aicon import GlobalVelAICON
+from models.old.single_estimator.aicon import SingleEstimatorAICON
 from models.smc_ais.aicon import SMCAICON
 
-# from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
-# from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
+from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
+from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
 
 # ========================================================================================================
 
@@ -62,16 +62,16 @@ class Runner:
     def create_model(self):
         if self.model == "SMC":                    return SMCAICON(self.env_config, self.aicon_type)
 
-        # elif self.model == "Base":                   return BaseAICON(self.env_config)
-        # elif self.model == "Experiment1":            return Experiment1AICON(self.env_config, self.aicon_type)
-        # elif self.model == "ExperimentFovealVision": return ExperimentFovealVisionAICON(self.env_config)
-        # elif self.model == "SingleEstimator":        return SingleEstimatorAICON(self.env_config)
-        # elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
-        # elif self.model == "GlobalVel":              return GlobalVelAICON(self.env_config)
+        elif self.model == "Base":                   return BaseAICON(self.env_config)
+        elif self.model == "Experiment1":            return Experiment1AICON(self.env_config, self.aicon_type)
+        elif self.model == "ExperimentFovealVision": return ExperimentFovealVisionAICON(self.env_config)
+        elif self.model == "SingleEstimator":        return SingleEstimatorAICON(self.env_config)
+        elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
+        elif self.model == "GlobalVel":              return GlobalVelAICON(self.env_config)
 
-        # elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
-        # elif self.model == "Estimator":              return ContingentEstimatorAICON(self.env_config)
-        # elif self.model == "Visibility":             return VisibilityAICON(self.env_config)
+        elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
+        elif self.model == "Estimator":              return ContingentEstimatorAICON(self.env_config)
+        elif self.model == "Visibility":             return VisibilityAICON(self.env_config)
         else:
             raise ValueError(f"Model Type {self.model} not recognized")
 

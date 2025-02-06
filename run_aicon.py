@@ -1,5 +1,5 @@
 from components.analysis import Runner
-from configs import config_dicts as cd
+from configs import ExperimentConfig as cd
 
 # ========================================================================================================
 
