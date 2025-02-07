@@ -54,14 +54,16 @@ class AICONLogger:
                 "observation_losses":   {},
                 "fv_noises": {},
             },
+            "config_ids": {},
         }
         self.run = 0
         
+        self.wandb_project: str = None
         self.wandb_group: str = None
         self.wandb_run = None
 
-    def get_config_id(self, config_id: str, target_value):
-        config_values = self.data["configs"][config_id]
+    def get_subconfig_id(self, config_key: str, target_value):
+        config_values = self.data["configs"][config_key]
         if len(config_values) > 0:
             if target_value not in config_values.values():
                 new_id = max([int_key for int_key in config_values.keys()]) + 1
@@ -75,17 +77,31 @@ class AICONLogger:
             config_values[1] = target_value
             #print(f"Couldn't find existing config for {config_id}")
             return 1
+        
+    def get_config_id(self, config_id_tuple: str):
+        for key, value in self.data["config_ids"].items():
+            if value == config_id_tuple:
+                return key
+        if len(self.data["config_ids"]) == 0:
+            new_id = 1
+        else:
+            new_id = max([int_key for int_key in self.data["config_ids"].keys()]) + 1
+        self.data["config_ids"][new_id] = config_id_tuple
+        return new_id
+        
+    def get_subconfig_value(self, config_id: str, target_id):
+        return self.data["configs"][config_id][target_id]
 
     def set_config(self, smcs: list[str], control: bool, distance_sensor: bool, sensor_noise: Dict[str,float], moving_target: str, observation_loss: Dict[str,float], fv_noise: Dict[str,float]):
-        self.smcs = self.get_config_id("smcs", smcs)
-        self.control = self.get_config_id("control", control)
-        self.distance_sensor = self.get_config_id("distance_sensor", distance_sensor)
-        self.sensor_noise = self.get_config_id("sensor_noises", sensor_noise)
-        self.target_movement = self.get_config_id("target_movements", moving_target)
-        self.observation_loss = self.get_config_id("observation_losses", observation_loss)
-        self.fv_noise = self.get_config_id("fv_noises", fv_noise)
+        self.smcs = self.get_subconfig_id("smcs", smcs)
+        self.control = self.get_subconfig_id("control", control)
+        self.distance_sensor = self.get_subconfig_id("distance_sensor", distance_sensor)
+        self.sensor_noise = self.get_subconfig_id("sensor_noises", sensor_noise)
+        self.target_movement = self.get_subconfig_id("target_movements", moving_target)
+        self.observation_loss = self.get_subconfig_id("observation_losses", observation_loss)
+        self.fv_noise = self.get_subconfig_id("fv_noises", fv_noise)
 
-        self.config = (self.smcs, self.control, self.distance_sensor, self.sensor_noise, self.target_movement, self.observation_loss, self.fv_noise)
+        self.config = self.get_config_id((self.smcs, self.control, self.distance_sensor, self.sensor_noise, self.target_movement, self.observation_loss, self.fv_noise))
         if self.config not in self.data["records"]:
             self.data["records"][self.config] = {}
         self.current_data = self.data["records"][self.config]
@@ -133,10 +149,11 @@ class AICONLogger:
                 if self.wandb_run is not None:
                     self.wandb_run.finish()
                 self.wandb_run = wandb.init(
-                    project="aicon",
-                    name=f'{self.config}_run{self.run}',
+                    project=self.wandb_project,
+                    name=f'{self.config}_{self.run}',
                     group=self.wandb_group,
                     config = {
+                        "id": self.config,
                         "smcs": self.data["configs"]["smcs"][self.smcs],
                         "control": self.data["configs"]["control"][self.control],
                         "distance_sensor": self.data["configs"]["distance_sensor"][self.distance_sensor],
@@ -156,9 +173,22 @@ class AICONLogger:
                 real_state[key] = np.array([
                     env_state[f"{obj}_distance"],
                     env_state[f"{obj}_offset_angle"],
-                    #env_state[f"{obj}_visual_angle"],
-                    #env_state[f"{obj}_offset_angle_dot"]
                 ])
+                if obj=='target' and self.get_subconfig_value("target_movements", self.target_movement) != "stationary":
+                    real_state[key] = np.append(real_state[key], env_state[f"{obj}_distance_dot_global"])
+                    real_state[key] = np.append(real_state[key], env_state[f"{obj}_offset_angle_dot_global"])
+                    index_keys = {
+                        "PolarTargetPos": ["distance", "angle", "distance_dot", "angle_dot", "radius"],
+                        "RobotVel": ["frontal", "lateral", "rot"],
+                        "TargetRadius": ["radius"],
+                    }
+                else:
+                    index_keys = {
+                        "PolarTargetPos": ["distance", "angle", "radius"],
+                        "RobotVel": ["frontal", "lateral", "rot"],
+                        "TargetRadius": ["radius"],
+                    }
+                real_state[key] = np.append(real_state[key], env_state[f"{obj}_radius"])
             elif key == "RobotVel":
                 real_state[key] = np.array([
                     env_state["vel_frontal"],
@@ -173,11 +203,6 @@ class AICONLogger:
 
         # log data
         if self.wandb_run is not None:
-            index_keys = {
-                "PolarTargetPos": ["distance", "angle"],
-                "RobotVel": ["frontal", "lateral", "rot"],
-                "TargetRadius": ["radius"],
-            }
             self.wandb_run.log({
                 #"step": step,
                 #"time": time,
@@ -186,7 +211,7 @@ class AICONLogger:
                     #'cov': estimator['cov'],
                     'uncertainty': {index_keys[estimator_key][i]: val for i, val in enumerate(np.sqrt(np.diag(np.array(estimator['cov'].tolist())))[:len(index_keys[estimator_key])])},
                     'estimation_error': {index_keys[estimator_key][i]: val for i, val in enumerate(real_state[estimator_key] - np.array(estimator['mean'].tolist())[:len(real_state[estimator_key])])},
-                    'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.current_data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state)-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
+                    'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.current_data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state[estimator_key])-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
                 } for estimator_key, estimator in estimators.items()},
                 #"observation": observation,
                 #"goal_loss": goal_loss,
@@ -252,23 +277,28 @@ class AICONLogger:
             axs = [axs]
         return fig, axs
 
-    def plot_mean_stddev(self, subplot: plt.Axes, error_means: np.ndarray, error_stddevs: np.ndarray, title:str=None, data_label:str=None, y_label:str=None, x_label:str=None, legend=False):
-        subplot.plot(error_means, label=data_label)
-        subplot.fill_between(
-            range(len(error_means)), 
-            error_means - error_stddevs,
-            error_means + error_stddevs,
-            alpha=0.2,
-            #label='Stddev'
+    def plot_mean_stddev(self, subplot: plt.Axes, means: np.ndarray, stddevs: np.ndarray, title:str, label:str, y_label:str, y_bounds:Tuple[float,float]=None, style_dict:Dict[str,str]=None):
+        plot_kwargs = style_dict if style_dict is not None else {'label': label}
+        subplot.plot(
+            means,
+            **plot_kwargs
         )
-        if title is not None:
-            subplot.set_title(title, fontsize=16)
-        if x_label is not None:
-            subplot.set_xlabel(x_label)
-        if y_label is not None:
-            subplot.set_ylabel(y_label, fontsize=16)
+        stddev_kwargs = {"color": plot_kwargs["color"]} if "color" in plot_kwargs.keys() else {}
+        subplot.fill_between(
+            range(len(means)), 
+            means - stddevs,
+            means + stddevs,
+            alpha=0.2,
+            **stddev_kwargs
+        )
+        subplot.set_title(title, fontsize=16)
+        subplot.set_xlabel("Time Step", fontsize=16)
+        subplot.set_ylabel(y_label, fontsize=16)
         subplot.grid(True)
-        subplot.legend() if legend else None
+        subplot.legend()
+        subplot.set_xlim(0, len(means))
+        if y_bounds is not None:
+            subplot.set_ylim(y_bounds)
 
     def plot_runs(self, subplot: plt.Axes, data:List[np.ndarray], labels:List[int], state_index:int=None, title:str=None, y_label:str=None, x_label:str=None, legend=False):
         if state_index is None:
@@ -293,10 +323,8 @@ class AICONLogger:
             time.sleep(0.3)
             print(f"Saving to {save_path}...")
             fig.savefig(save_path)
-            plt.close(fig)
         if show:
             fig.show()
-            input("Press Enter to continue...")
         plt.close('all')
 
     def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
@@ -310,23 +338,26 @@ class AICONLogger:
             else:
                 fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
 
+            for i in range(len(indices)):
+                axs[0][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
+                axs[1][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
+                axs[2][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
+
             for label, config in plotting_config["axes"].items():
                 self.set_config(**config)
 
-                states = np.array([np.array(run["task_state"][state_id])[:,indices] for run in self.current_data.values()])
-                ucttys = np.array([np.array(run["estimators"][state_id]["uncertainty"])[:,indices] for run in self.current_data.values()])
-                errors = np.array([np.array(run["estimation_error"][state_id])[:,indices] for run in self.current_data.values()])
+                states = np.array([np.array(run_data["task_state"][state_id])[:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
+                ucttys = np.array([np.array(run_data["estimators"][state_id]["uncertainty"])[:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
+                errors = np.array([np.array(run_data["estimation_error"][state_id])[:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
 
                 state_means, state_stddevs = self.compute_mean_and_stddev(states)
                 error_means, error_stddevs = self.compute_mean_and_stddev(errors)
                 uctty_means, uctty_stddevs = self.compute_mean_and_stddev(ucttys)
                 for i in range(len(indices)):
-                    self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], None, label, f"{labels[i]} State" if i==0 else None, "Time Step", True)
-                    self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], None, label, f"{labels[i]} Estimation Error" if i==0 else None, "Time Step", True)
-                    self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], None, label, f"{labels[i]} Estimation Uncertainty" if i==0 else None, "Time Step", True)    
-                    axs[0][i].set_ylim(ybounds[0][i])
-                    axs[1][i].set_ylim(ybounds[1][i])
-                    axs[2][i].set_ylim(ybounds[2][i])
+                    self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], "Task State", label, "Offset from Desired Distance", y_bounds=ybounds[0][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
+                    self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], "Estimation Error", label, "Estimation Error", y_bounds=ybounds[1][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
+                    self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], "Estimation Uncertainty", label, "Estimation Uncertainty (stddev)", y_bounds=ybounds[2][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)    
+                    
             # save / show
             path = os.path.join(save_path, f"records/state_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
@@ -367,16 +398,15 @@ class AICONLogger:
             ybounds = config["ybounds"]
             for label, config in plotting_config["axes"].items():
                 self.set_config(**config)
-                total_loss = np.array([[0.0]*len(run["step"]) for run in self.current_data.values()])
+                total_loss = np.array([[0.0]*len(run_data["step"]) for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
                 for subgoal_key in self.current_data[1]["goal_loss"][goal_key].keys():
-                    goal_losses = np.array([run["goal_loss"][goal_key][subgoal_key] for run in self.current_data.values()])
+                    goal_losses = np.array([run_data["goal_loss"][goal_key][subgoal_key] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
                     total_loss += goal_losses
                     if plot_subgoals:
                         goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
-                        self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"{goal_key} loss", f"{label} {subgoal_key} loss", "Loss Mean and Stddev", "Timestep", True)
+                        self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"{goal_key} goal loss", f"{label} {subgoal_key} loss", "Loss Mean and Stddev", ybounds, style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
                 total_loss_means, total_loss_stddevs = self.compute_mean_and_stddev(total_loss)
-                self.plot_mean_stddev(axs_goal[i], total_loss_means, total_loss_stddevs, f"{goal_key} loss", f"{label} total loss", "Loss Mean and Stddev", "Timestep", True)
-                axs_goal[i].set_ylim(ybounds[0], ybounds[1])
+                self.plot_mean_stddev(axs_goal[i], total_loss_means, total_loss_stddevs, f"{goal_key} goal loss", f"{label} total loss", "Loss Mean and Stddev", ybounds, style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
         # save / show
         loss_path = os.path.join(save_path, f"records/loss_{plotting_config['name']}.png") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)

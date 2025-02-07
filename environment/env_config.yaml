@@ -18,7 +18,7 @@ num_obstacles:      0
 use_obstacles:      true
 
 
-# maximum target_distance as objective (minimum is 0.0, uniform sampling)
+# maximum target_distance as objective
 target_distance:    20.0
 # size of reward margin around target distance
 reward_margin:      1000.0

@@ -54,6 +54,24 @@ class Distance_MM(FV_SMC):
         return {
             f"{self.object_name.lower()}_distance": state[0]
         }
+    
+class DistanceVel_MM(FV_SMC):
+    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
+        self.object_name = object_name
+        sensory_components = [f"{object_name.lower()}_distance", f"{object_name.lower()}_distance_dot"]
+        super().__init__(
+            state_component    = f"Polar{object_name}Pos",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components,
+            sensor_angle       = sensor_angle,
+            fv_noise           = fv_noise
+        )
+
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
+        return {
+            f"{self.object_name.lower()}_distance": state[0],
+            f"{self.object_name.lower()}_distance_dot": state[3] - rotate_vector_2d(-state[1], action[:2])[0]
+        }
 
 class Angle_MM(FV_SMC):
     def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
@@ -127,7 +145,7 @@ class Divergence_SMC(FV_SMC):
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2])
-        vis_angle = torch.asin(state[2] / state[0]) * 2 if not state[2] / state[0] >= 1.0 else torch.tensor(torch.pi-1e-3)
+        vis_angle = torch.asin(state[2] / state[0]) * 2 if -1.0 < state[2] / state[0] < 1.0 else torch.tensor(torch.pi-1e-3)
         return {
             f"{self.object_name.lower()}_visual_angle": vis_angle,
             f"{self.object_name.lower()}_visual_angle_dot": 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi-1e-3 else torch.tensor(0.0)
@@ -147,7 +165,7 @@ class DivergenceVel_SMC(FV_SMC):
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2]) - torch.stack([state[2], state[3]*state[0]])
-        vis_angle = 2 * torch.asin(state[4] / state[0]) if not state[4] / state[0] >= 1.0 else torch.tensor(torch.pi-1e-3)
+        vis_angle = 2 * torch.asin(state[4] / state[0]) if -1.0 < state[4] / state[0] < 1.0 else torch.tensor(torch.pi-1e-3)
         return {
             f'{self.object_name.lower()}_visual_angle': vis_angle,
             f'{self.object_name.lower()}_visual_angle_dot': 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi-1e-3 else torch.tensor(0.0),

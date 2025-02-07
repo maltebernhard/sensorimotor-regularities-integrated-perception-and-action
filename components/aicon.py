@@ -129,11 +129,14 @@ class AICON(ABC):
 
     def meas_updates(self, buffer_dict):
         if self.prints > 0 and self.current_step % self.prints == 0:
+            #print("Real Measurements: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in self.last_observation[0].items()])
             print("Pre Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
             print("Pre Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
-        for meas_model, estimator_keys in self.MMs.values():
+        for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
+                    # if self.prints > 0 and self.current_step % self.prints == 0:
+                    #     print(f"Meas Model {mm_key} on Estimator {estimator_key}")
                     self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
         if self.prints > 0 and self.current_step % self.prints == 0:
             print("Post Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)

@@ -210,8 +210,13 @@ class SensorimotorContingency(ActiveInterconnection):
         contingent_noise = self.get_contingent_noise(buffer_dict[self.state_component]['mean'])
         noise = {}
         for key in self.required_observations:
-            if "vel" in key or "distance" in key:
-                noise[key] = self.connected_states[key].sensor_noise * torch.abs(predicted_meas[key]) + contingent_noise[key]
+            if "vel" in key:
+                noise[key] = (self.connected_states[key].sensor_noise + contingent_noise[key]) * torch.abs(predicted_meas[key])
+            elif "distance" in key:
+                if not "dot" in key:
+                    noise[key] = (self.connected_states[key].sensor_noise + contingent_noise[key]) * torch.abs(predicted_meas[key])
+                elif "dot" in key:
+                    noise[key] = (self.connected_states[key].sensor_noise + contingent_noise[key]) * predicted_meas[key.replace("_dot","")]
             else:
                 noise[key] = self.connected_states[key].sensor_noise + contingent_noise[key]
         return noise

@@ -34,8 +34,16 @@ def create_axes(experiment_variations: list, invariants: Dict[str,list]):
     }
     return axes
 
-def create_plotting_config(name: str, state_config: dict, axes_config: dict):
-    return {
+def create_plotting_config(name: str, state_config: dict, axes_config: dict, plot_styles: dict = None, exclude_runs=[]):
+    if state_config is None:
+        state_config = {
+            "PolarTargetPos": {
+                "indices": [0],
+                "labels" : ["Distance"],
+                "ybounds": [[(-1, 20)],[(-1, 20)],[(-1, 20)]]
+            },
+        }
+    plotting_config = {
         "name": name,
         "states": state_config,
         "goals": {
@@ -43,8 +51,12 @@ def create_plotting_config(name: str, state_config: dict, axes_config: dict):
                 "ybounds": (0, 20)
             },
         },
-        "axes": axes_config
+        "axes": axes_config,
+        "exclude_runs": exclude_runs
     }
+    if plot_styles is not None:
+        plotting_config["style"] = plot_styles
+    return plotting_config
 
 def create_plot_names_and_invariants(experiment_variations: list, invariance_config = Dict[str,Tuple[str,List[object]]]):
     """
@@ -69,14 +81,14 @@ def create_plot_names_and_invariants(experiment_variations: list, invariance_con
         plot_configs.append((config_name, config_dict))
     return plot_configs
 
-def plot_states_and_losses(analysis: Analysis, invariant_config, print_ax_keys=False, plot_ax_runs:str=None, run_demo:int=None):
+def plot_states_and_losses(analysis: Analysis, invariant_config, plotting_states_config=None, show=False, print_ax_keys=False, ax_display_config=None, plot_ax_runs:str=None, run_demo:int=None, exclude_runs=[]):
     experiment_variations = analysis.variations
     plot_configs = create_plot_names_and_invariants(experiment_variations, invariant_config)
     for config in plot_configs:
         axes = create_axes(experiment_variations, config[1])
-        plotting_config = create_plotting_config(config[0], plotting_states, axes)
-        analysis.plot_states(plotting_config, save=True, show=False)
-        analysis.plot_goal_losses(plotting_config, save=True, show=False)
+        plotting_config = create_plotting_config(config[0], plotting_states_config, axes, plot_styles=ax_display_config, exclude_runs=exclude_runs)
+        analysis.plot_states(plotting_config, save=True, show=show)
+        analysis.plot_goal_losses(plotting_config, save=True, show=show)
         if print_ax_keys:
             print(f"Plot {config[0]} has the following axes:")
             print([key for key in axes.keys()])
@@ -87,27 +99,28 @@ def plot_states_and_losses(analysis: Analysis, invariant_config, print_ax_keys=F
 
 # ==================================================================================
 
-plotting_states = {
-    "PolarTargetPos": {
-        "indices": [0],
-        "labels" : ["Distance"],
-        "ybounds": [
-            # Distance State
-            [(-1, 10)],
-            # Distance Estimation Error
-            [(0, 5)],
-            # Distance Estimation Uncertainty
-            [(0, 10)],
-        ]
-    },
-}
-
-path = "records/2025_02_06_14_31_Experiment1"
+path = "records/2025_02_07_19_46_Experiment2"
+#path = "records/2025_02_07_19_01_Experiment1"
 
 if __name__ == "__main__":
     analysis = Analysis.load(path)
 
     if "Experiment1" in path:
+        plotting_states = {
+            "PolarTargetPos": {
+                "indices": [0],
+                "labels" : ["Distance"],
+                "ybounds": [
+                    # Distance State
+                    [(-1, 20)],
+                    # Distance Estimation Error
+                    [(-1, 20)],
+                    # Distance Estimation Uncertainty
+                    [(-1, 20)],
+                ]
+            },
+        }
+
         """
         Explanation of the invariant_config dictionary:
         - The key is the name of the configuration parameter that should be invariant for one plot
@@ -118,22 +131,72 @@ if __name__ == "__main__":
         """
         invariant_config = {
             "smcs":          None,
-            "fv_noise":      None,
-            "moving_target": ("TargetMovementComparison", [configs.moving_target.sine_target, configs.moving_target.stationary_target]),
+            #"fv_noise":      None,
+            #"moving_target": ("TargetMovementComparison", [configs.moving_target.sine_target, configs.moving_target.stationary_target]),
         }
         # invariant_config = {
         #     "smcs":         ("Tri",           [cd.smcs.tri]),
         #     "fv_noise":     ("NoFVNoise",     [cd.fv_noise.no_fv_noise]),
         #     "sensor_noise": ("2Noises",       [cd.sensor_noise.small_noise, cd.sensor_noise.large_noise]),
         # }
-    elif "Experiment2" in path:
-        invariant_config = {
-            "sensor_noise": None,
-            "fv_noise":     None,
-        }
-        # invariant_config = {
-        #     "sensor_noise": ("HugeDistNoise", [cd.sensor_noise.huge_dist_noise]),
-        #     "fv_noise":     ("NoFVNoise",     [cd.fv_noise.no_fv_noise]),
-        # }
 
-    plot_states_and_losses(analysis, invariant_config, print_ax_keys=True, plot_ax_runs=("manual_sine_target",None), run_demo=6)
+        plot_styles = {
+            'aicon_stationary_target': {
+                'label': 'AICON control | stationary target',
+                'color': 'blue', # red, green, blue, cyan, magenta, yellow, black, white
+                'linestyle': 'solid', # dotted, dashed, dashdot
+                'linewidth': 2
+            },
+            'aicon_sine_target': {
+                'label': 'AICON control | moving target',
+                'color': 'blue',
+                'linestyle': 'dashed',
+                'linewidth': 2
+            },
+            'manual_stationary_target': {
+                'label': 'designed control | stationary target',
+                'color': 'red',
+                'linestyle': 'solid',
+                'linewidth': 2
+            },
+            'manual_sine_target': {
+                'label': 'designed control | moving target',
+                'color': 'red',
+                'linestyle': 'dashed',
+                'linewidth': 2
+            }
+        }
+        plot_states_and_losses(analysis, invariant_config, plotting_states, show=False, ax_display_config=plot_styles)#, plot_ax_runs=("aicon_sine_target",None), run_demo=2)#, exclude_runs=[1])
+
+
+    elif "Experiment2" in path:
+        plotting_states = {
+            "PolarTargetPos": {
+                "indices": [0],
+                "labels" : ["Distance"],
+                "ybounds": [
+                    # Distance State
+                    [(-1, 20)],
+                    # Distance Estimation Error
+                    [(-1, 20)],
+                    # Distance Estimation Uncertainty
+                    [(-1, 20)],
+                ]
+            },
+        }
+
+        # invariant_config = {
+        #     "sensor_noise": None,
+        #     "fv_noise":     None,
+        # }
+        invariant_config = {
+            "sensor_noise": ("HugeDistNoise",    [configs.sensor_noise.huge_dist_noise]),
+            #"smcs":         ("TriBoth",        [configs.smcs.both, configs.smcs.tri]),
+            #"sensor_noise": ("SmallNoise",    [configs.sensor_noise.small_noise]),
+            #"fv_noise":     ("NoFVNoise",     [configs.fv_noise.no_fv_noise]),
+            #"moving_target": ("Sine", [configs.moving_target.sine_target]),
+            "moving_target": ("Sine", [configs.moving_target.sine_target]),
+            #"observation_loss": ("TriDistLoss", [configs.observation_loss.dist_loss, configs.observation_loss.tri_loss]),
+            "observation_loss": ("NoObsLoss", [configs.observation_loss.no_obs_loss]),
+        }
+        plot_states_and_losses(analysis, invariant_config, plotting_states, show=False, print_ax_keys=True, plot_ax_runs=("nosmcs",None), run_demo=1)#, plot_ax_runs=("nosmcs",None), exclude_runs=[9])

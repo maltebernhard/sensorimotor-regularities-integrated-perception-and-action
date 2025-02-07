@@ -94,8 +94,9 @@ class Analysis:
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
+        self.logger.wandb_project = f"aicon-{self.experiment_config['name']}"
         if self.experiment_config['wandb'] and self.experiment_config.get("wandb_group", None) is None:
-            self.experiment_config['wandb_group'] = f"{experiment_config["name"]}_{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
+            self.experiment_config['wandb_group'] = f"{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
         self.logger.wandb_group = self.experiment_config['wandb_group']
 
     def add_and_run_variations(self, variations: List[dict]):

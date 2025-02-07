@@ -5,7 +5,7 @@ from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
 from models.smc_ais.estimators import Polar_Pos_Estimator, Polar_PosVel_Estimator, Robot_Vel_Estimator
 from models.smc_ais.goals import PolarGoToTargetGoal
-from models.smc_ais.smcs import Angle_MM, Distance_MM, DivergenceVel_SMC, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC, TriangulationVel_SMC
+from models.smc_ais.smcs import Angle_MM, Distance_MM, DistanceVel_MM, DivergenceVel_SMC, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC, TriangulationVel_SMC
 
 # ========================================================================================================
 
@@ -28,7 +28,7 @@ class SMCAICON(AICON):
         sensor_angle = self.env_config["robot_sensor_angle"]
         meas_models = {}
         if self.distance_sensor == "distsensor":
-            meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
+            meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"]) if self.env_config["moving_target"] == "stationary" else (DistanceVel_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos", "RobotVel"])
         meas_models["VelMM"]   = (Robot_Vel_MM(), ["RobotVel"])
         meas_models["AngleMM"] = (Angle_MM(fv_noise=fv_noise, sensor_angle=sensor_angle),     ["PolarTargetPos"])
         if "Triangulation" in self.smcs:

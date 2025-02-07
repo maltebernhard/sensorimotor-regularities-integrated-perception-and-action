@@ -1,6 +1,7 @@
-from components.analysis import Analysis
+from components.analysis import Analysis, Runner
 from configs import ExperimentConfig as config
 from plot import plot_states_and_losses
+import sys
 
 # ==================================================================================
 
@@ -31,13 +32,15 @@ def create_aicon_type_configs(experiment_id, smcs_list=None):
 
 def get_sensor_noise_config(smcs_config, experiment_id):
     if experiment_id == 1:
-        noise_config = ["small_noise", "large_noise"]
-        if smcs_config == "both":
-            noise_config += ["tri_noise", "div_noise"]
+        # noise_config = ["small_noise", "large_noise"]
+        # if smcs_config == "both":
+        #     noise_config += ["tri_noise", "div_noise"]
+        noise_config = ["small_noise"]
     elif experiment_id == 2:
-        noise_config = ["small_noise", "large_noise", "dist_noise", "huge_dist_noise"]
-        if smcs_config == "both":
-            noise_config += ["tri_noise", "div_noise"]
+        # noise_config = ["small_noise", "large_noise", "dist_noise", "huge_dist_noise"]
+        # if smcs_config == "both":
+        #     noise_config += ["tri_noise", "div_noise"]
+        noise_config = ["small_noise", "huge_dist_noise"]
     return noise_config
 
 def get_fv_noise_config(experiment_id):
@@ -51,24 +54,28 @@ def get_moving_target_config(experiment_id):
         # return ["stationary_target"]
         return ["stationary_target", "sine_target"]
     elif experiment_id == 2:
-        return ["stationary_target"]
+        #return ["stationary_target", "sine_target"]
+        return ["sine_target"]
     
 def get_observation_loss_config(smcs_config, experiment_id):
     if experiment_id == 1:
         return ["no_obs_loss"]
     elif experiment_id == 2:
-        loss_config =["no_obs_loss", "dist_loss"]
-        if smcs_config == "both" or smcs_config == "div":
-            loss_config += ["div_loss"]
-        if smcs_config == "both" or smcs_config == "tri":
-            loss_config += ["tri_loss"]
-        return loss_config
-
+        # loss_config =["no_obs_loss", "dist_loss"]
+        # if smcs_config == "both" or smcs_config == "div":
+        #     loss_config += ["div_loss"]
+        # if smcs_config == "both" or smcs_config == "tri":
+        #     loss_config += ["tri_loss"]
+        # return loss_config
+        return ["no_obs_loss", "dist_loss"]
 
 def create_variations(experiment_id):
     exp_configs = []
-    aicon_type_configs = create_aicon_type_configs(experiment_id)
-    #aicon_type_configs = create_aicon_type_configs(experiment_id, ['nosmcs', 'tri', 'div'])
+    #aicon_type_configs = create_aicon_type_configs(experiment_id)
+    if experiment_id == 1:
+        aicon_type_configs = create_aicon_type_configs(experiment_id, ['both'])
+    elif experiment_id == 2:
+        aicon_type_configs = create_aicon_type_configs(experiment_id, ['nosmcs', 'both'])
     observation_noise_configs = get_sensor_noise_config("both" if "both" in [conf["smcs"] for conf in aicon_type_configs] else "", experiment_id)
     fv_noise_configs = get_fv_noise_config(experiment_id)
     moving_target_configs = get_moving_target_config(experiment_id)
@@ -107,15 +114,22 @@ base_env_config = {
 }
 
 base_run_config = {
-    "num_steps":        250,
+    "num_steps":        300,
     "initial_action":   [0.0, 0.0, 0.0],
-    "seed":             1,
+    "seed":             10,
 }
 
 runs_per_variation = 10
 
 if __name__ == "__main__":
-    experiment_type = 2
+    if len(sys.argv) != 2:
+        print("Usage: python run_analysis.py <experiment_type>")
+        sys.exit(1)
+    try:
+        experiment_type = int(sys.argv[1])
+    except ValueError:
+        print("Experiment type must be an integer.")
+        sys.exit(1)
     variations = create_variations(experiment_type)
 
     analysis = Analysis({
@@ -134,11 +148,11 @@ if __name__ == "__main__":
     if experiment_type == 1:
         invariant_config = {
             "smcs": None,
-            "fv_noise": None,
+            #"fv_noise": None,
         }
     elif experiment_type == 2:
         invariant_config = {
             "sensor_noise": None,
-            "fv_noise":     None,
+            #"fv_noise":     None,
         }
     plot_states_and_losses(analysis, invariant_config)

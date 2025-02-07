@@ -119,7 +119,7 @@ class GazeFixEnv(BaseEnv):
         self.record_video = False
         self.video_path = ""
         self.video = None
-    
+
     def step(self, action):
         self.current_step += 1
         self.time += self.timestep
@@ -146,14 +146,14 @@ class GazeFixEnv(BaseEnv):
         self.total_reward += rew
 
         return np.array(list(self.last_observation.values())), rewards, done, trun, info
-    
+
     def reset(self, seed=None, video_path = None, **kwargs):
         if seed is not None:
             super().reset(seed=seed)
         if self.video is not None:
             self.video.export(verbose=False)
             self.video = None
-        
+
         if video_path is not None:
             self.record_video = True
             self.video_path = video_path
@@ -177,15 +177,15 @@ class GazeFixEnv(BaseEnv):
         self.observation_history[self.current_step] = (self.last_observation.copy(), noise.copy())
 
         return np.array(list(self.last_observation.values())), info
-    
+
     def close(self):
         pygame.quit()
         self.screen = None
-        
+
     def _get_state(self):
         """Computes a new observation."""
         return {key: obs.calculate_value() for key, obs in self.observations.items()}
-        
+
     def get_observation(self):
         """Return the current, unnormalized observation."""
         try:
@@ -243,10 +243,10 @@ class GazeFixEnv(BaseEnv):
 
     def get_terminated(self):
         return self.time > self.episode_duration or self.collision
-    
+
     def get_info(self):
         return {}
-    
+
     # ----------------------------------------- init functions -------------------------------------------------
 
     def generate_observation_space(self):
@@ -301,20 +301,24 @@ class GazeFixEnv(BaseEnv):
         else: raise NotImplementedError
 
     def generate_target(self):
-        distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
+        #distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
+        distance = 10
         #angle = np.random.uniform(-np.pi/2, np.pi/2)
         angle = np.random.uniform(-np.pi, np.pi)
-        x = distance * np.cos(angle)
-        y = distance * np.sin(angle)
+        # x = distance * np.cos(angle)
+        # y = distance * np.sin(angle)
         radius = 1.0
+        desired_distance = np.random.uniform(5*radius, self.max_target_distance)
+        x = self.robot.pos[0] + (distance + desired_distance) * np.cos(angle)
+        y = self.robot.pos[1] + (distance + desired_distance) * np.sin(angle)
         self.target = Target(
             pos = np.array([x,y]),
             vel = 0.5 * self.robot.max_vel,
             base_movement_direction = np.random.uniform(-np.pi, np.pi),
             radius = radius,
-            distance = np.random.uniform(2*radius, self.max_target_distance)
+            distance = desired_distance
         )
-    
+
     def generate_obstacles(self):
         self.obstacles = []
         target_distance = np.linalg.norm(self.target.pos)
@@ -339,7 +343,7 @@ class GazeFixEnv(BaseEnv):
                         radius = radius
                     ))
                     break
-    
+
     # -------------------------------------- helpers -------------------------------------------
 
     def get_observation_field(self, n = 20):
@@ -365,7 +369,7 @@ class GazeFixEnv(BaseEnv):
         if rotation_abs > 1:
             rotation = rotation / rotation_abs
         return np.concatenate([translation, rotation])
-    
+
     def update_robot_velocity(self):
         # set xy and angular accelerations
         if self.action_mode == 1 or self.action_mode == 2:
@@ -389,7 +393,7 @@ class GazeFixEnv(BaseEnv):
         elif self.robot.orientation > np.pi: self.robot.orientation = self.robot.orientation - 2*np.pi
         self.check_collision()
 
-    def limit_robot_velocity(self):  
+    def limit_robot_velocity(self):
         vel = np.linalg.norm(self.robot.vel)                                            # compute absolute translational velocity
         if vel > self.robot.max_vel:                                                    # make sure translational velocity is within bounds
             self.robot.vel = self.robot.vel / vel * self.robot.max_vel
@@ -404,7 +408,7 @@ class GazeFixEnv(BaseEnv):
         elif self.moving_target == "flight":
             self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
         self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
-    
+
     def move_obstacles(self):
         for o in self.obstacles:
             #o.current_movement_direction = o.current_movement_direction + np.pi/3 * np.sin(self.time/4)
@@ -450,7 +454,7 @@ class GazeFixEnv(BaseEnv):
             obs = [np.pi, 0.0, -1.0]
             obstacles = self.num_obstacles * obs
         return np.array(obstacles)
-    
+
     def normalize_angle(self, angle):
         """Normalize an angle to the range [-pi, pi]."""
         return np.arctan2(np.sin(angle), np.cos(angle))
@@ -478,13 +482,13 @@ class GazeFixEnv(BaseEnv):
                 if abs(observation[key]) > self.robot.sensor_angle / 2 + env_state[f"{key[:-12]}visual_angle"] / 2:   # if target/obstacle is outside of camera angle, remove observations:
                     observation[key] = None                                                    # angle
                     if key+"_dot" in observation.keys():
-                        observation[key+"_dot"] = None                                         # del angle
+                        observation[key+"_dot"] = None                                         # angle dot
                     if key[:-12] + "visual_angle" in observation.keys():
                         observation[key[:-12] + "visual_angle"] = None                         # visual angle
                     if key[:-12] + "visual_angle_dot" in observation.keys():
-                        observation[key[:-12]+"visual_angle_dot"] = None                       # del visual angle
+                        observation[key[:-12]+"visual_angle_dot"] = None                       # visual angle dot
         return observation
-    
+
     def apply_sensor_noise(self, observation: Dict[str, float]) -> Dict[str, float]:
         observation_noise = {}
         observation_noise_factor = {}
@@ -498,8 +502,15 @@ class GazeFixEnv(BaseEnv):
                         observation_noise_factor[key] = np.abs(self.robot.vel[1])
                     elif key == "vel_rot":
                         observation_noise_factor[key] = np.abs(self.robot.vel_rot)
+                    elif "distance_dot" in key:
+                        observation_noise_factor[key] = np.abs(observation[key[:-4]]/10)
                     elif "distance" in key:
-                        observation_noise_factor[key] = np.abs(self.compute_distance(self.target))
+                        observation_noise_factor[key] = np.abs(observation[key])
+                    
+                    elif "visual_angle" in key:
+                        observation_noise_factor[key] = np.abs(observation[key])
+                    elif "offset_angle_dot" in key:
+                        observation_noise_factor[key] = np.abs(observation[key])
                     else:
                         observation_noise_factor[key] = 1.0
                 else:
@@ -514,17 +525,17 @@ class GazeFixEnv(BaseEnv):
                     observation_noise[key] += self.fv_noise[key] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
                 #print("NOISE:", key, observation_noise[key], observation_noise_factor[key])
                 observation[key] = value + observation_noise[key] * observation_noise_factor[key] * np.random.randn()
-        return observation, {key: observation_noise[key] * observation_noise_factor[key] for key in observation.keys()}
+        return observation, {key: observation_noise[key] * observation_noise_factor[key] if key in observation_noise.keys() else 0.0 for key in observation.keys()}
 
     def get_observation_from_state(self, env_state: Dict[str, float]) -> Dict[str, float]:
         """Applies gaussion noise and occlusions to real state."""
         observation = self.isolate_sensor_readings_from_observations(env_state)
         observation, observation_noise = self.apply_sensor_noise(observation)
         return observation, observation_noise
-    
+
     def compute_offset_angle(self, obj: EnvObject) -> float:
         return self.normalize_angle(np.arctan2(obj.pos[1]-self.robot.pos[1], obj.pos[0]-self.robot.pos[0]) - self.robot.orientation)
-    
+
     def compute_offset_angle_dot(self, obj: EnvObject):
         offset_angle = self.compute_offset_angle(obj)
         # angular vel due to robot's rotation
@@ -534,14 +545,14 @@ class GazeFixEnv(BaseEnv):
         # angular vel due to object's movement
         offset_angle_dot += self.compute_offset_angle_dot_object_component(obj)
         return offset_angle_dot
-    
+
     def compute_offset_angle_dot_object_component(self, obj: EnvObject):
         if (type(obj) == Target and self.moving_target != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
         else:
             return 0.0
-    
+
     def compute_distance(self, obj: EnvObject):
         return np.linalg.norm(obj.pos-self.robot.pos)
 
@@ -550,28 +561,28 @@ class GazeFixEnv(BaseEnv):
         object_distance_dot = - (self.rotation_matrix(-offset_angle) @ self.robot.vel)[0]
         object_distance_dot += self.compute_distance_dot_object_component(obj)
         return object_distance_dot
-    
+
     def compute_distance_dot_object_component(self, obj: EnvObject):
         if (type(obj) == Target and self.moving_target != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
         else:
             return 0.0
-    
+
     def compute_visual_angle(self, obj: EnvObject):
         distance = self.compute_distance(obj)
         # angular size with respect to distance
         if obj.radius / distance >= 1.0:
-            return self.robot.sensor_angle
+            return None
         else:
             return 2 * math.asin(obj.radius / distance)
-    
+
     def compute_visual_angle_dot(self, obj: EnvObject):
         distance = self.compute_distance(obj)
         distance_dot = self.compute_distance_dot(obj)
         # Derivative of the angular size with respect to distance
         if obj.radius / distance >= 1.0:
-            return 0.0
+            return None
         else:
             distance_dot = self.compute_distance_dot(obj)
             return -2 * obj.radius * distance_dot / (distance**2 * math.sqrt(1 - (obj.radius / distance)**2))
@@ -588,7 +599,7 @@ class GazeFixEnv(BaseEnv):
             pygame.display.set_caption("Gaze Fixation")
             if self.record_video:
                 self.video = vidmaker.Video(self.video_path, fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
-        
+
         self.draw_env()
 
         # draw an arrow for the robot's action
@@ -675,7 +686,7 @@ class GazeFixEnv(BaseEnv):
             pygame.image.save(self.viewer, savepath + "/action_vector_field.png")
         else:
             pygame.display.flip()
-    
+
     def draw_arrow(self, pos, angle, length, side_length, color):
         end_point = self.polar_point(angle, length, pos)
         tip_point_1 = self.polar_point(self.normalize_angle(angle+3*np.pi/4), side_length, end_point)
@@ -713,7 +724,7 @@ class GazeFixEnv(BaseEnv):
         if start_pos is None:
             start_pos = self.robot.pos
         return start_pos[0] + distance * math.cos(angle), start_pos[1] + distance * math.sin(angle)
-    
+
     def display_info(self):
         font = pygame.font.Font(None, 24)
         legend = [
@@ -752,7 +763,7 @@ class GazeFixEnv(BaseEnv):
             x_pxl = int(self.screen_size/2 + (self.rotation_matrix(np.pi/2) @ (xy-self.robot.pos))[0] * self.scale)
             y_pxl = int(self.screen_size/2 - (self.rotation_matrix(np.pi/2) @ (xy-self.robot.pos))[1] * self.scale)
         return (x_pxl, y_pxl)
-    
+
     def get_reward_color_map(self) -> np.ndarray:
         color_map = np.zeros((self.screen_size, self.screen_size, 3), dtype=np.uint8)
         pixel_positions = np.zeros((self.screen_size, self.screen_size, 2), dtype=np.float64)
@@ -772,13 +783,13 @@ class GazeFixEnv(BaseEnv):
         for obstacle in self.obstacles:
             obstacle_distances = np.linalg.norm(pixel_positions - obstacle.pos, axis=2)
             obstacle_proximity_penalties -= 1.0 / (np.abs(obstacle_distances - obstacle.radius) + 1.0)
-        
+
         position_rewards = target_proximity_rewards + obstacle_proximity_penalties
         # Normalize rewards and create color map
         max_negative_reward = self.num_obstacles * 1.0
         positive_mask = position_rewards > 0
         negative_mask = ~positive_mask
-        
+
         color_map[:, :, :] = 255  # Set the background to white
         color_map[positive_mask, 0] -= (255 * np.minimum(position_rewards[positive_mask], 1.0)).astype(np.uint8)
         color_map[positive_mask, 2] -= (255 * np.minimum(position_rewards[positive_mask], 1.0)).astype(np.uint8)

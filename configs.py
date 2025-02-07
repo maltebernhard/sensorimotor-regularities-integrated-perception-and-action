@@ -3,62 +3,68 @@
 general_small_noise = {
     "target_offset_angle":      0.02,
     "target_offset_angle_dot":  0.02,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
+    "target_visual_angle":      0.02,
+    "target_visual_angle_dot":  0.02,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
+    "vel_rot":                  0.02,
     "target_distance":          0.02,
+    "target_distance_dot":      0.02,
 }
 general_large_noise = {
     "target_offset_angle":      0.1,
     "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.05,
-    "target_visual_angle_dot":  0.05,
-    "vel_frontal":              0.2,
-    "vel_lateral":              0.2,
+    "target_visual_angle":      0.1,
+    "target_visual_angle_dot":  0.1,
+    "vel_frontal":              0.1,
+    "vel_lateral":              0.1,
     "vel_rot":                  0.1,
-    "target_distance":          0.2,
+    "target_distance":          0.1,
+    "target_distance_dot":      0.1,
 }
 large_triang_noise = {
     "target_offset_angle":      0.1,
     "target_offset_angle_dot":  0.1,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
+    "target_visual_angle":      0.02,
+    "target_visual_angle_dot":  0.02,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
+    "vel_rot":                  0.02,
+    "target_distance":          0.02,
+    "target_distance_dot":      0.02,
 }
 large_divergence_noise = {
     "target_offset_angle":      0.02,
     "target_offset_angle_dot":  0.02,
-    "target_visual_angle":      0.05,
-    "target_visual_angle_dot":  0.05,
+    "target_visual_angle":      0.1,
+    "target_visual_angle_dot":  0.1,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
+    "vel_rot":                  0.02,
+    "target_distance":          0.02,
+    "target_distance_dot":      0.02,
 }
 large_distance_noise = {
     "target_offset_angle":      0.02,
     "target_offset_angle_dot":  0.02,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
+    "target_visual_angle":      0.02,
+    "target_visual_angle_dot":  0.02,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.2,
+    "vel_rot":                  0.02,
+    "target_distance":          0.1,
+    "target_distance_dot":      0.1,
 }
 huge_distance_noise = {
     "target_offset_angle":      0.02,
     "target_offset_angle_dot":  0.02,
-    "target_visual_angle":      0.01,
-    "target_visual_angle_dot":  0.01,
+    "target_visual_angle":      0.02,
+    "target_visual_angle_dot":  0.02,
     "vel_frontal":              0.02,
     "vel_lateral":              0.02,
-    "vel_rot":                  0.01,
-    "target_distance":          0.5,
+    "vel_rot":                  0.02,
+    "target_distance":          0.2,
+    "target_distance_dot":      0.2,
 }
 
 noise_dict = {
@@ -91,6 +97,9 @@ div_loss = {
 }
 dist_loss = {
     "target_distance": [
+        (5.0, 8.0),
+    ],
+    "target_distance_dot": [
         (5.0, 8.0),
     ],
 }
