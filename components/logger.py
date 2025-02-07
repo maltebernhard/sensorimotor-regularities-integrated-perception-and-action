@@ -184,7 +184,7 @@ class AICONLogger:
                 "estimators": {estimator_key: {
                     'mean': {index_keys[estimator_key][i]: val for i, val in enumerate(np.array(estimator['mean'].tolist())[:len(index_keys[estimator_key])])},
                     #'cov': estimator['cov'],
-                    'uncertainty': {index_keys[estimator_key][i]: val for i, val in enumerate(np.sqrt(np.diag(estimator['cov']))[:len(index_keys[estimator_key])])},
+                    'uncertainty': {index_keys[estimator_key][i]: val for i, val in enumerate(np.sqrt(np.diag(np.array(estimator['cov'].tolist())))[:len(index_keys[estimator_key])])},
                     'estimation_error': {index_keys[estimator_key][i]: val for i, val in enumerate(real_state[estimator_key] - np.array(estimator['mean'].tolist())[:len(real_state[estimator_key])])},
                     'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.current_data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state)-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
                 } for estimator_key, estimator in estimators.items()},

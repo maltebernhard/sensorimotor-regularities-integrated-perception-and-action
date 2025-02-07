@@ -73,16 +73,28 @@ noise_dict = {
 # --------------------- observation loss configs ---------------------
 
 # for each observation key, deactivate sensor readings in given ranges of seconds
-double_loss = {
+tri_loss = {
     "target_offset_angle": [
-        (5.0, 6.0),
-        (10.0, 11.0),
+        (5.0, 8.0),
     ],
     "target_offset_angle_dot": [
-        (5.0, 6.0),
-        (10.0, 11.0),
+        (5.0, 8.0),
     ],
-},
+}
+div_loss = {
+    "target_visual_angle": [
+        (5.0, 8.0),
+    ],
+    "target_visual_angle_dot": [
+        (5.0, 8.0),
+    ],
+}
+dist_loss = {
+    "target_distance": [
+        (5.0, 8.0),
+    ],
+}
+no_obs_loss = {}
 
 # --------------------- foveal vision noise configs ---------------------
 
@@ -129,7 +141,10 @@ class MovingTargetConfig:
     flight_target = "flight"
 
 class ObservationLossConfig:
-    no_obs_loss = {}
+    no_obs_loss = no_obs_loss
+    tri_loss = tri_loss
+    div_loss = div_loss
+    dist_loss = dist_loss
 
 class ExperimentConfig:
     keys = ["smcs", "control", "distance_sensor", "sensor_noise", "fv_noise", "moving_target", "observation_loss"]

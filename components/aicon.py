@@ -63,10 +63,6 @@ class AICON(ABC):
             self.render()
         for step in range(timesteps):
             self.current_step = step
-
-            # est_jac, est = self.compute_estimator_action_gradient("PolarTargetPos", self.last_action)
-            # for i in range(3):
-            #     print(f"Estimator Jacobian {i}:\n", est_jac['cov'][:,:,i])
             if prints > 0 and step % prints == 0:
                 print("-------- Comuting Action Gradient ---------")
             gradients, action = self.compute_action()
@@ -86,6 +82,8 @@ class AICON(ABC):
                 )
             if step_by_step:
                 input("Press Enter to continue...")
+            for obs in self.obs.values():
+                obs.updated = False
             self.step(action)
             if render:
                 self.render()
@@ -103,8 +101,6 @@ class AICON(ABC):
         self.last_action = action
         #print(f"-------- Action: ", end=""), self.print_vector(action, trail=" --------")
         self.env.step(np.array(action.cpu()))
-        for obs in self.obs.values():
-            obs.updated = False
         buffers = self.eval_step(action, new_step=True)
         for key, buffer_dict in buffers.items():
             self.REs[key].load_state_dict(buffer_dict) if key in self.REs.keys() else None
@@ -151,9 +147,9 @@ class AICON(ABC):
             print("Pre Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
             print("Pre Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
         for meas_model, estimator_keys in self.MMs.values():
-            # TODO: only predict measurements when the sensors work
-            for estimator_key in estimator_keys:
-                self.REs[estimator_key].call_update_with_smc(meas_model, buffer_dict)
+            if meas_model.all_observations_updated():
+                for estimator_key in estimator_keys:
+                    self.REs[estimator_key].call_update_with_smc(meas_model, buffer_dict)
         if self.prints > 0 and self.current_step % self.prints == 0:
             print("Post Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
             print("Post Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)

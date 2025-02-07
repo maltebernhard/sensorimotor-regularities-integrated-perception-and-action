@@ -94,8 +94,9 @@ class Analysis:
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
-        if self.experiment_config['wandb']:       
-            self.logger.wandb_group = f"{experiment_config["name"]}_{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
+        if self.experiment_config['wandb'] and self.experiment_config.get("wandb_group", None) is None:
+            self.experiment_config['wandb_group'] = f"{experiment_config["name"]}_{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
+        self.logger.wandb_group = self.experiment_config['wandb_group']
 
     def add_and_run_variations(self, variations: List[dict]):
         self.variations += variations
@@ -264,7 +265,7 @@ class Analysis:
     @staticmethod
     def load(folder: str):
         with open(os.path.join(folder, 'configs/experiment_config.yaml'), 'r') as file:
-            experiment_config = yaml.safe_load(file)
+            experiment_config = yaml.load(file, Loader=yaml.FullLoader)
         analysis = Analysis(experiment_config)
         analysis.logger.load(folder)
         analysis.record_dir = folder

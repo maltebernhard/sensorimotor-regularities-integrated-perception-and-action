@@ -90,7 +90,7 @@ class GazeFixEnv(BaseEnv):
         self.moving_target: str = config["moving_target"]
         self.moving_obstacles: bool = config["moving_obstacles"]
         self.observation_noise: Dict[str,float] = config["observation_noise"]
-        self.observation_loss: Dict[str,float] = config["observation_loss"]
+        self.observation_loss: Dict[str,List[Tuple[float,float]]] = config["observation_loss"]
         self.fv_noise: Dict[str,float] = config["fv_noise"]
 
         # env dimensions
@@ -467,7 +467,7 @@ class GazeFixEnv(BaseEnv):
     def isolate_sensor_readings_from_observations(self, env_state: Dict[str, float]) -> Dict[str, float]:
         observation = env_state.copy()
         # delete all observations not provided to any measurement model
-        keys_to_delete = [key for key in observation if key not in self.required_observations] + [key for key, time_range in self.observation_loss.items() if self.time >= time_range[0] and self.time < time_range[1]]
+        keys_to_delete = [key for key in observation if key not in self.required_observations] + [key for key, time_ranges in self.observation_loss.items() if any([self.time >= time_range[0] and self.time < time_range[1] for time_range in time_ranges])]
         for key in keys_to_delete:
             del observation[key]
         # delete all occluded observations

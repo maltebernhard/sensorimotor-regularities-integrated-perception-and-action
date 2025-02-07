@@ -29,15 +29,14 @@ def create_aicon_type_configs(experiment_id, smcs_list=None):
                     })
     return aicon_type_configs
 
-def get_sensor_noise_config(aicon_type_config, experiment_id):
+def get_sensor_noise_config(smcs_config, experiment_id):
     if experiment_id == 1:
-        # noise_config = ["small_noise", "large_noise"]
-        # if aicon_type_config["smcs"] == "both":
-        #     noise_config += ["tri_noise", "div_noise"]
-        noise_config = ["small_noise"]
+        noise_config = ["small_noise", "large_noise"]
+        if smcs_config == "both":
+            noise_config += ["tri_noise", "div_noise"]
     elif experiment_id == 2:
         noise_config = ["small_noise", "large_noise", "dist_noise", "huge_dist_noise"]
-        if aicon_type_config["smcs"] == "both":
+        if smcs_config == "both":
             noise_config += ["tri_noise", "div_noise"]
     return noise_config
 
@@ -54,20 +53,26 @@ def get_moving_target_config(experiment_id):
     elif experiment_id == 2:
         return ["stationary_target"]
     
-def get_observation_loss_config(experiment_id):
+def get_observation_loss_config(smcs_config, experiment_id):
     if experiment_id == 1:
         return ["no_obs_loss"]
     elif experiment_id == 2:
-        return ["no_obs_loss"]
+        loss_config =["no_obs_loss", "dist_loss"]
+        if smcs_config == "both" or smcs_config == "div":
+            loss_config += ["div_loss"]
+        if smcs_config == "both" or smcs_config == "tri":
+            loss_config += ["tri_loss"]
+        return loss_config
+
 
 def create_variations(experiment_id):
     exp_configs = []
-    # aicon_type_configs = create_aicon_type_configs(experiment_id)
-    aicon_type_configs = create_aicon_type_configs(experiment_id, ['both'])
+    aicon_type_configs = create_aicon_type_configs(experiment_id)
+    #aicon_type_configs = create_aicon_type_configs(experiment_id, ['nosmcs', 'tri', 'div'])
     observation_noise_configs = get_sensor_noise_config("both" if "both" in [conf["smcs"] for conf in aicon_type_configs] else "", experiment_id)
     fv_noise_configs = get_fv_noise_config(experiment_id)
     moving_target_configs = get_moving_target_config(experiment_id)
-    observation_loss_configs = get_observation_loss_config(experiment_id)
+    observation_loss_configs = get_observation_loss_config("both" if "both" in [conf["smcs"] for conf in aicon_type_configs] else "", experiment_id)
     print(f"Creating experiment {experiment_id} variations for ...")
     print("AICON Types:")
     for aicon_config in aicon_type_configs:
@@ -77,10 +82,10 @@ def create_variations(experiment_id):
     print("Moving Targets:       ", moving_target_configs)
     print("Observation Losses:   ", observation_loss_configs)
     for aicon_type_config in aicon_type_configs:
-        for observation_noise_config in observation_noise_configs:
+        for observation_noise_config in get_sensor_noise_config(aicon_type_config["smcs"], experiment_id):
             for fv_noise_config in fv_noise_configs:
                 for moving_target_config in moving_target_configs:
-                    for observation_loss_config in observation_loss_configs:
+                    for observation_loss_config in get_observation_loss_config(aicon_type_config["smcs"], experiment_id):
                         exp_configs.append({
                             "smcs":                config.smcs.__dict__[aicon_type_config["smcs"]],
                             "control":             config.control.__dict__[aicon_type_config["control"]],
@@ -102,15 +107,15 @@ base_env_config = {
 }
 
 base_run_config = {
-    "num_steps":        300,
+    "num_steps":        250,
     "initial_action":   [0.0, 0.0, 0.0],
     "seed":             1,
 }
 
-runs_per_variation = 20
+runs_per_variation = 10
 
 if __name__ == "__main__":
-    experiment_type = 1
+    experiment_type = 2
     variations = create_variations(experiment_type)
 
     analysis = Analysis({
