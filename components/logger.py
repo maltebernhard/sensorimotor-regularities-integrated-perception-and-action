@@ -1,9 +1,9 @@
+import pickle
 import time
 from typing import Dict, List, Tuple
-import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt
 import numpy as np
 import torch
-import pickle
 import os
 
 import wandb
@@ -12,13 +12,12 @@ os.environ["WANDB_SILENT"] = "true"
 # ==================================================================================
 
 class VariationLogger:
-    def __init__(self, variation_id: int, variation_config: dict):
+    def __init__(self, variation_config:dict, logging_config:dict):
         self.data = {}
-        self.run = 0
-        self.variation_id = variation_id
+        self.run = len(self.data.keys())
         self.variation_config = variation_config
-        self.wandb_project: str = None
-        self.wandb_group: str = None
+        self.wandb_project: str = logging_config['wandb_project']
+        self.wandb_group: str = logging_config['wandb_group']
         self.wandb_run = None
 
     def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
@@ -74,10 +73,10 @@ class VariationLogger:
             self.wandb_run.finish()
         self.wandb_run = wandb.init(
             project=self.wandb_project,
-            name=f'{self.variation_id}_{self.run}',
+            name=f'{self.variation_config}_{self.run}',
             group=self.wandb_group,
             config = {
-                "id": self.variation_id,
+                "id": self.variation_config,
                 "smcs": self.variation_config["smcs"],
                 "control": self.variation_config["control"],
                 "distance_sensor": self.variation_config["distance_sensor"],
@@ -178,59 +177,41 @@ class VariationLogger:
             self.wandb_run.finish()
             self.wandb_run = None
 
-    def set_data(self, data: dict):
-        self.data = data
-        self.run = max([int_key for int_key in self.data.keys()])
+# ==================================================================================
 
 class AICONLogger:
     def __init__(self, variations: List[dict]):
         self.current_variation_id = 0
-        #self.variations: dict = {i: variation for i, variation in enumerate(variations)}
-        self.data = {}
-        self.variation_loggers: Dict[int,VariationLogger] = {}
+        self.variations: Dict[int,Dict[str,dict]] = {}
         for variation in variations:
             self.set_variation(variation)
 
-    def get_variation(self, id=None):
+    def get_variation_config(self, id=None):
         if id is None:
             id = self.current_variation_id
-        return self.variation_loggers[id].variation_config
-    
-    def get_variation_id(self, variation: Dict[str, dict]):
-        for variation_id, logger in self.variation_loggers.items():
-            if all(logger.variation_config.get(key) == val for key, val in variation.items()):
-                return variation_id
-        return None
+        return self.variations[id]["config"]
 
     def set_variation(self, variation):
-        self.current_variation_id = self.get_variation_id(variation)
+        self.current_variation_id = None
+        for variation_id, saved_variation in self.variations.items():
+            if all(saved_variation["config"].get(key) == val for key, val in variation.items()):
+                self.current_variation_id = variation_id
         if self.current_variation_id is None:
-            if len(self.variation_loggers) == 0:
+            if len(self.variations) == 0:
                 self.current_variation_id = 1
             else:
-                self.current_variation_id = max(self.variation_loggers.keys()) + 1
-            self.variation_loggers[self.current_variation_id] = VariationLogger(self.current_variation_id, variation)
-        self.current_data = self.variation_loggers[self.current_variation_id].data
+                self.current_variation_id = max(self.variations.keys()) + 1
+            self.variations[self.current_variation_id] = {
+                "config": variation,
+                "data": {},
+            }
+        return self.current_variation_id
 
     def add_variations(self, variations):
         for variation in variations:
             self.set_variation(variation)
 
-    def set_wandb_config(self, project, group):
-        for variation_logger in self.variation_loggers.values():
-            variation_logger.wandb_project = project
-            variation_logger.wandb_group = group
-
-    # ======================================= helpers ==========================================
-
-    @staticmethod
-    def convert_to_numpy(obj):
-        if isinstance(obj, list):
-            return np.array(obj)
-        elif isinstance(obj, dict):
-            return {k: AICONLogger.convert_to_numpy(v) for k, v in obj.items()}
-        else:
-            return obj
+    # =============================================== helpers ======================================================
 
     @staticmethod
     def compute_mean_and_stddev(data) -> Tuple[np.ndarray, np.ndarray]:
@@ -251,7 +232,8 @@ class AICONLogger:
     
     # ======================================= plotting ==========================================
 
-    def plot_mean_stddev(self, subplot: plt.Axes, means: np.ndarray, stddevs: np.ndarray, title:str, label:str, y_label:str, y_bounds:Tuple[float,float]=None, style_dict:Dict[str,str]=None):
+    @staticmethod
+    def plot_mean_stddev(subplot: plt.Axes, means: np.ndarray, stddevs: np.ndarray, title:str, label:str, y_label:str, y_bounds:Tuple[float,float]=None, style_dict:Dict[str,str]=None):
         plot_kwargs = style_dict if style_dict is not None else {'label': label}
         subplot.plot(
             means,
@@ -274,7 +256,8 @@ class AICONLogger:
         if y_bounds is not None:
             subplot.set_ylim(y_bounds)
 
-    def plot_runs(self, subplot: plt.Axes, data:List[np.ndarray], labels:List[int], state_index:int=None, title:str=None, y_label:str=None, x_label:str=None, legend=False):
+    @staticmethod
+    def plot_runs(subplot: plt.Axes, data:List[np.ndarray], labels:List[int], state_index:int=None, title:str=None, y_label:str=None, x_label:str=None, legend=False):
         if state_index is None:
             for i, run in enumerate(data):
                 subplot.plot(run[:], label=f'{labels[i]}')
@@ -290,7 +273,8 @@ class AICONLogger:
         subplot.grid(True)
         subplot.legend() if legend else None
 
-    def save_fig(self, fig:plt.Figure, save_path:str=None, show:bool=False):
+    @staticmethod
+    def save_fig(fig:plt.Figure, save_path:str=None, show:bool=False):
         if save_path is not None:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             fig.tight_layout()
@@ -319,10 +303,9 @@ class AICONLogger:
 
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
-
-                states = np.array([run_data["task_state"][state_id][:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
-                ucttys = np.array([run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
-                errors = np.array([run_data["estimation_error"][state_id][:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
+                states = np.array([run_data["task_state"][state_id][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+                ucttys = np.array([run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+                errors = np.array([run_data["estimation_error"][state_id][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
 
                 state_means, state_stddevs = self.compute_mean_and_stddev(states)
                 error_means, error_stddevs = self.compute_mean_and_stddev(errors)
@@ -331,7 +314,6 @@ class AICONLogger:
                     self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], "Task State", label, "Offset from Desired Distance", y_bounds=ybounds[0][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
                     self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], "Estimation Error", label, "Estimation Error", y_bounds=ybounds[1][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
                     self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], "Estimation Uncertainty", label, "Estimation Uncertainty (stddev)", y_bounds=ybounds[2][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)    
-                    
             # save / show
             path = os.path.join(save_path, f"records/state_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
@@ -348,9 +330,9 @@ class AICONLogger:
             self.set_variation(variation)
             if runs is None:
                 runs = list(self.current_data.keys())
-            states = np.array([self.current_data[run]["task_state"][state_id][:,indices] for run in runs])
-            ucttys = np.array([self.current_data[run]["estimators"][state_id]["uncertainty"][:,indices] for run in runs])
-            errors = np.array([self.current_data[run]["estimation_error"][state_id][:,indices] for run in runs])
+            states = np.array([self.variations[self.current_variation_id]['data'][run]["task_state"][state_id][:,indices] for run in runs])
+            ucttys = np.array([self.variations[self.current_variation_id]['data'][run]["estimators"][state_id]["uncertainty"][:,indices] for run in runs])
+            errors = np.array([self.variations[self.current_variation_id]['data'][run]["estimation_error"][state_id][:,indices] for run in runs])
             for i in range(len(indices)):
                 self.plot_runs(axs[0][i], states, runs, i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, True)
                 self.plot_runs(axs[1][i], errors, runs, i, None, "Estimation Error" if i==0 else None, None, True)
@@ -372,9 +354,9 @@ class AICONLogger:
             ybounds = config["ybounds"]
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
-                total_loss = np.array([[0.0]*len(run_data["step"]) for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
-                for subgoal_key in self.current_data[1]["goal_loss"][goal_key].keys():
-                    goal_losses = np.array([run_data["goal_loss"][goal_key][subgoal_key] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
+                total_loss = np.array([[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+                for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"][goal_key].keys():
+                    goal_losses = np.array([run_data["goal_loss"][goal_key][subgoal_key] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
                     total_loss += goal_losses
                     if plot_subgoals:
                         goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
@@ -385,22 +367,14 @@ class AICONLogger:
         loss_path = os.path.join(save_path, f"records/loss_{plotting_config['name']}.png") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)
 
-    # ================================ saving & loading ================================
-
-    def save(self, record_dir):
+    def save(self, save_path:str):
         yaml_dict = {
             variation_id: {
-                "variation": variation_logger.variation_config,
-                "data":      variation_logger.data
-            } for variation_id, variation_logger in self.variation_loggers.items()
+                "variation": variation["config"],
+                "data":      variation["data"],
+            } for variation_id, variation in self.variations.items()
         }
-        with open(os.path.join(record_dir, "records/data.pkl"), 'wb') as f:
+        with open(os.path.join(save_path, "records/data.pkl"), 'wb') as f:
             pickle.dump(yaml_dict, f)
 
-    def load(self, folder):
-        with open(os.path.join(folder, 'records/data.pkl'), 'rb') as f:
-            yaml_dict: dict = pickle.load(f)
-            for variation_id, data in yaml_dict.items():
-                self.variation_loggers[variation_id] = VariationLogger(variation_id, data["variation"])
-                self.variation_loggers[variation_id].set_data(data["data"])
     

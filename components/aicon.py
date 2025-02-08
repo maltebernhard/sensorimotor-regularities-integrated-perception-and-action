@@ -3,10 +3,9 @@ import torch
 from torch.func import jacrev
 from abc import ABC, abstractmethod
 from typing import Dict, List, Tuple
-import yaml
 
 from components.estimator import Observation, RecursiveEstimator
-from components.logger import AICONLogger, VariationLogger
+from components.logger import VariationLogger
 from components.measurement_model import ActiveInterconnection
 from components.goal import Goal
 from environment.base_env import BaseEnv
@@ -409,28 +408,10 @@ class DroneEnvAICON(AICON):
         "observation_noise": {},
         "observation_loss": {}
     }):
-        self.moving_target = env_config["moving_target"]
-        self.vel_control = env_config["vel_control"]
-        self.sensor_angle_deg = env_config["sensor_angle_deg"]
-        self.num_obstacles = env_config["num_obstacles"]
-        self.timestep = env_config["timestep"]
-        self.config_observation_noise = env_config["observation_noise"]
-        self.config_observation_loss = env_config["observation_loss"]
-        self.config_fv_noise = env_config["fv_noise"]
+        self.env_config = env_config
         super().__init__()
 
     def define_env(self):
-        config = 'environment/env_config.yaml'
-        with open(config) as file:
-            self.env_config = yaml.load(file, Loader=yaml.FullLoader)
-            self.env_config["num_obstacles"] = self.num_obstacles
-            self.env_config["action_mode"] = 3 if self.vel_control else 1
-            self.env_config["moving_target"] = self.moving_target
-            self.env_config["robot_sensor_angle"] = self.sensor_angle_deg / 180 * np.pi
-            self.env_config["timestep"] = self.timestep
-            self.env_config["observation_noise"] = self.config_observation_noise
-            self.env_config["observation_loss"] = self.config_observation_loss
-            self.env_config["fv_noise"] = self.config_fv_noise
         return GazeFixEnv(self.env_config)
 
     def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):
@@ -447,8 +428,8 @@ class DroneEnvAICON(AICON):
     
     def get_control_input(self, action):
         env_action = torch.empty_like(action)
-        env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.vel_control else self.env.robot.max_acc)
-        env_action[2] = action[2] * (self.env.robot.max_vel_rot if self.vel_control else self.env.robot.max_acc_rot)
+        env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.env_config["action_mode"]==3 else self.env.robot.max_acc)
+        env_action[2] = action[2] * (self.env.robot.max_vel_rot if self.env_config["action_mode"]==3 else self.env.robot.max_acc_rot)
         return torch.concat([torch.tensor([0.05], device=self.device), env_action])
     
     def render(self):

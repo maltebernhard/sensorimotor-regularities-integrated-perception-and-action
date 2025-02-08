@@ -1,8 +1,10 @@
 from datetime import datetime
 import os
+import pickle
 import sys
 import time
 from typing import Dict, List, Tuple, Type
+import numpy as np
 import torch
 from tqdm import tqdm
 import yaml
@@ -21,15 +23,24 @@ from models.smc_ais.aicon import SMCAICON
 
 from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
 from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
+import multiprocessing as mp
 
 # ========================================================================================================
 
 class Runner:
-    def __init__(self, model: str, run_config: dict, env_config: dict, aicon_type: str = None, logger: VariationLogger = None):
-        self.model = model
-        if aicon_type is not None:
-            self.aicon_type = aicon_type
-        self.env_config = env_config
+    def __init__(self, run_config: dict, base_env_config: dict, variation: dict, logging_config:dict=None):
+        self.model = "SMC"
+
+        self.env_config = base_env_config.copy()
+        self.env_config["observation_noise"] = variation["sensor_noise"]
+        self.env_config["moving_target"] = variation["moving_target"]
+        self.env_config["observation_loss"] = variation["observation_loss"]
+        self.env_config["fv_noise"] = variation["fv_noise"]
+        self.aicon_type = {
+            "smcs": variation["smcs"],
+            "control": variation["control"],
+            "distance_sensor": variation["distance_sensor"],
+        }
 
         self.num_steps = run_config['num_steps']
         self.seed = run_config['seed']
@@ -40,10 +51,10 @@ class Runner:
         self.prints = run_config['prints']
         self.step_by_step = run_config['step_by_step']
         
-        self.logger = logger
+        self.logger = VariationLogger(variation, logging_config) if logging_config is not None else None
         self.aicon = self.create_model()
 
-        self.num_run = logger.run if logger is not None else 0
+        self.num_run = self.logger.run if self.logger is not None else 0
 
     def run(self):
         self.num_run += 1
@@ -76,9 +87,23 @@ class Runner:
         else:
             raise ValueError(f"Model Type {self.model} not recognized")
 
+def run_variation(base_run_config, base_env_config, variation_id, variation, logging_config, num_runs, queue:mp.Queue, counter):
+    runner = Runner(
+        run_config=base_run_config,
+        base_env_config=base_env_config,
+        variation = variation,
+        logging_config=logging_config,
+    )
+    for run in range(num_runs):
+        runner.run()
+        counter.value += 1
+    queue.put((variation_id, runner.logger.data))
+    
+
 class Analysis:
     def __init__(self, experiment_config: dict):
-        self.base_env_config: dict = experiment_config['base_env_config']
+        self.base_env_config: dict = self.generate_env_config(experiment_config['base_env_config'])
+        
         self.base_run_config: dict = experiment_config['base_run_config']
         self.base_run_config['render'] = False
         self.base_run_config['prints'] = 0
@@ -91,18 +116,29 @@ class Analysis:
 
         self.variations = experiment_config["variations"]
         
-        self.logger = AICONLogger(self.variations)
+        self.logger = AICONLogger(self.variations)        
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
         if self.experiment_config['wandb'] and self.experiment_config.get("wandb_group", None) is None:
             self.experiment_config['wandb_group'] = f"{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
-        self.logger.set_wandb_config(f"aicon-{self.experiment_config['name']}", self.experiment_config['wandb_group'])
+        self.logging_config = {
+            "wandb_project": f"aicon-{self.experiment_config['name']}",
+            "wandb_group": self.experiment_config['wandb_group'],
+        }
+
+    def generate_env_config(self, base_env_config):
+        with open("environment/env_config.yaml") as file:
+            env_config = yaml.load(file, Loader=yaml.FullLoader)
+            env_config["num_obstacles"] = base_env_config["num_obstacles"]
+            env_config["action_mode"] = 3 if base_env_config["vel_control"] else 1
+            env_config["robot_sensor_angle"] = base_env_config["sensor_angle_deg"] / 180 * np.pi
+            env_config["timestep"] = base_env_config["timestep"]
+        return env_config
 
     def add_and_run_variations(self, variations: List[dict]):
-        self.variations += variations
+        self.variations += [variation for variation in variations if variation not in self.variations]
         self.logger.add_variations(variations)
-        self.logger.set_wandb_config(f"aicon-{self.experiment_config['name']}", self.experiment_config['wandb_group'])
         self.experiment_config["variations"] = self.variations
         self.run_analysis(variations)
 
@@ -111,51 +147,56 @@ class Analysis:
             variations = self.variations
         total_configs = len(variations)
         total_runs = total_configs * self.num_runs
-        completed_configs = 0
-
-        
-        with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar, tqdm.external_write_mode(file=sys.stdout):
-            for variation in variations:
-                self.logger.set_variation(variation)
-                env_config = self.base_env_config.copy()
-                env_config["observation_noise"] = variation["sensor_noise"]
-                env_config["moving_target"] = variation["moving_target"]
-                env_config["observation_loss"] = variation["observation_loss"]
-                env_config["fv_noise"] = variation["fv_noise"]
-                config_id = self.logger.current_variation_id
-                aicon_type = {
-                    "smcs": variation["smcs"],
-                    "control": variation["control"],
-                    "distance_sensor": variation["distance_sensor"],
-                }
-                runner = Runner(
-                    model = self.model,
-                    aicon_type = aicon_type,
-                    run_config = self.base_run_config,
-                    env_config = env_config,
-                    logger = self.logger.variation_loggers[config_id],
-                )
-                for run in range(self.num_runs):
-                    if self.record_videos and run == self.num_runs-1:
-                        runner.render = True
-                        video_path = self.record_dir + f"/records/variation{config_id}_seed{runner.seed+runner.num_run-1}.mp4"
-                        runner.video_record_path = video_path
-                    runner.run()
-                    pbar.update(1)
-                    pbar.set_description(f"{completed_configs+1}:{runner.num_run}/{total_configs}:{self.num_runs}")
-                completed_configs += 1
-
+        mp.set_start_method('spawn', force=True)
+        with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar:
+            with mp.Manager() as manager:
+                base_run_config = manager.dict(self.base_run_config)
+                base_env_config = manager.dict(self.base_env_config)
+                logging_config = manager.dict(self.logging_config)
+                vars = manager.dict()
+                counter = manager.Value('i', 0)
+                data_queue = mp.Queue()
+                processes = []
+                for variation in variations:
+                    var_id = self.logger.set_variation(variation)
+                    vars[var_id] = manager.dict(variation)
+                    p = mp.Process(target=run_variation, args=(base_run_config, base_env_config, var_id, vars[var_id], logging_config, self.num_runs, data_queue, counter))
+                    processes.append(p)
+                    p.start()
+                while counter.value < total_runs:
+                    pbar.update(counter.value - pbar.n)
+                    time.sleep(1)
+                for p in processes:
+                    p.join()
+                while not data_queue.empty():
+                    var_id, data_dict = data_queue.get()
+                    self.logger.variations[var_id]['data'] = data_dict
+                self.save()
+    
+    def save(self):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
         #self.visualize_graph(aicon=runner.aicon, save=True, show=False)
-        self.save()
-    
-    def save(self):
         #print("Saving Data ...")
         with open(os.path.join(self.record_dir, 'configs/experiment_config.yaml'), 'w') as file:
             yaml.dump(self.experiment_config, file)
         self.logger.save(self.record_dir)
-        #print("Data Saved.")
+
+    @staticmethod
+    def load(folder: str):
+        with open(os.path.join(folder, 'configs/experiment_config.yaml'), 'r') as file:
+            experiment_config = yaml.load(file, Loader=yaml.FullLoader)
+        analysis = Analysis(experiment_config)
+        #analysis.logger.load(folder)
+        with open(os.path.join(folder, 'records/data.pkl'), 'rb') as f:
+            yaml_dict: dict = pickle.load(f)
+            for variation_id, data in yaml_dict.items():
+                analysis.logger.variations[variation_id] = {
+                    data["variation"],
+                    data["data"],
+                }
+        analysis.record_dir = folder
+        return analysis
 
     def run_demo(self, variation: dict, run_number, step_by_step:bool=False, record_video=False):
         print("================ DEMO Variation ================")
@@ -167,11 +208,6 @@ class Analysis:
             else:
                 print(f"{key}: {value}")
         print("===============================================")
-        env_config = self.base_env_config.copy()
-        env_config["observation_noise"] = variation["sensor_noise"]
-        env_config["moving_target"] = variation["moving_target"]
-        env_config["observation_loss"] = variation["observation_loss"]
-        env_config["fv_noise"] = variation["fv_noise"]
         run_config = self.base_run_config.copy()
         run_config['render'] = True
         run_config['prints'] = 1
@@ -182,10 +218,9 @@ class Analysis:
             "distance_sensor": variation["distance_sensor"],
         }
         runner = Runner(
-            model = self.model,
-            aicon_type = aicon_type,
+            variation = variation,
             run_config = run_config,
-            env_config = env_config
+            base_env_config = self.base_env_config,
         )
         runner.num_run = run_number-1
         if record_video:
@@ -276,12 +311,4 @@ class Analysis:
         if show:
             plt.show()
             input("Press Enter to continue...")
-
-    @staticmethod
-    def load(folder: str):
-        with open(os.path.join(folder, 'configs/experiment_config.yaml'), 'r') as file:
-            experiment_config = yaml.load(file, Loader=yaml.FullLoader)
-        analysis = Analysis(experiment_config)
-        analysis.logger.load(folder)
-        analysis.record_dir = folder
-        return analysis
+    

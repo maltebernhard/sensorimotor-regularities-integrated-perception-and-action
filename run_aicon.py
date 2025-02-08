@@ -42,7 +42,7 @@ if __name__ == "__main__":
     runner = Runner(
         model="SMC",
         run_config=run_config,
-        env_config=env_config,
+        base_env_config=env_config,
         aicon_type={
             "smcs": smcs,
             "distance_sensor": distance_sensor,

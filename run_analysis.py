@@ -40,7 +40,7 @@ def get_sensor_noise_config(smcs_config, experiment_id):
         # noise_config = ["small_noise", "large_noise", "dist_noise", "huge_dist_noise"]
         # if smcs_config == "both":
         #     noise_config += ["tri_noise", "div_noise"]
-        noise_config = ["small_noise", "huge_dist_noise"]
+        noise_config = ["small_noise"]#, "huge_dist_noise"]
     return noise_config
 
 def get_fv_noise_config(experiment_id):
@@ -68,7 +68,8 @@ def get_observation_loss_config(smcs_config, experiment_id):
         #     loss_config += ["tri_loss"]
         # return loss_config
         # TODO: for dist loss, only compute small noise | for no loss, compare small and huge_dist noise
-        return ["no_obs_loss"]#, "dist_loss"]
+        #return ["no_obs_loss"]
+        return ["dist_loss"]
 
 def create_variations(experiment_id):
     exp_configs = []
@@ -115,12 +116,12 @@ base_env_config = {
 }
 
 base_run_config = {
-    "num_steps":        300,
+    "num_steps":        10,
     "initial_action":   [0.0, 0.0, 0.0],
     "seed":             10,
 }
 
-runs_per_variation = 10
+runs_per_variation = 1
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -136,8 +137,8 @@ if __name__ == "__main__":
         else:
             print("Experiment type must be an integer.")
             sys.exit(1)
+    
     variations = create_variations(experiment_type)
-
     if analysis is not None:
         analysis.add_and_run_variations(variations)
     else:
@@ -151,10 +152,10 @@ if __name__ == "__main__":
             "variations":                 variations,
             "wandb":                      True,
         })
-        analysis.run_analysis()
+    analysis.run_analysis()
 
     # NOTE: use this to run a single demo with rendering and prints, for a specific variation, e.g. to check bugs
-    # analysis.run_demo(variations[0], 6, False)
+    # analysis.run_demo(variations[0], 1, True)
     # raise ValueError("Demo run complete")
 
     if experiment_type == 1:
@@ -165,6 +166,7 @@ if __name__ == "__main__":
     elif experiment_type == 2:
         invariant_config = {
             "sensor_noise": None,
+            "observation_loss": None,
             #"fv_noise":     None,
         }
     plot_states_and_losses(analysis, invariant_config)

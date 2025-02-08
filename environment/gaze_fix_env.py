@@ -251,28 +251,27 @@ class GazeFixEnv(BaseEnv):
 
     def generate_observation_space(self):
         self.observations: Dict[str, Observation] = {
-            "desired_target_distance" : Observation(0.0, self.config["target_distance"], lambda: self.target.distance),
-            "target_offset_angle" :     Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.target)),
-            "target_offset_angle_dot" : Observation(-2*np.pi/self.timestep/self.robot.max_vel_rot, 2*np.pi/self.timestep/self.robot.max_vel_rot, lambda: self.compute_offset_angle_dot(self.target)),
-            "target_offset_angle_dot_global" : Observation(-np.inf, np.inf, lambda: self.compute_offset_angle_dot_object_component(self.target)),
-            "vel_rot" :                 Observation(-self.robot.max_vel_rot, self.robot.max_vel_rot, lambda: self.robot.vel_rot),
-            "vel_frontal" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[0]),
-            "vel_lateral" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[1]),
-            "target_distance" :         Observation(0.0, np.inf, lambda: self.compute_distance(self.target)),
-            "target_distance_dot" :     Observation(-1.5*self.robot.max_vel, 1.5*self.robot.max_vel, lambda: self.compute_distance_dot(self.target)),
-            "target_distance_dot_global" : Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.compute_distance_dot_object_component(self.target)),
-            "target_radius" :           Observation(0.0, np.inf, lambda: self.target.radius),
-            "target_visual_angle" :     Observation(0.0, self.robot.sensor_angle, lambda: self.compute_visual_angle(self.target)),
-            "target_visual_angle_dot" : Observation(-np.inf, np.inf, lambda: self.compute_visual_angle_dot(self.target)),
+            "desired_target_distance": Observation(0.0, self.config["target_distance"], self.get_desired_target_distance),
+            "target_offset_angle": Observation(-self.robot.sensor_angle / 2, np.pi, self.get_target_offset_angle),
+            "target_offset_angle_dot": Observation(-2 * np.pi / self.timestep / self.robot.max_vel_rot, 2 * np.pi / self.timestep / self.robot.max_vel_rot, self.get_target_offset_angle_dot),
+            "target_offset_angle_dot_global": Observation(-np.inf, np.inf, self.get_target_offset_angle_dot_global),
+            "vel_rot": Observation(-self.robot.max_vel_rot, self.robot.max_vel_rot, self.get_vel_rot),
+            "vel_frontal": Observation(-self.robot.max_vel, self.robot.max_vel, self.get_vel_frontal),
+            "vel_lateral": Observation(-self.robot.max_vel, self.robot.max_vel, self.get_vel_lateral),
+            "target_distance": Observation(0.0, np.inf, self.get_target_distance),
+            "target_distance_dot": Observation(-1.5 * self.robot.max_vel, 1.5 * self.robot.max_vel, self.get_target_distance_dot),
+            "target_distance_dot_global": Observation(-self.robot.max_vel, self.robot.max_vel, self.get_target_distance_dot_global),
+            "target_radius": Observation(0.0, np.inf, self.get_target_radius),
+            "target_visual_angle": Observation(0.0, self.robot.sensor_angle, self.get_target_visual_angle),
+            "target_visual_angle_dot": Observation(-np.inf, np.inf, self.get_target_visual_angle_dot),
         }
         for o in range(self.num_obstacles):
-            self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o]))
-            self.observations[f"obstacle{o+1}_offset_angle_dot"] = Observation(-np.inf, np.inf, lambda o=o: self.compute_offset_angle_dot(self.obstacles[o]))
-            self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: self.compute_distance(self.obstacles[o]))
-            self.observations[f"obstacle{o+1}_distance_dot"] = Observation(-1.0, 1.0, lambda o=o: self.compute_distance_dot(self.obstacles[o]))
-            self.observations[f"obstacle{o+1}_radius"] = Observation(0.0, np.inf, lambda o=o: self.obstacles[o].radius)
-            self.observations[f"obstacle{o+1}_visual_angle"] = Observation(0.0, self.robot.sensor_angle, lambda o=o: self.compute_visual_angle(self.obstacles[o]))
-            self.observations[f"obstacle{o+1}_visual_angle_dot"] = Observation(-np.inf, np.inf, lambda o=o: self.compute_visual_angle_dot(self.obstacles[o]))
+            self.observations[f"obstacle{o + 1}_offset_angle"] = Observation(-self.robot.sensor_angle / 2, np.pi, self.create_obstacle_offset_angle_func(o))
+            self.observations[f"obstacle{o + 1}_offset_angle_dot"] = Observation(-np.inf, np.inf, self.create_obstacle_offset_angle_dot_func(o))
+            self.observations[f"obstacle{o + 1}_distance"] = Observation(-1.0, np.inf, self.create_obstacle_distance_func(o))
+            self.observations[f"obstacle{o + 1}_distance_dot"] = Observation(-1.0, 1.0, self.create_obstacle_distance_dot_func(o))
+            self.observations[f"obstacle{o + 1}_radius"] = Observation(0.0, np.inf, self.create_obstacle_radius_func(o))
+            self.observations[f"obstacle{o + 1}_visual_angle"] = Observation(0.0, self.robot.sensor_angle, self.create_obstacle_visual_angle_func(o))
 
         self.observation_indices = np.array([i for i in range(len(self.observations))])
         self.last_state = None
@@ -285,6 +284,112 @@ class GazeFixEnv(BaseEnv):
             shape=(len(self.observations),),
             dtype=np.float64
         )
+
+    def get_target_distance(self):
+        return self.compute_distance(self.target)
+
+    def get_desired_target_distance(self):
+        return self.target.distance
+
+    def get_target_offset_angle(self):
+        return self.compute_offset_angle(self.target)
+
+    def get_target_offset_angle_dot(self):
+        return self.compute_offset_angle_dot(self.target)
+
+    def get_target_offset_angle_dot_global(self):
+        return self.compute_offset_angle_dot_object_component(self.target)
+
+    def get_vel_rot(self):
+        return self.robot.vel_rot
+
+    def get_vel_frontal(self):
+        return self.robot.vel[0]
+
+    def get_vel_lateral(self):
+        return self.robot.vel[1]
+
+    def get_target_distance_dot(self):
+        return self.compute_distance_dot(self.target)
+
+    def get_target_distance_dot_global(self):
+        return self.compute_distance_dot_object_component(self.target)
+
+    def get_target_radius(self):
+        return self.target.radius
+
+    def get_target_visual_angle(self):
+        return self.compute_visual_angle(self.target)
+
+    def get_target_visual_angle_dot(self):
+        return self.compute_visual_angle_dot(self.target)
+
+    def create_obstacle_offset_angle_func(self, o):
+        def func():
+            return self.compute_offset_angle(self.obstacles[o])
+        return func
+
+    def create_obstacle_offset_angle_dot_func(self, o):
+        def func():
+            return self.compute_offset_angle_dot(self.obstacles[o])
+        return func
+
+    def create_obstacle_distance_func(self, o):
+        def func():
+            return self.compute_distance(self.obstacles[o])
+        return func
+
+    def create_obstacle_distance_dot_func(self, o):
+        def func():
+            return self.compute_distance_dot(self.obstacles[o])
+        return func
+
+    def create_obstacle_radius_func(self, o):
+        def func():
+            return self.obstacles[o].radius
+        return func
+
+    def create_obstacle_visual_angle_func(self, o):
+        def func():
+            return self.compute_visual_angle(self.obstacles[o])
+        return func
+
+    # def generate_observation_space(self):
+    #     self.observations: Dict[str, Observation] = {
+    #         "desired_target_distance" : Observation(0.0, self.config["target_distance"], lambda: self.target.distance),
+    #         "target_offset_angle" :     Observation(-self.robot.sensor_angle/2, np.pi, lambda: self.compute_offset_angle(self.target)),
+    #         "target_offset_angle_dot" : Observation(-2*np.pi/self.timestep/self.robot.max_vel_rot, 2*np.pi/self.timestep/self.robot.max_vel_rot, lambda: self.compute_offset_angle_dot(self.target)),
+    #         "target_offset_angle_dot_global" : Observation(-np.inf, np.inf, lambda: self.compute_offset_angle_dot_object_component(self.target)),
+    #         "vel_rot" :                 Observation(-self.robot.max_vel_rot, self.robot.max_vel_rot, lambda: self.robot.vel_rot),
+    #         "vel_frontal" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[0]),
+    #         "vel_lateral" :             Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.robot.vel[1]),
+    #         "target_distance" :         Observation(0.0, np.inf, lambda: self.compute_distance(self.target)),
+    #         "target_distance_dot" :     Observation(-1.5*self.robot.max_vel, 1.5*self.robot.max_vel, lambda: self.compute_distance_dot(self.target)),
+    #         "target_distance_dot_global" : Observation(-self.robot.max_vel, self.robot.max_vel, lambda: self.compute_distance_dot_object_component(self.target)),
+    #         "target_radius" :           Observation(0.0, np.inf, lambda: self.target.radius),
+    #         "target_visual_angle" :     Observation(0.0, self.robot.sensor_angle, lambda: self.compute_visual_angle(self.target)),
+    #         "target_visual_angle_dot" : Observation(-np.inf, np.inf, lambda: self.compute_visual_angle_dot(self.target)),
+    #     }
+    #     for o in range(self.num_obstacles):
+    #         self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle/2, np.pi, lambda o=o: self.compute_offset_angle(self.obstacles[o]))
+    #         self.observations[f"obstacle{o+1}_offset_angle_dot"] = Observation(-np.inf, np.inf, lambda o=o: self.compute_offset_angle_dot(self.obstacles[o]))
+    #         self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, lambda o=o: self.compute_distance(self.obstacles[o]))
+    #         self.observations[f"obstacle{o+1}_distance_dot"] = Observation(-1.0, 1.0, lambda o=o: self.compute_distance_dot(self.obstacles[o]))
+    #         self.observations[f"obstacle{o+1}_radius"] = Observation(0.0, np.inf, lambda o=o: self.obstacles[o].radius)
+    #         self.observations[f"obstacle{o+1}_visual_angle"] = Observation(0.0, self.robot.sensor_angle, lambda o=o: self.compute_visual_angle(self.obstacles[o]))
+    #         self.observations[f"obstacle{o+1}_visual_angle_dot"] = Observation(-np.inf, np.inf, lambda o=o: self.compute_visual_angle_dot(self.obstacles[o]))
+
+    #     self.observation_indices = np.array([i for i in range(len(self.observations))])
+    #     self.last_state = None
+
+    #     self.required_observations = [key for key in self.observations.keys()]
+
+    #     self.observation_space = gym.spaces.Box(
+    #         low=np.array([obs.low for obs in self.observations.values()]),
+    #         high=np.array([obs.high for obs in self.observations.values()]),
+    #         shape=(len(self.observations),),
+    #         dtype=np.float64
+    #     )
 
     def generate_action_space(self):
         if self.action_mode == 1 or self.action_mode == 3:
