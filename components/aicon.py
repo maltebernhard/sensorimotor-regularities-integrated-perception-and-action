@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple
 import yaml
 
 from components.estimator import Observation, RecursiveEstimator
-from components.logger import AICONLogger
+from components.logger import AICONLogger, VariationLogger
 from components.measurement_model import ActiveInterconnection
 from components.goal import Goal
 from environment.base_env import BaseEnv
@@ -31,7 +31,7 @@ class AICON(ABC):
         self.prints = 0
         self.current_step = 0
 
-    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, logger:AICONLogger=None, video_path=None):
+    def run(self, timesteps, env_seed=0, initial_action=None, render=True, prints=0, step_by_step=True, logger:VariationLogger=None, video_path=None):
         """
         Runs AICON on the environment for a given number of timesteps
         Args:
@@ -91,7 +91,8 @@ class AICON(ABC):
             if prints > 0 and step % prints == 0:
                 print(f"============================ Step {step} ================================")
                 self.print_estimators()
-        self.env.reset()
+        logger.end_wandb_run() if logger is not None else None
+        self.reset()
 
     def step(self, action):
         if action[:2].norm() > 1.0:

@@ -11,107 +11,30 @@ os.environ["WANDB_SILENT"] = "true"
 
 # ==================================================================================
 
-class AICONLogger:
-    def __init__(self):
-        """
-        Initializes the logger with default values for task variation, AICON type, and data storage.
-
-        Attributes:
-            task_variation (str): The type of task variation. Possible values include:
-                - "SensorNoise"
-                    - "Lvl0"
-                    - "Lvl1"
-                    - "Lvl2"
-                - "TargetMovement"
-                    - "None"
-                    - "RunAway"
-                    - "Sine"
-                    - "Linear"
-                - "ObservationLoss"
-                    - "0Sec"
-                    - "3Sec"
-                    - "5Sec"
-            aicon_type (str): The type of AICON. Possible values:
-                - "Control"
-                - "Goal"
-                - "FovealVision"
-                - "Interconnection"
-                - "Divergence"
-            data (Dict[int, dict]): A dictionary to store data, where the key is an integer and the value is another dictionary.
-            run (int): The current run number, initialized to 0.
-        """
-        self.task_variation: Tuple[int,int,int,int] = None
-        #self.aicon_type: int = None
-        self.config = (None, None)
-        self.data: Dict[Tuple[int,Tuple[int,int,int,int]], Dict[int,dict]] = {
-            "records": {},
-            "configs": {
-                "smcs":                 {},
-                "control":              {},
-                "distance_sensor":      {},
-                "sensor_noises":        {},
-                "target_movements":     {},
-                "observation_losses":   {},
-                "fv_noises": {},
-            },
-            "config_ids": {},
-        }
+class VariationLogger:
+    def __init__(self, variation_id: int, variation_config: dict):
+        self.data = {}
         self.run = 0
-        
+        self.variation_id = variation_id
+        self.variation_config = variation_config
         self.wandb_project: str = None
         self.wandb_group: str = None
         self.wandb_run = None
 
-    def get_subconfig_id(self, config_key: str, target_value):
-        config_values = self.data["configs"][config_key]
-        if len(config_values) > 0:
-            if target_value not in config_values.values():
-                new_id = max([int_key for int_key in config_values.keys()]) + 1
-                config_values[new_id] = target_value
-                #print(f"Couldn't find existing config for {config_id}")
-                return new_id
-            else:
-                #print(f"Found existing config for {config_id}")
-                return [key_int for key_int, value in config_values.items() if value == target_value][0]
-        else:
-            config_values[1] = target_value
-            #print(f"Couldn't find existing config for {config_id}")
-            return 1
-        
-    def get_config_id(self, config_id_tuple: str):
-        for key, value in self.data["config_ids"].items():
-            if value == config_id_tuple:
-                return key
-        if len(self.data["config_ids"]) == 0:
-            new_id = 1
-        else:
-            new_id = max([int_key for int_key in self.data["config_ids"].keys()]) + 1
-        self.data["config_ids"][new_id] = config_id_tuple
-        return new_id
-        
-    def get_subconfig_value(self, config_id: str, target_id):
-        return self.data["configs"][config_id][target_id]
-
-    def set_config(self, smcs: list[str], control: bool, distance_sensor: bool, sensor_noise: Dict[str,float], moving_target: str, observation_loss: Dict[str,float], fv_noise: Dict[str,float]):
-        self.smcs = self.get_subconfig_id("smcs", smcs)
-        self.control = self.get_subconfig_id("control", control)
-        self.distance_sensor = self.get_subconfig_id("distance_sensor", distance_sensor)
-        self.sensor_noise = self.get_subconfig_id("sensor_noises", sensor_noise)
-        self.target_movement = self.get_subconfig_id("target_movements", moving_target)
-        self.observation_loss = self.get_subconfig_id("observation_losses", observation_loss)
-        self.fv_noise = self.get_subconfig_id("fv_noises", fv_noise)
-
-        self.config = self.get_config_id((self.smcs, self.control, self.distance_sensor, self.sensor_noise, self.target_movement, self.observation_loss, self.fv_noise))
-        if self.config not in self.data["records"]:
-            self.data["records"][self.config] = {}
-        self.current_data = self.data["records"][self.config]
-
-    # ======================================== logging ==========================================
-
     def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
         # for new run, set up logging dict
-        if self.run not in self.current_data:
-            self.current_data[self.run] = {
+        if self.run not in self.data:
+            self.create_run_dict(estimators, env_state, observation, goal_loss, action, gradients)
+            if self.wandb_group is not None:
+                self.create_wandb_run()
+        # log data
+        real_state = self.create_real_state(estimators, env_state)
+        if self.wandb_run is not None:
+            self.log_wandb(estimators, real_state)
+        self.log_local(step, time, estimators, real_state, observation, goal_loss, action, gradients)
+
+    def create_run_dict(self, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
+        self.data[self.run] = {
                 "step":             np.array([]),     # time step
                 "time":             np.array([]),     # time in seconds
                 "estimators": {estimator_key: {
@@ -146,26 +69,27 @@ class AICONLogger:
                 # TODO: log run seed and config Analysis to skip runs which are already logged
             }
 
-            if self.wandb_group is not None:
-                if self.wandb_run is not None:
-                    self.wandb_run.finish()
-                self.wandb_run = wandb.init(
-                    project=self.wandb_project,
-                    name=f'{self.config}_{self.run}',
-                    group=self.wandb_group,
-                    config = {
-                        "id": self.config,
-                        "smcs": self.data["configs"]["smcs"][self.smcs],
-                        "control": self.data["configs"]["control"][self.control],
-                        "distance_sensor": self.data["configs"]["distance_sensor"][self.distance_sensor],
-                        "sensor_noise": self.data["configs"]["sensor_noises"][self.sensor_noise],
-                        "moving_target": self.data["configs"]["target_movements"][self.target_movement],
-                        "observation_loss": self.data["configs"]["observation_losses"][self.observation_loss],
-                        "fv_noise": self.data["configs"]["fv_noises"][self.fv_noise],
-                    },
-                    save_code=False,
-                )
+    def create_wandb_run(self):
+        if self.wandb_run is not None:
+            self.wandb_run.finish()
+        self.wandb_run = wandb.init(
+            project=self.wandb_project,
+            name=f'{self.variation_id}_{self.run}',
+            group=self.wandb_group,
+            config = {
+                "id": self.variation_id,
+                "smcs": self.variation_config["smcs"],
+                "control": self.variation_config["control"],
+                "distance_sensor": self.variation_config["distance_sensor"],
+                "sensor_noise": self.variation_config["sensor_noise"],
+                "moving_target": self.variation_config["moving_target"],
+                "observation_loss": self.variation_config["observation_loss"],
+                "fv_noise": self.variation_config["fv_noise"],
+            },
+            save_code=False,
+        )
 
+    def create_real_state(self, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float]):
         # extract real state from env_state, matching to estimator structure
         real_state = {}
         for key in estimators.keys():
@@ -175,18 +99,9 @@ class AICONLogger:
                     env_state[f"{obj}_distance"],
                     env_state[f"{obj}_offset_angle"],
                 ])
-                if obj=='target' and self.get_subconfig_value("target_movements", self.target_movement) != "stationary":
+                if obj=='target' and self.variation_config["moving_target"] != "stationary":
                     real_state[key] = np.append(real_state[key], env_state[f"{obj}_distance_dot_global"])
                     real_state[key] = np.append(real_state[key], env_state[f"{obj}_offset_angle_dot_global"])
-                    index_keys = {
-                        "PolarTargetPos": ["distance", "angle", "distance_dot", "angle_dot", "radius"],
-                        "RobotVel": ["frontal", "lateral", "rot"],
-                    }
-                else:
-                    index_keys = {
-                        "PolarTargetPos": ["distance", "angle", "radius"],
-                        "RobotVel": ["frontal", "lateral", "rot"],
-                    }
                 real_state[key] = np.append(real_state[key], env_state[f"{obj}_radius"])
             elif key == "RobotVel":
                 real_state[key] = np.array([
@@ -199,55 +114,114 @@ class AICONLogger:
                 real_state[key] = np.array([
                     env_state[f"{obj}_radius"]
                 ])
+        return real_state
 
-        # log data
-        if self.wandb_run is not None:
-            self.wandb_run.log({
-                #"step": step,
-                #"time": time,
-                "estimators": {estimator_key: {
-                    'mean': {index_keys[estimator_key][i]: val for i, val in enumerate(np.array(estimator['mean'].tolist())[:len(index_keys[estimator_key])])},
-                    #'cov': estimator['cov'],
-                    'uncertainty': {index_keys[estimator_key][i]: val for i, val in enumerate(np.sqrt(np.diag(np.array(estimator['cov'].tolist())))[:len(index_keys[estimator_key])])},
-                    'estimation_error': {index_keys[estimator_key][i]: val for i, val in enumerate(real_state[estimator_key] - np.array(estimator['mean'].tolist())[:len(real_state[estimator_key])])},
-                    'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.current_data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state[estimator_key])-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
-                } for estimator_key, estimator in estimators.items() if estimator_key != "RobotVel"},
-                #"observation": observation,
-                #"goal_loss": goal_loss,
-                #"gradients": gradients,
-                #"action": action,
-            })
+    def log_wandb(self, estimators: Dict[str,Dict[str,torch.Tensor]], real_state: Dict[str,Dict[str,torch.Tensor]]):
+        if self.variation_config["moving_target"] != "stationary":
+            index_keys = {
+                "PolarTargetPos": ["distance", "angle", "distance_dot", "angle_dot", "radius"],
+                "RobotVel": ["frontal", "lateral", "rot"],
+            }
+        else:
+            index_keys = {
+                "PolarTargetPos": ["distance", "angle", "radius"],
+                "RobotVel": ["frontal", "lateral", "rot"],
+            }
+        self.wandb_run.log({
+            #"step": step,
+            #"time": time,
+            "estimators": {estimator_key: {
+                'mean': {index_keys[estimator_key][i]: val for i, val in enumerate(np.array(estimator['mean'].tolist())[:len(index_keys[estimator_key])])},
+                #'cov': estimator['cov'],
+                'uncertainty': {index_keys[estimator_key][i]: val for i, val in enumerate(np.sqrt(np.diag(np.array(estimator['cov'].tolist())))[:len(index_keys[estimator_key])])},
+                'estimation_error': {index_keys[estimator_key][i]: val for i, val in enumerate(real_state[estimator_key] - np.array(estimator['mean'].tolist())[:len(real_state[estimator_key])])},
+                'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state[estimator_key])-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
+            } for estimator_key, estimator in estimators.items() if estimator_key != "RobotVel"},
+            #"observation": observation,
+            #"goal_loss": goal_loss,
+            #"gradients": gradients,
+            #"action": action,
+        })
 
-        self.current_data[self.run]["step"] = np.append(self.current_data[self.run]["step"], step)
-        self.current_data[self.run]["time"] = np.append(self.current_data[self.run]["time"], time)
+    def log_local(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], real_state: Dict[str,Dict[str,torch.Tensor]], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
+        self.data[self.run]["step"] = np.append(self.data[self.run]["step"], step)
+        self.data[self.run]["time"] = np.append(self.data[self.run]["time"], time)
         for state_key in estimators.keys():
             # log estimator values
             estimator_mean = np.array(estimators[state_key]['mean'].tolist())
             estimator_cov = np.array(estimators[state_key]['cov'].tolist())
-            self.current_data[self.run]["estimators"][state_key]['mean'] = np.append(self.current_data[self.run]["estimators"][state_key]['mean'], [estimator_mean], axis=0)
-            self.current_data[self.run]["estimators"][state_key]['cov'] = np.append(self.current_data[self.run]["estimators"][state_key]['cov'], [estimator_cov], axis=0)
+            self.data[self.run]["estimators"][state_key]['mean'] = np.append(self.data[self.run]["estimators"][state_key]['mean'], [estimator_mean], axis=0)
+            self.data[self.run]["estimators"][state_key]['cov'] = np.append(self.data[self.run]["estimators"][state_key]['cov'], [estimator_cov], axis=0)
             # log uncertainty
             estimator_cov[estimator_cov < 0] = 0
-            self.current_data[self.run]["estimators"][state_key]["uncertainty"] = np.append(self.current_data[self.run]["estimators"][state_key]["uncertainty"], [np.sqrt(np.diag(estimator_cov))], axis=0)
+            self.data[self.run]["estimators"][state_key]["uncertainty"] = np.append(self.data[self.run]["estimators"][state_key]["uncertainty"], [np.sqrt(np.diag(estimator_cov))], axis=0)
             # log env_state
-            self.current_data[self.run]["env_state"][state_key] = np.append(self.current_data[self.run]["env_state"][state_key], [real_state[state_key]], axis=0)
+            self.data[self.run]["env_state"][state_key] = np.append(self.data[self.run]["env_state"][state_key], [real_state[state_key]], axis=0)
             task_state = real_state[state_key]
-            self.current_data[self.run]["estimation_error"][state_key] = np.append(self.current_data[self.run]["estimation_error"][state_key], [task_state - estimator_mean[:len(task_state)]], axis=0)
+            self.data[self.run]["estimation_error"][state_key] = np.append(self.data[self.run]["estimation_error"][state_key], [task_state - estimator_mean[:len(task_state)]], axis=0)
             if state_key == "PolarTargetPos":
-                task_state[0] -= self.current_data[self.run]["desired_distance"]
-            self.current_data[self.run]["task_state"][state_key] = np.append(self.current_data[self.run]["task_state"][state_key], [task_state], axis=0)
+                task_state[0] -= self.data[self.run]["desired_distance"]
+            self.data[self.run]["task_state"][state_key] = np.append(self.data[self.run]["task_state"][state_key], [task_state], axis=0)
         for obs_key in observation.keys():
-            self.current_data[self.run]["observation"][obs_key]["measurement"] = np.append(self.current_data[self.run]["observation"][obs_key]["measurement"], [observation[obs_key]["measurement"]], axis=0)
-            self.current_data[self.run]["observation"][obs_key]["noise"] = np.append(self.current_data[self.run]["observation"][obs_key]["noise"], [observation[obs_key]["noise"]], axis=0)
+            self.data[self.run]["observation"][obs_key]["measurement"] = np.append(self.data[self.run]["observation"][obs_key]["measurement"], [observation[obs_key]["measurement"]], axis=0)
+            self.data[self.run]["observation"][obs_key]["noise"] = np.append(self.data[self.run]["observation"][obs_key]["noise"], [observation[obs_key]["noise"]], axis=0)
         for goal_key in goal_loss.keys():
             for subgoal_key in goal_loss[goal_key].keys():
-                self.current_data[self.run]["goal_loss"][goal_key][subgoal_key] = np.append(self.current_data[self.run]["goal_loss"][goal_key][subgoal_key], goal_loss[goal_key][subgoal_key].item())
+                self.data[self.run]["goal_loss"][goal_key][subgoal_key] = np.append(self.data[self.run]["goal_loss"][goal_key][subgoal_key], goal_loss[goal_key][subgoal_key].item())
         for goal_key in gradients.keys():
             for subgoal_key in gradients[goal_key].keys():
-                self.current_data[self.run]["gradient"][goal_key][subgoal_key] = np.append(self.current_data[self.run]["gradient"][goal_key][subgoal_key], [gradients[goal_key][subgoal_key].tolist()], axis=0)
-        self.current_data[self.run]["action"] = np.append(self.current_data[self.run]["action"], [action.tolist()], axis=0)
+                self.data[self.run]["gradient"][goal_key][subgoal_key] = np.append(self.data[self.run]["gradient"][goal_key][subgoal_key], [gradients[goal_key][subgoal_key].tolist()], axis=0)
+        self.data[self.run]["action"] = np.append(self.data[self.run]["action"], [action.tolist()], axis=0)
 
-    # ======================================= plotting ==========================================
+    def end_wandb_run(self):
+        if self.wandb_run is not None:
+            self.wandb_run.finish()
+            self.wandb_run = None
+
+    def set_data(self, data: dict):
+        self.data = data
+        self.run = max([int_key for int_key in self.data.keys()])
+
+class AICONLogger:
+    def __init__(self, variations: List[dict]):
+        self.current_variation_id = 0
+        #self.variations: dict = {i: variation for i, variation in enumerate(variations)}
+        self.data = {}
+        self.variation_loggers: Dict[int,VariationLogger] = {}
+        for variation in variations:
+            self.set_variation(variation)
+
+    def get_variation(self, id=None):
+        if id is None:
+            id = self.current_variation_id
+        return self.variation_loggers[id].variation_config
+    
+    def get_variation_id(self, variation: Dict[str, dict]):
+        for variation_id, logger in self.variation_loggers.items():
+            if all(logger.variation_config.get(key) == val for key, val in variation.items()):
+                return variation_id
+        return None
+
+    def set_variation(self, variation):
+        self.current_variation_id = self.get_variation_id(variation)
+        if self.current_variation_id is None:
+            if len(self.variation_loggers) == 0:
+                self.current_variation_id = 1
+            else:
+                self.current_variation_id = max(self.variation_loggers.keys()) + 1
+            self.variation_loggers[self.current_variation_id] = VariationLogger(self.current_variation_id, variation)
+        self.current_data = self.variation_loggers[self.current_variation_id].data
+
+    def add_variations(self, variations):
+        for variation in variations:
+            self.set_variation(variation)
+
+    def set_wandb_config(self, project, group):
+        for variation_logger in self.variation_loggers.values():
+            variation_logger.wandb_project = project
+            variation_logger.wandb_group = group
+
+    # ======================================= helpers ==========================================
 
     @staticmethod
     def convert_to_numpy(obj):
@@ -274,6 +248,8 @@ class AICONLogger:
             fig, axs = plt.subplots(1, 1, figsize=(7, 6))
             axs = [axs]
         return fig, axs
+    
+    # ======================================= plotting ==========================================
 
     def plot_mean_stddev(self, subplot: plt.Axes, means: np.ndarray, stddevs: np.ndarray, title:str, label:str, y_label:str, y_bounds:Tuple[float,float]=None, style_dict:Dict[str,str]=None):
         plot_kwargs = style_dict if style_dict is not None else {'label': label}
@@ -341,8 +317,8 @@ class AICONLogger:
                 axs[1][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
                 axs[2][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
 
-            for label, config in plotting_config["axes"].items():
-                self.set_config(**config)
+            for label, variation in plotting_config["axes"].items():
+                self.set_variation(variation)
 
                 states = np.array([run_data["task_state"][state_id][:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
                 ucttys = np.array([run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
@@ -368,8 +344,8 @@ class AICONLogger:
             fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
             if len(indices) == 1:
                 axs = [[ax] for ax in axs]
-            config = plotting_config["axes"][axs_id]
-            self.set_config(**config)
+            variation = plotting_config["axes"][axs_id]
+            self.set_variation(variation)
             if runs is None:
                 runs = list(self.current_data.keys())
             states = np.array([self.current_data[run]["task_state"][state_id][:,indices] for run in runs])
@@ -394,8 +370,8 @@ class AICONLogger:
             axs_goal = [axs_goal]
         for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
             ybounds = config["ybounds"]
-            for label, config in plotting_config["axes"].items():
-                self.set_config(**config)
+            for label, variation in plotting_config["axes"].items():
+                self.set_variation(variation)
                 total_loss = np.array([[0.0]*len(run_data["step"]) for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
                 for subgoal_key in self.current_data[1]["goal_loss"][goal_key].keys():
                     goal_losses = np.array([run_data["goal_loss"][goal_key][subgoal_key] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
@@ -412,13 +388,19 @@ class AICONLogger:
     # ================================ saving & loading ================================
 
     def save(self, record_dir):
-        if self.wandb_run is not None:
-            self.wandb_run.finish()
-        #self.data["records"] = self.convert_to_numpy(self.data["records"])
+        yaml_dict = {
+            variation_id: {
+                "variation": variation_logger.variation_config,
+                "data":      variation_logger.data
+            } for variation_id, variation_logger in self.variation_loggers.items()
+        }
         with open(os.path.join(record_dir, "records/data.pkl"), 'wb') as f:
-            pickle.dump(self.data, f)
+            pickle.dump(yaml_dict, f)
 
     def load(self, folder):
         with open(os.path.join(folder, 'records/data.pkl'), 'rb') as f:
-            self.data = pickle.load(f)
+            yaml_dict: dict = pickle.load(f)
+            for variation_id, data in yaml_dict.items():
+                self.variation_loggers[variation_id] = VariationLogger(variation_id, data["variation"])
+                self.variation_loggers[variation_id].set_data(data["data"])
     

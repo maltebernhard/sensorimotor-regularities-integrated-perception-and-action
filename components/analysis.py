@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 
 from components.aicon import AICON
-from components.logger import AICONLogger
+from components.logger import AICONLogger, VariationLogger
 from models.old.base.aicon import BaseAICON
 from models.old.experiment1.aicon import Experiment1AICON
 from models.old.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
@@ -25,7 +25,7 @@ from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
 # ========================================================================================================
 
 class Runner:
-    def __init__(self, model: str, run_config: dict, env_config: dict, aicon_type: str = None, logger: AICONLogger = None):
+    def __init__(self, model: str, run_config: dict, env_config: dict, aicon_type: str = None, logger: VariationLogger = None):
         self.model = model
         if aicon_type is not None:
             self.aicon_type = aicon_type
@@ -43,7 +43,7 @@ class Runner:
         self.logger = logger
         self.aicon = self.create_model()
 
-        self.num_run = 0
+        self.num_run = logger.run if logger is not None else 0
 
     def run(self):
         self.num_run += 1
@@ -91,17 +91,18 @@ class Analysis:
 
         self.variations = experiment_config["variations"]
         
-        self.logger = AICONLogger()
+        self.logger = AICONLogger(self.variations)
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
-        self.logger.wandb_project = f"aicon-{self.experiment_config['name']}"
         if self.experiment_config['wandb'] and self.experiment_config.get("wandb_group", None) is None:
             self.experiment_config['wandb_group'] = f"{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
-        self.logger.wandb_group = self.experiment_config['wandb_group']
+        self.logger.set_wandb_config(f"aicon-{self.experiment_config['name']}", self.experiment_config['wandb_group'])
 
     def add_and_run_variations(self, variations: List[dict]):
         self.variations += variations
+        self.logger.add_variations(variations)
+        self.logger.set_wandb_config(f"aicon-{self.experiment_config['name']}", self.experiment_config['wandb_group'])
         self.experiment_config["variations"] = self.variations
         self.run_analysis(variations)
 
@@ -111,15 +112,17 @@ class Analysis:
         total_configs = len(variations)
         total_runs = total_configs * self.num_runs
         completed_configs = 0
+
+        
         with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar, tqdm.external_write_mode(file=sys.stdout):
             for variation in variations:
-                self.logger.set_config(**variation)
+                self.logger.set_variation(variation)
                 env_config = self.base_env_config.copy()
                 env_config["observation_noise"] = variation["sensor_noise"]
                 env_config["moving_target"] = variation["moving_target"]
                 env_config["observation_loss"] = variation["observation_loss"]
                 env_config["fv_noise"] = variation["fv_noise"]
-                config_id = self.logger.config
+                config_id = self.logger.current_variation_id
                 aicon_type = {
                     "smcs": variation["smcs"],
                     "control": variation["control"],
@@ -130,17 +133,18 @@ class Analysis:
                     aicon_type = aicon_type,
                     run_config = self.base_run_config,
                     env_config = env_config,
-                    logger = self.logger,
+                    logger = self.logger.variation_loggers[config_id],
                 )
                 for run in range(self.num_runs):
                     if self.record_videos and run == self.num_runs-1:
                         runner.render = True
-                        video_path = self.record_dir + f"/records/{config_id[0]}_{config_id[1][0]}_{config_id[1][1]}_{config_id[1][2]}_{config_id[1][3]}.mp4"
+                        video_path = self.record_dir + f"/records/variation{config_id}_seed{runner.seed+runner.num_run-1}.mp4"
                         runner.video_record_path = video_path
                     runner.run()
                     pbar.update(1)
                     pbar.set_description(f"{completed_configs+1}:{runner.num_run}/{total_configs}:{self.num_runs}")
                 completed_configs += 1
+
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
         #self.visualize_graph(aicon=runner.aicon, save=True, show=False)
@@ -185,9 +189,9 @@ class Analysis:
         )
         runner.num_run = run_number-1
         if record_video:
-            self.logger.set_config(**variation)
-            config_id = self.logger.config
-            video_path = self.record_dir + f"/records/{config_id[0]}_{config_id[1][0]}_{config_id[1][1]}_{config_id[1][2]}_{config_id[1][3]}.mp4"
+            self.logger.set_variation(variation)
+            config_id = self.logger.current_variation_id
+            video_path = self.record_dir + f"/records/variation{config_id}_seed{runner.seed+runner.num_run-1}.mp4"
             runner.video_record_path = video_path
         runner.run()
 
