@@ -471,7 +471,7 @@ class GazeFixEnv(BaseEnv):
     def isolate_sensor_readings_from_observations(self, env_state: Dict[str, float]) -> Dict[str, float]:
         observation = env_state.copy()
         # delete all observations not provided to any measurement model
-        keys_to_delete = [key for key in observation if key not in self.required_observations] + [key for key, time_ranges in self.observation_loss.items() if any([self.time >= time_range[0] and self.time < time_range[1] for time_range in time_ranges])]
+        keys_to_delete = [key for key in observation if key not in self.required_observations] + [key for key, step_ranges in self.observation_loss.items() if any([self.current_step >= step_range[0] and self.time < step_range[1] for step_range in step_ranges])]
         for key in keys_to_delete:
             del observation[key]
         # delete all occluded observations

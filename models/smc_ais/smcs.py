@@ -70,7 +70,7 @@ class DistanceVel_MM(FV_SMC):
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         return {
             f"{self.object_name.lower()}_distance": state[0],
-            f"{self.object_name.lower()}_distance_dot": state[3] - rotate_vector_2d(-state[1], action[:2])[0]
+            f"{self.object_name.lower()}_distance_dot": state[2] - rotate_vector_2d(-state[1], action[:2])[0]
         }
 
 class Angle_MM(FV_SMC):

@@ -28,15 +28,15 @@ class SMCAICON(AICON):
         sensor_angle = self.env_config["robot_sensor_angle"]
         meas_models = {}
         if self.distance_sensor == "distsensor":
-            meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"]) if self.env_config["moving_target"] == "stationary" else (DistanceVel_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos", "RobotVel"])
+            meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"]) if self.env_config["moving_target"] == "stationary" else (DistanceVel_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
         meas_models["VelMM"]   = (Robot_Vel_MM(), ["RobotVel"])
-        meas_models["AngleMM"] = (Angle_MM(fv_noise=fv_noise, sensor_angle=sensor_angle),     ["PolarTargetPos"])
+        meas_models["AngleMM"] = (Angle_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
         if "Triangulation" in self.smcs:
             smc = Triangulation_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else TriangulationVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
-            meas_models["TriangulationSMC"] = (smc, ["PolarTargetPos", "RobotVel"])
+            meas_models["TriangulationSMC"] = (smc, ["PolarTargetPos"])
         if "Divergence" in self.smcs:
             smc = Divergence_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else DivergenceVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
-            meas_models["DivergenceSMC"] = (smc, ["PolarTargetPos", "RobotVel"])
+            meas_models["DivergenceSMC"] = (smc, ["PolarTargetPos"])
         return meas_models
 
     def define_active_interconnections(self):

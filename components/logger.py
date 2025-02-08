@@ -112,39 +112,40 @@ class AICONLogger:
         # for new run, set up logging dict
         if self.run not in self.current_data:
             self.current_data[self.run] = {
-                "step":             [],     # time step
-                "time":             [],     # time in seconds
+                "step":             np.array([]),     # time step
+                "time":             np.array([]),     # time in seconds
                 "estimators": {estimator_key: {
-                    'mean':   [],     # mean of state estimate
-                    'cov':    [],     # covariance of state estimate
-                    "uncertainty":  [],     # uncertainty of state estimate: sqrt(diag(covariance))
+                    'mean':         np.empty((0,) + estimators[estimator_key]["mean"].shape),     # mean of state estimate
+                    'cov':          np.empty((0,) + estimators[estimator_key]["cov"].shape),      # covariance of state estimate
+                    "uncertainty":  np.empty((0,) + (estimators[estimator_key]["mean"].shape[0],)), # uncertainty of state estimate: sqrt(diag(covariance))
                     "motion_noise": np.array(estimators[estimator_key]["forward_noise"].tolist()),     # static estimator motion noise
                 } for estimator_key in estimators.keys()},
                 "observation": {obs_key: {
-                    "measurement":  [],     # measurement
-                    "noise":        [],     # noise
+                    "measurement":  np.array([]),     # measurement
+                    "noise":        np.array([]),           # noise
                 } for obs_key in observation.keys()},
                 "env_state": {
-                    state_key:      []      # real state
+                    state_key:      np.empty((0,) + estimators[state_key]["mean"].shape)      # real state
                 for state_key in estimators.keys()},
                 "task_state": {
-                    state_key:      []      # task state: real state with subtracted offsets (like desired target distance)
+                    state_key:      np.empty((0,) + estimators[state_key]["mean"].shape)      # task state: real state with subtracted offsets (like desired target distance)
                 for state_key in estimators.keys()},
                 "estimation_error": {
-                    state_key:      []      # estimation error: estimation - real state
+                    state_key:      np.empty((0,) + estimators[state_key]["mean"].shape)      # estimation error: estimation - real state
                 for state_key in estimators.keys()},
                 "goal_loss": {goal_key: {
-                        subgoal_key: []     # goal loss function value
+                    subgoal_key: np.array([])     # goal loss function value
                     for subgoal_key in goal_loss[goal_key].keys()}
                 for goal_key in goal_loss.keys()},
                 "gradient": {goal_key: {
-                        subgoal_key: []     # gradient of goal loss function
+                    subgoal_key: np.empty((0,) + gradients[goal_key][subgoal_key].shape)     # gradient of goal loss function
                     for subgoal_key in gradients[goal_key].keys()}
                 for goal_key in gradients.keys()},
-                "action":           [],     # action
+                "action":           np.empty((0,) + action.shape),     # action
                 "desired_distance": env_state["desired_target_distance"],
                 # TODO: log run seed and config Analysis to skip runs which are already logged
             }
+
             if self.wandb_group is not None:
                 if self.wandb_run is not None:
                     self.wandb_run.finish()
@@ -180,13 +181,11 @@ class AICONLogger:
                     index_keys = {
                         "PolarTargetPos": ["distance", "angle", "distance_dot", "angle_dot", "radius"],
                         "RobotVel": ["frontal", "lateral", "rot"],
-                        "TargetRadius": ["radius"],
                     }
                 else:
                     index_keys = {
                         "PolarTargetPos": ["distance", "angle", "radius"],
                         "RobotVel": ["frontal", "lateral", "rot"],
-                        "TargetRadius": ["radius"],
                     }
                 real_state[key] = np.append(real_state[key], env_state[f"{obj}_radius"])
             elif key == "RobotVel":
@@ -212,42 +211,41 @@ class AICONLogger:
                     'uncertainty': {index_keys[estimator_key][i]: val for i, val in enumerate(np.sqrt(np.diag(np.array(estimator['cov'].tolist())))[:len(index_keys[estimator_key])])},
                     'estimation_error': {index_keys[estimator_key][i]: val for i, val in enumerate(real_state[estimator_key] - np.array(estimator['mean'].tolist())[:len(real_state[estimator_key])])},
                     'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.current_data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state[estimator_key])-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
-                } for estimator_key, estimator in estimators.items()},
+                } for estimator_key, estimator in estimators.items() if estimator_key != "RobotVel"},
                 #"observation": observation,
                 #"goal_loss": goal_loss,
                 #"gradients": gradients,
                 #"action": action,
             })
 
-        self.current_data[self.run]["step"].append(step)
-        self.current_data[self.run]["time"].append(time)
+        self.current_data[self.run]["step"] = np.append(self.current_data[self.run]["step"], step)
+        self.current_data[self.run]["time"] = np.append(self.current_data[self.run]["time"], time)
         for state_key in estimators.keys():
             # log estimator values
             estimator_mean = np.array(estimators[state_key]['mean'].tolist())
             estimator_cov = np.array(estimators[state_key]['cov'].tolist())
-            self.current_data[self.run]["estimators"][state_key]['mean'].append(estimator_mean)
-            self.current_data[self.run]["estimators"][state_key]['cov'].append(estimator_cov)
+            self.current_data[self.run]["estimators"][state_key]['mean'] = np.append(self.current_data[self.run]["estimators"][state_key]['mean'], [estimator_mean], axis=0)
+            self.current_data[self.run]["estimators"][state_key]['cov'] = np.append(self.current_data[self.run]["estimators"][state_key]['cov'], [estimator_cov], axis=0)
             # log uncertainty
-            # TODO: remove this hack once noise is always on
             estimator_cov[estimator_cov < 0] = 0
-            self.current_data[self.run]["estimators"][state_key]["uncertainty"].append(np.sqrt(np.diag(estimator_cov)))
+            self.current_data[self.run]["estimators"][state_key]["uncertainty"] = np.append(self.current_data[self.run]["estimators"][state_key]["uncertainty"], [np.sqrt(np.diag(estimator_cov))], axis=0)
             # log env_state
-            self.current_data[self.run]["env_state"][state_key].append(real_state[state_key])
+            self.current_data[self.run]["env_state"][state_key] = np.append(self.current_data[self.run]["env_state"][state_key], [real_state[state_key]], axis=0)
             task_state = real_state[state_key]
-            self.current_data[self.run]["estimation_error"][state_key].append(task_state - estimator_mean[:len(task_state)])
+            self.current_data[self.run]["estimation_error"][state_key] = np.append(self.current_data[self.run]["estimation_error"][state_key], [task_state - estimator_mean[:len(task_state)]], axis=0)
             if state_key == "PolarTargetPos":
                 task_state[0] -= self.current_data[self.run]["desired_distance"]
-            self.current_data[self.run]["task_state"][state_key].append(task_state)
+            self.current_data[self.run]["task_state"][state_key] = np.append(self.current_data[self.run]["task_state"][state_key], [task_state], axis=0)
         for obs_key in observation.keys():
-            self.current_data[self.run]["observation"][obs_key]["measurement"].append(observation[obs_key]["measurement"])
-            self.current_data[self.run]["observation"][obs_key]["noise"].append(observation[obs_key]["noise"])
+            self.current_data[self.run]["observation"][obs_key]["measurement"] = np.append(self.current_data[self.run]["observation"][obs_key]["measurement"], [observation[obs_key]["measurement"]], axis=0)
+            self.current_data[self.run]["observation"][obs_key]["noise"] = np.append(self.current_data[self.run]["observation"][obs_key]["noise"], [observation[obs_key]["noise"]], axis=0)
         for goal_key in goal_loss.keys():
             for subgoal_key in goal_loss[goal_key].keys():
-                self.current_data[self.run]["goal_loss"][goal_key][subgoal_key].append(np.array(goal_loss[goal_key][subgoal_key].item()))
+                self.current_data[self.run]["goal_loss"][goal_key][subgoal_key] = np.append(self.current_data[self.run]["goal_loss"][goal_key][subgoal_key], goal_loss[goal_key][subgoal_key].item())
         for goal_key in gradients.keys():
             for subgoal_key in gradients[goal_key].keys():
-                self.current_data[self.run]["gradient"][goal_key][subgoal_key].append(np.array(gradients[goal_key][subgoal_key].tolist()))
-        self.current_data[self.run]["action"].append(np.array(action.tolist()))
+                self.current_data[self.run]["gradient"][goal_key][subgoal_key] = np.append(self.current_data[self.run]["gradient"][goal_key][subgoal_key], [gradients[goal_key][subgoal_key].tolist()], axis=0)
+        self.current_data[self.run]["action"] = np.append(self.current_data[self.run]["action"], [action.tolist()], axis=0)
 
     # ======================================= plotting ==========================================
 
@@ -346,9 +344,9 @@ class AICONLogger:
             for label, config in plotting_config["axes"].items():
                 self.set_config(**config)
 
-                states = np.array([np.array(run_data["task_state"][state_id])[:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
-                ucttys = np.array([np.array(run_data["estimators"][state_id]["uncertainty"])[:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
-                errors = np.array([np.array(run_data["estimation_error"][state_id])[:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
+                states = np.array([run_data["task_state"][state_id][:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
+                ucttys = np.array([run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
+                errors = np.array([run_data["estimation_error"][state_id][:,indices] for run_key, run_data in self.current_data.items() if run_key not in plotting_config["exclude_runs"]])
 
                 state_means, state_stddevs = self.compute_mean_and_stddev(states)
                 error_means, error_stddevs = self.compute_mean_and_stddev(errors)
@@ -374,9 +372,9 @@ class AICONLogger:
             self.set_config(**config)
             if runs is None:
                 runs = list(self.current_data.keys())
-            states = np.array([np.array(self.current_data[run]["task_state"][state_id])[:,indices] for run in runs])
-            ucttys = np.array([np.array(self.current_data[run]["estimators"][state_id]["uncertainty"])[:,indices] for run in runs])
-            errors = np.array([np.array(self.current_data[run]["estimation_error"][state_id])[:,indices] for run in runs])
+            states = np.array([self.current_data[run]["task_state"][state_id][:,indices] for run in runs])
+            ucttys = np.array([self.current_data[run]["estimators"][state_id]["uncertainty"][:,indices] for run in runs])
+            errors = np.array([self.current_data[run]["estimation_error"][state_id][:,indices] for run in runs])
             for i in range(len(indices)):
                 self.plot_runs(axs[0][i], states, runs, i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, True)
                 self.plot_runs(axs[1][i], errors, runs, i, None, "Estimation Error" if i==0 else None, None, True)
@@ -416,7 +414,7 @@ class AICONLogger:
     def save(self, record_dir):
         if self.wandb_run is not None:
             self.wandb_run.finish()
-        self.data["records"] = self.convert_to_numpy(self.data["records"])
+        #self.data["records"] = self.convert_to_numpy(self.data["records"])
         with open(os.path.join(record_dir, "records/data.pkl"), 'wb') as f:
             pickle.dump(self.data, f)
 

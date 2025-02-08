@@ -67,7 +67,8 @@ def get_observation_loss_config(smcs_config, experiment_id):
         # if smcs_config == "both" or smcs_config == "tri":
         #     loss_config += ["tri_loss"]
         # return loss_config
-        return ["no_obs_loss", "dist_loss"]
+        # TODO: for dist loss, only compute small noise | for no loss, compare small and huge_dist noise
+        return ["no_obs_loss"]#, "dist_loss"]
 
 def create_variations(experiment_id):
     exp_configs = []
@@ -127,23 +128,34 @@ if __name__ == "__main__":
         sys.exit(1)
     try:
         experiment_type = int(sys.argv[1])
+        analysis = None
     except ValueError:
-        print("Experiment type must be an integer.")
-        sys.exit(1)
+        if "records/" in sys.argv[1]:
+            experiment_type = 1 if "Experiment1" in sys.argv[1] else 2
+            analysis = Analysis.load(sys.argv[1])
+        else:
+            print("Experiment type must be an integer.")
+            sys.exit(1)
     variations = create_variations(experiment_type)
 
-    analysis = Analysis({
-        "name":                       f"Experiment{experiment_type}",
-        "num_runs":                   runs_per_variation,
-        "model_type":                 "SMC",
-        "base_env_config":            base_env_config,
-        "base_run_config":            base_run_config,
-        "record_videos":              False,
-        "variations":                 variations,
-        "wandb":                      True,
-    })
-    analysis.run_analysis()
+    if analysis is not None:
+        analysis.add_and_run_variations(variations)
+    else:
+        analysis = Analysis({
+            "name":                       f"Experiment{experiment_type}",
+            "num_runs":                   runs_per_variation,
+            "model_type":                 "SMC",
+            "base_env_config":            base_env_config,
+            "base_run_config":            base_run_config,
+            "record_videos":              False,
+            "variations":                 variations,
+            "wandb":                      True,
+        })
+        analysis.run_analysis()
 
+    # NOTE: use this to run a single demo with rendering and prints, for a specific variation, e.g. to check bugs
+    # analysis.run_demo(variations[0], 6, False)
+    # raise ValueError("Demo run complete")
 
     if experiment_type == 1:
         invariant_config = {

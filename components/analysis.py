@@ -1,6 +1,7 @@
 from datetime import datetime
 import os
 import sys
+import time
 from typing import Dict, List, Tuple, Type
 import torch
 from tqdm import tqdm
@@ -138,7 +139,7 @@ class Analysis:
                         runner.video_record_path = video_path
                     runner.run()
                     pbar.update(1)
-                    pbar.set_description(f"{completed_configs+1}:{runner.seed+runner.num_run-1}/{total_configs}")
+                    pbar.set_description(f"{completed_configs+1}:{runner.num_run}/{total_configs}:{self.num_runs}")
                 completed_configs += 1
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
@@ -152,20 +153,29 @@ class Analysis:
         self.logger.save(self.record_dir)
         #print("Data Saved.")
 
-    def run_demo(self, config: dict, run_number, step_by_step:bool=False, record_video=False):
+    def run_demo(self, variation: dict, run_number, step_by_step:bool=False, record_video=False):
+        print("================ DEMO Variation ================")
+        for key, value in variation.items():
+            if type(value) == dict:
+                print(f"{key}:")
+                for k, v in value.items():
+                    print(f"  {k}: {v}")
+            else:
+                print(f"{key}: {value}")
+        print("===============================================")
         env_config = self.base_env_config.copy()
-        env_config["observation_noise"] = config["sensor_noise"]
-        env_config["moving_target"] = config["moving_target"]
-        env_config["observation_loss"] = config["observation_loss"]
-        env_config["fv_noise"] = config["fv_noise"]
+        env_config["observation_noise"] = variation["sensor_noise"]
+        env_config["moving_target"] = variation["moving_target"]
+        env_config["observation_loss"] = variation["observation_loss"]
+        env_config["fv_noise"] = variation["fv_noise"]
         run_config = self.base_run_config.copy()
         run_config['render'] = True
         run_config['prints'] = 1
         run_config['step_by_step'] = step_by_step
         aicon_type = {
-            "smcs": config["smcs"],
-            "control": config["control"],
-            "distance_sensor": config["distance_sensor"],
+            "smcs": variation["smcs"],
+            "control": variation["control"],
+            "distance_sensor": variation["distance_sensor"],
         }
         runner = Runner(
             model = self.model,
@@ -175,7 +185,7 @@ class Analysis:
         )
         runner.num_run = run_number-1
         if record_video:
-            self.logger.set_config(**config)
+            self.logger.set_config(**variation)
             config_id = self.logger.config
             video_path = self.record_dir + f"/records/{config_id[0]}_{config_id[1][0]}_{config_id[1][1]}_{config_id[1][2]}_{config_id[1][3]}.mp4"
             runner.video_record_path = video_path

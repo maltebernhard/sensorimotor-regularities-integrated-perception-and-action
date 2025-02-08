@@ -81,26 +81,26 @@ noise_dict = {
 # for each observation key, deactivate sensor readings in given ranges of seconds
 tri_loss = {
     "target_offset_angle": [
-        (5.0, 8.0),
+        (100, 200),
     ],
     "target_offset_angle_dot": [
-        (5.0, 8.0),
+        (100, 200),
     ],
 }
 div_loss = {
     "target_visual_angle": [
-        (5.0, 8.0),
+        (100, 200),
     ],
     "target_visual_angle_dot": [
-        (5.0, 8.0),
+        (100, 200),
     ],
 }
 dist_loss = {
     "target_distance": [
-        (5.0, 8.0),
+        (100, 200),
     ],
     "target_distance_dot": [
-        (5.0, 8.0),
+        (100, 200),
     ],
 }
 no_obs_loss = {}

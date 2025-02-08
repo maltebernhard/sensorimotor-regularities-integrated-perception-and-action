@@ -64,7 +64,7 @@ class AICON(ABC):
         for step in range(timesteps):
             self.current_step = step
             if prints > 0 and step % prints == 0:
-                print("-------- Comuting Action Gradient ---------")
+                print("------------ Computing Action Gradient -------------")
             gradients, action = self.compute_action()
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
@@ -129,18 +129,18 @@ class AICON(ABC):
 
     def meas_updates(self, buffer_dict):
         if self.prints > 0 and self.current_step % self.prints == 0:
-            #print("Real Measurements: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in self.last_observation[0].items()])
+            print("Real Measurements: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in self.last_observation[0].items()])
             print("Pre Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
             print("Pre Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
         for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
-                    # if self.prints > 0 and self.current_step % self.prints == 0:
-                    #     print(f"Meas Model {mm_key} on Estimator {estimator_key}")
                     self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
-        if self.prints > 0 and self.current_step % self.prints == 0:
-            print("Post Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
-            print("Post Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+                    if self.prints > 0 and self.current_step % self.prints == 0:
+                        print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)
+                        if abs(buffer_dict["PolarTargetPos"]["mean"][2].item()) > 3e+4:
+                            raise ValueError("Target angle is too large")
+                        #print("Post Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
 
     def contingent_meas_updates(self, buffer_dict: dict):
         """
@@ -148,14 +148,14 @@ class AICON(ABC):
         """
         if self.prints > 0 and self.current_step % self.prints == 0:
             print("Pre Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
-            print("Pre Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
-        for meas_model, estimator_keys in self.MMs.values():
+            #print("Pre Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+        for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
                     self.REs[estimator_key].call_update_with_smc(meas_model, buffer_dict)
-        if self.prints > 0 and self.current_step % self.prints == 0:
-            print("Post Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
-            print("Post Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+                    if self.prints > 0 and self.current_step % self.prints == 0:
+                        print(f"Post Cont {mm_key} Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+                        #print("Post Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
 
     def set_observations(self):
         obs: Dict[str, Observation] = {}
