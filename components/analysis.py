@@ -28,7 +28,7 @@ import multiprocessing as mp
 # ========================================================================================================
 
 class Runner:
-    def __init__(self, run_config: dict, base_env_config: dict, variation: dict, logging_config:dict=None):
+    def __init__(self, run_config: dict, base_env_config: dict, variation: dict, variation_id=None, wandb_config:dict=None):
         self.model = "SMC"
 
         self.env_config = base_env_config.copy()
@@ -51,7 +51,7 @@ class Runner:
         self.prints = run_config['prints']
         self.step_by_step = run_config['step_by_step']
         
-        self.logger = VariationLogger(variation, logging_config) if logging_config is not None else None
+        self.logger: VariationLogger = VariationLogger(variation, variation_id, wandb_config) if wandb_config is not None else None
         self.aicon = self.create_model()
 
         self.num_run = self.logger.run if self.logger is not None else 0
@@ -88,17 +88,25 @@ class Runner:
             raise ValueError(f"Model Type {self.model} not recognized")
 
 def run_variation(base_run_config, base_env_config, variation_id, variation, logging_config, num_runs, queue:mp.Queue, counter):
+    # TODO: think about parallelizing even single seeded runs
+    # TODO: measure parallelization performance
     runner = Runner(
         run_config=base_run_config,
         base_env_config=base_env_config,
-        variation = variation,
-        logging_config=logging_config,
+        variation=variation,
+        variation_id=variation_id,
+        wandb_config=logging_config,
     )
     for run in range(num_runs):
         runner.run()
-        counter.value += 1
-    queue.put((variation_id, runner.logger.data))
-    
+        with counter.get_lock():
+            counter.value += 1
+        runner.logger.end_wandb_run()
+        queue.put((variation_id, run+1, runner.logger.data[run+1].copy()))
+    del runner.aicon.env
+    del runner.aicon
+    del runner.logger
+    del runner
 
 class Analysis:
     def __init__(self, experiment_config: dict):
@@ -122,7 +130,7 @@ class Analysis:
 
         if self.experiment_config['wandb'] and self.experiment_config.get("wandb_group", None) is None:
             self.experiment_config['wandb_group'] = f"{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
-        self.logging_config = {
+        self.wandb_config = {
             "wandb_project": f"aicon-{self.experiment_config['name']}",
             "wandb_group": self.experiment_config['wandb_group'],
         }
@@ -148,30 +156,36 @@ class Analysis:
         total_configs = len(variations)
         total_runs = total_configs * self.num_runs
         mp.set_start_method('spawn', force=True)
-        with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True) as pbar:
-            with mp.Manager() as manager:
-                base_run_config = manager.dict(self.base_run_config)
-                base_env_config = manager.dict(self.base_env_config)
-                logging_config = manager.dict(self.logging_config)
-                vars = manager.dict()
-                counter = manager.Value('i', 0)
-                data_queue = mp.Queue()
-                processes = []
-                for variation in variations:
-                    var_id = self.logger.set_variation(variation)
-                    vars[var_id] = manager.dict(variation)
-                    p = mp.Process(target=run_variation, args=(base_run_config, base_env_config, var_id, vars[var_id], logging_config, self.num_runs, data_queue, counter))
-                    processes.append(p)
-                    p.start()
-                while counter.value < total_runs:
-                    pbar.update(counter.value - pbar.n)
-                    time.sleep(1)
-                for p in processes:
-                    p.join()
-                while not data_queue.empty():
-                    var_id, data_dict = data_queue.get()
-                    self.logger.variations[var_id]['data'] = data_dict
-                self.save()
+        with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True, ) as pbar:
+            counter = mp.Value('i', 0)
+            data_queue = mp.Queue()
+            processes = []
+            for variation in variations:
+                var_id = self.logger.set_variation(variation)
+                p = mp.Process(target=run_variation, args=(self.base_run_config, self.base_env_config, var_id, variation, self.wandb_config, self.num_runs, data_queue, counter))
+                processes.append(p)
+                p.start()
+            run_save_counter = 0
+            while counter.value < total_runs:
+                pbar.update(counter.value - pbar.n)
+                if not data_queue.empty():
+                    var_id, num_run, data_dict = data_queue.get(timeout=5)
+                    self.logger.variations[var_id]['data'][num_run] = data_dict
+                    run_save_counter += 1
+                time.sleep(.1)
+            pbar.update(total_runs - pbar.n)
+        while not data_queue.empty():
+            var_id, num_run, data_dict = data_queue.get(timeout=5)
+            self.logger.variations[var_id]['data'][num_run] = data_dict
+            run_save_counter += 1
+        for p in processes:
+            p.join(timeout=10)  # Add a timeout for joining processes
+            if p.is_alive():
+                print(f"WARN: Process {p.pid} did not terminate within the timeout period.")
+                p.terminate()
+                p.join()
+        print(f"Saved {run_save_counter} runs.")
+        self.save()
     
     def save(self):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
@@ -191,10 +205,7 @@ class Analysis:
         with open(os.path.join(folder, 'records/data.pkl'), 'rb') as f:
             yaml_dict: dict = pickle.load(f)
             for variation_id, data in yaml_dict.items():
-                analysis.logger.variations[variation_id] = {
-                    data["variation"],
-                    data["data"],
-                }
+                analysis.logger.variations[variation_id] = data
         analysis.record_dir = folder
         return analysis
 

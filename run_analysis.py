@@ -2,6 +2,7 @@ from components.analysis import Analysis, Runner
 from configs import ExperimentConfig as config
 from plot import plot_states_and_losses
 import sys
+from pprint import pprint
 
 # ==================================================================================
 
@@ -40,7 +41,7 @@ def get_sensor_noise_config(smcs_config, experiment_id):
         # noise_config = ["small_noise", "large_noise", "dist_noise", "huge_dist_noise"]
         # if smcs_config == "both":
         #     noise_config += ["tri_noise", "div_noise"]
-        noise_config = ["small_noise"]#, "huge_dist_noise"]
+        noise_config = ["small_noise", "huge_dist_noise"]
     return noise_config
 
 def get_fv_noise_config(experiment_id):
@@ -68,33 +69,28 @@ def get_observation_loss_config(smcs_config, experiment_id):
         #     loss_config += ["tri_loss"]
         # return loss_config
         # TODO: for dist loss, only compute small noise | for no loss, compare small and huge_dist noise
-        #return ["no_obs_loss"]
-        return ["dist_loss"]
+        return ["no_obs_loss"]
+        #return ["dist_loss"]
 
 def create_variations(experiment_id):
     exp_configs = []
-    #aicon_type_configs = create_aicon_type_configs(experiment_id)
-    if experiment_id == 1:
-        aicon_type_configs = create_aicon_type_configs(experiment_id, ['both'])
-    elif experiment_id == 2:
-        aicon_type_configs = create_aicon_type_configs(experiment_id, ['nosmcs', 'both'])
-    observation_noise_configs = get_sensor_noise_config("both" if "both" in [conf["smcs"] for conf in aicon_type_configs] else "", experiment_id)
-    fv_noise_configs = get_fv_noise_config(experiment_id)
-    moving_target_configs = get_moving_target_config(experiment_id)
-    observation_loss_configs = get_observation_loss_config("both" if "both" in [conf["smcs"] for conf in aicon_type_configs] else "", experiment_id)
-    print(f"Creating experiment {experiment_id} variations for ...")
-    print("AICON Types:")
-    for aicon_config in aicon_type_configs:
-        print(aicon_config)
-    print("Sensor Noises:        ", observation_noise_configs)
-    print("Foveal Vision Noises: ", fv_noise_configs)
-    print("Moving Targets:       ", moving_target_configs)
-    print("Observation Losses:   ", observation_loss_configs)
-    for aicon_type_config in aicon_type_configs:
+    exp_config_keys = []
+    # TODO: remove for ablations
+    #for aicon_type_config in create_aicon_type_configs(experiment_id):
+    for aicon_type_config in create_aicon_type_configs(experiment_id, ['both', 'nosmcs']):
         for observation_noise_config in get_sensor_noise_config(aicon_type_config["smcs"], experiment_id):
-            for fv_noise_config in fv_noise_configs:
-                for moving_target_config in moving_target_configs:
+            for fv_noise_config in get_fv_noise_config(experiment_id):
+                for moving_target_config in get_moving_target_config(experiment_id):
                     for observation_loss_config in get_observation_loss_config(aicon_type_config["smcs"], experiment_id):
+                        exp_config_keys.append({
+                            "smcs":                aicon_type_config["smcs"],
+                            "control":             aicon_type_config["control"],
+                            "distance_sensor":     aicon_type_config["distance_sensor"],
+                            "moving_target":       moving_target_config,
+                            "sensor_noise":        observation_noise_config,
+                            "observation_loss":    observation_loss_config,
+                            "fv_noise":            fv_noise_config,
+                        })
                         exp_configs.append({
                             "smcs":                config.smcs.__dict__[aicon_type_config["smcs"]],
                             "control":             config.control.__dict__[aicon_type_config["control"]],
@@ -104,6 +100,10 @@ def create_variations(experiment_id):
                             "observation_loss":    config.observation_loss.__dict__[observation_loss_config],
                             "fv_noise":            config.fv_noise.__dict__[fv_noise_config],
                         })
+    print(f"================ all variations =================")
+    for variation in exp_config_keys:
+        pprint(variation)
+    print("=================================================")
     return exp_configs
 
 # ==================================================================================
@@ -116,12 +116,12 @@ base_env_config = {
 }
 
 base_run_config = {
-    "num_steps":        10,
+    "num_steps":        300,
     "initial_action":   [0.0, 0.0, 0.0],
-    "seed":             10,
+    "seed":             1,
 }
 
-runs_per_variation = 1
+runs_per_variation = 10
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -152,7 +152,7 @@ if __name__ == "__main__":
             "variations":                 variations,
             "wandb":                      True,
         })
-    analysis.run_analysis()
+        analysis.run_analysis()
 
     # NOTE: use this to run a single demo with rendering and prints, for a specific variation, e.g. to check bugs
     # analysis.run_demo(variations[0], 1, True)
@@ -165,8 +165,9 @@ if __name__ == "__main__":
         }
     elif experiment_type == 2:
         invariant_config = {
-            "sensor_noise": None,
+            #"sensor_noise":     None,
+            #"fv_noise":         None,
+            "moving_target":    None,
             "observation_loss": None,
-            #"fv_noise":     None,
         }
     plot_states_and_losses(analysis, invariant_config)

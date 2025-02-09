@@ -67,18 +67,23 @@ class AICON(ABC):
             gradients, action = self.compute_action()
             if prints > 0 and step % prints == 0:
                 print("Action: ", end=""), self.print_vector(action)
+            env_state = self.env.get_state()
             if logger is not None:
                 buffer_dict = self.get_buffer_dict()
                 logger.log(
                     step = step,
                     time = self.env.time,
                     estimators = {key: val for key, val in buffer_dict.items() if key in self.REs.keys()},
-                    env_state = self.env.get_state(),
+                    env_state = env_state,
                     observation = {key: {"measurement": self.last_observation[0][key], "noise": (self.last_observation[1][key])} for key in self.last_observation[0].keys()},
                     goal_loss = {key: goal.loss_function_from_buffer(buffer_dict) for key, goal in self.goals.items()},
                     action = action,
                     gradients = gradients,
                 )
+            if any([val==1.0 for key, val in env_state.items() if "collision" in key]):
+                if prints > 0:
+                    print("Collision detected. Terminating run.")
+                break
             if step_by_step:
                 input("Press Enter to continue...")
             for obs in self.obs.values():
@@ -139,7 +144,7 @@ class AICON(ABC):
                     if self.prints > 0 and self.current_step % self.prints == 0:
                         print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)
                         if abs(buffer_dict["PolarTargetPos"]["mean"][2].item()) > 3e+4:
-                            raise ValueError("Target angle is too large")
+                            raise ValueError("Target distance is too large")
                         #print("Post Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
 
     def contingent_meas_updates(self, buffer_dict: dict):

@@ -2,6 +2,7 @@ from typing import Dict, List, Tuple
 from components.analysis import Analysis
 from configs import ExperimentConfig as configs
 from itertools import product
+import sys
 
 # ==================================================================================
 
@@ -81,28 +82,31 @@ def create_plot_names_and_invariants(experiment_variations: list, invariance_con
         plot_configs.append((config_name, config_dict))
     return plot_configs
 
-def plot_states_and_losses(analysis: Analysis, invariant_config, plotting_states_config=None, show=False, print_ax_keys=False, ax_display_config=None, plot_ax_runs:str=None, run_demo:int=None, exclude_runs=[]):
+def plot_states_and_losses(analysis: Analysis, invariant_config, plotting_states_config=None, show=False, ax_display_config=None, plot_ax_runs:str=None, run_demo:int=None, exclude_runs=[]):
     experiment_variations = analysis.variations
     plot_configs = create_plot_names_and_invariants(experiment_variations, invariant_config)
     for config in plot_configs:
         axes = create_axes(experiment_variations, config[1])
         plotting_config = create_plotting_config(config[0], plotting_states_config, axes, plot_styles=ax_display_config, exclude_runs=exclude_runs)
+        print(f"Plot {config[0]} has the following axes:")
+        print([key for key in axes.keys()])
         analysis.plot_states(plotting_config, save=True, show=show)
         analysis.plot_goal_losses(plotting_config, save=True, show=show)
-        if print_ax_keys:
-            print(f"Plot {config[0]} has the following axes:")
-            print([key for key in axes.keys()])
-        if plot_ax_runs is not None:
-            analysis.plot_state_runs(plotting_config, plot_ax_runs[0], plot_ax_runs[1], save=True, show=False)
-            if run_demo is not None:
-                analysis.run_demo(axes[plot_ax_runs[0]], run_number=run_demo, step_by_step=True, record_video=False)
+    if plot_ax_runs is not None:
+        if type(plot_ax_runs) is str:
+            plot_ax_runs = (plot_ax_runs, None)
+        analysis.plot_state_runs(plotting_config, plot_ax_runs[0], plot_ax_runs[1], save=True, show=False)
+        if run_demo is not None:
+            analysis.run_demo(axes[plot_ax_runs[0]], run_number=run_demo, step_by_step=True, record_video=False)
 
 # ==================================================================================
 
-path = "records/2025_02_07_19_46_Experiment2"
-#path = "records/2025_02_07_19_01_Experiment1"
-
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python plot.py <path_to_analysis>")
+        sys.exit(1)
+    path = sys.argv[1]
+
     analysis = Analysis.load(path)
 
     if "Experiment1" in path:
@@ -185,18 +189,19 @@ if __name__ == "__main__":
             },
         }
 
-        # invariant_config = {
-        #     "sensor_noise": None,
-        #     "fv_noise":     None,
-        # }
         invariant_config = {
-            "sensor_noise": ("HugeDistNoise",    [configs.sensor_noise.huge_dist_noise]),
-            #"smcs":         ("TriBoth",        [configs.smcs.both, configs.smcs.tri]),
-            #"sensor_noise": ("SmallNoise",    [configs.sensor_noise.small_noise]),
-            #"fv_noise":     ("NoFVNoise",     [configs.fv_noise.no_fv_noise]),
-            #"moving_target": ("Sine", [configs.moving_target.sine_target]),
-            "moving_target": ("Sine", [configs.moving_target.sine_target]),
-            #"observation_loss": ("TriDistLoss", [configs.observation_loss.dist_loss, configs.observation_loss.tri_loss]),
-            "observation_loss": ("NoObsLoss", [configs.observation_loss.no_obs_loss]),
+            #"sensor_noise":     None,
+            "moving_target":    None,
+            "observation_loss": None,
         }
-        plot_states_and_losses(analysis, invariant_config, plotting_states, show=False, print_ax_keys=True, plot_ax_runs=("nosmcs",None), run_demo=1)#, plot_ax_runs=("nosmcs",None), exclude_runs=[9])
+        # invariant_config = {
+        #     "sensor_noise": ("HugeDistNoise",    [configs.sensor_noise.huge_dist_noise]),
+        #     #"smcs":         ("TriBoth",        [configs.smcs.both, configs.smcs.tri]),
+        #     #"sensor_noise": ("SmallNoise",    [configs.sensor_noise.small_noise]),
+        #     #"fv_noise":     ("NoFVNoise",     [configs.fv_noise.no_fv_noise]),
+        #     #"moving_target": ("Sine", [configs.moving_target.sine_target]),
+        #     "moving_target": ("Sine", [configs.moving_target.sine_target]),
+        #     #"observation_loss": ("TriDistLoss", [configs.observation_loss.dist_loss, configs.observation_loss.tri_loss]),
+        #     "observation_loss": ("NoObsLoss", [configs.observation_loss.no_obs_loss]),
+        # }
+        plot_states_and_losses(analysis, invariant_config, plotting_states, plot_ax_runs=("nosmcs",None), run_demo=8)#, show=False, print_ax_keys=True, plot_ax_runs=("nosmcs",None), run_demo=1)#, plot_ax_runs=("nosmcs",None), exclude_runs=[9])

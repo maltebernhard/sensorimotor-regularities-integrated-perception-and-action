@@ -12,10 +12,11 @@ os.environ["WANDB_SILENT"] = "true"
 # ==================================================================================
 
 class VariationLogger:
-    def __init__(self, variation_config:dict, logging_config:dict):
+    def __init__(self, variation_config:dict, variation_id:int, logging_config:dict):
         self.data = {}
         self.run = len(self.data.keys())
         self.variation_config = variation_config
+        self.variation_id = variation_id
         self.wandb_project: str = logging_config['wandb_project']
         self.wandb_group: str = logging_config['wandb_group']
         self.wandb_run = None
@@ -65,6 +66,7 @@ class VariationLogger:
                 for goal_key in gradients.keys()},
                 "action":           np.empty((0,) + action.shape),     # action
                 "desired_distance": env_state["desired_target_distance"],
+                "collision":        np.array([]),     # collision flag
                 # TODO: log run seed and config Analysis to skip runs which are already logged
             }
 
@@ -73,7 +75,7 @@ class VariationLogger:
             self.wandb_run.finish()
         self.wandb_run = wandb.init(
             project=self.wandb_project,
-            name=f'{self.variation_config}_{self.run}',
+            name=f'{self.variation_id}_{self.run}',
             group=self.wandb_group,
             config = {
                 "id": self.variation_config,
@@ -113,6 +115,7 @@ class VariationLogger:
                 real_state[key] = np.array([
                     env_state[f"{obj}_radius"]
                 ])
+        real_state["collision"] = any([val==1.0 for key, val in env_state.items() if "collision" in key])
         return real_state
 
     def log_wandb(self, estimators: Dict[str,Dict[str,torch.Tensor]], real_state: Dict[str,Dict[str,torch.Tensor]]):
@@ -136,6 +139,7 @@ class VariationLogger:
                 'estimation_error': {index_keys[estimator_key][i]: val for i, val in enumerate(real_state[estimator_key] - np.array(estimator['mean'].tolist())[:len(real_state[estimator_key])])},
                 'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state[estimator_key])-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
             } for estimator_key, estimator in estimators.items() if estimator_key != "RobotVel"},
+            "collision": real_state["collision"],
             #"observation": observation,
             #"goal_loss": goal_loss,
             #"gradients": gradients,
@@ -171,10 +175,12 @@ class VariationLogger:
             for subgoal_key in gradients[goal_key].keys():
                 self.data[self.run]["gradient"][goal_key][subgoal_key] = np.append(self.data[self.run]["gradient"][goal_key][subgoal_key], [gradients[goal_key][subgoal_key].tolist()], axis=0)
         self.data[self.run]["action"] = np.append(self.data[self.run]["action"], [action.tolist()], axis=0)
+        self.data[self.run]["collision"] = np.append(self.data[self.run]["collision"], [real_state["collision"]])
 
     def end_wandb_run(self):
         if self.wandb_run is not None:
             self.wandb_run.finish()
+            del self.wandb_run
             self.wandb_run = None
 
 # ==================================================================================
@@ -214,11 +220,21 @@ class AICONLogger:
     # =============================================== helpers ======================================================
 
     @staticmethod
-    def compute_mean_and_stddev(data) -> Tuple[np.ndarray, np.ndarray]:
-        data_array = np.array(data)
-        mean = np.mean(data_array, axis=0)
-        stddev = np.std(data_array, axis=0)
-        return mean, stddev
+    def compute_mean_and_stddev(data: List[np.ndarray]) -> Tuple[np.ndarray, np.ndarray]:
+        max_length = max(len(d) for d in data)
+        means = []
+        stddevs = []
+        for t in range(max_length):
+            valid_data = [d[t] for d in data if len(d) > t]
+            if valid_data:
+                mean = np.mean(valid_data, axis=0)
+                stddev = np.std(valid_data, axis=0)
+            else:
+                mean = np.nan
+                stddev = np.nan
+            means.append(mean)
+            stddevs.append(stddev)
+        return np.array(means), np.array(stddevs)
 
     @staticmethod
     def create_subplots(num_subplots: int):
@@ -233,13 +249,15 @@ class AICONLogger:
     # ======================================= plotting ==========================================
 
     @staticmethod
-    def plot_mean_stddev(subplot: plt.Axes, means: np.ndarray, stddevs: np.ndarray, title:str, label:str, y_label:str, y_bounds:Tuple[float,float]=None, style_dict:Dict[str,str]=None):
-        plot_kwargs = style_dict if style_dict is not None else {'label': label}
+    def plot_mean_stddev(subplot: plt.Axes, means: np.ndarray, stddevs: np.ndarray, collisions:List[Tuple[float,float]], label:str, plotting_dict:Dict[str,str]):
+        style_dict = plotting_dict['style'][label]
+        if 'label' not in style_dict:
+            style_dict['label'] = label
         subplot.plot(
             means,
-            **plot_kwargs
+            **style_dict
         )
-        stddev_kwargs = {"color": plot_kwargs["color"]} if "color" in plot_kwargs.keys() else {}
+        stddev_kwargs = {"color": style_dict["color"]}
         subplot.fill_between(
             range(len(means)), 
             means - stddevs,
@@ -247,14 +265,8 @@ class AICONLogger:
             alpha=0.2,
             **stddev_kwargs
         )
-        subplot.set_title(title, fontsize=16)
-        subplot.set_xlabel("Time Step", fontsize=16)
-        subplot.set_ylabel(y_label, fontsize=16)
-        subplot.grid(True)
-        subplot.legend()
-        subplot.set_xlim(0, len(means))
-        if y_bounds is not None:
-            subplot.set_ylim(y_bounds)
+        for (x, y) in collisions:
+            subplot.plot(x, y, 'x', markersize=10, markeredgewidth=2, **stddev_kwargs)
 
     @staticmethod
     def plot_runs(subplot: plt.Axes, data:List[np.ndarray], labels:List[int], state_index:int=None, title:str=None, y_label:str=None, x_label:str=None, legend=False):
@@ -274,6 +286,27 @@ class AICONLogger:
         subplot.legend() if legend else None
 
     @staticmethod
+    def compute_mean_and_stddev(data: List[np.ndarray]) -> Tuple[np.ndarray, np.ndarray, List[Tuple[int, float]]]:
+        max_length = max(len(d) for d in data)
+        means = []
+        stddevs = []
+        collisions = []
+        for t in range(max_length):
+            valid_data = [d[t] for d in data if len(d) > t]
+            if valid_data:
+                mean = np.mean(valid_data, axis=0)
+                stddev = np.std(valid_data, axis=0)
+            else:
+                mean = np.nan
+                stddev = np.nan
+            means.append(mean)
+            stddevs.append(stddev)
+        for run in data:
+            if len(run) < max_length:
+                collisions.append((len(run) - 1, run[-1]))
+        return np.array(means), np.array(stddevs), collisions
+
+    @staticmethod
     def save_fig(fig:plt.Figure, save_path:str=None, show:bool=False):
         if save_path is not None:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -286,9 +319,14 @@ class AICONLogger:
         plt.close('all')
 
     def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+        if not "style" in plotting_config.keys():
+            plotting_config=plotting_config.copy()
+            plotting_config["style"] = {}
+            colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'purple', 'brown', 'pink']
+            for i, ax_label in enumerate(plotting_config["axes"].keys()):
+                plotting_config["style"][ax_label] = {'color': colors[i]}
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
-            labels = config["labels"]
             ybounds = config["ybounds"]
             if len(indices) == 1:
                 fig, axs = plt.subplots(len(indices), 3, figsize=(21, 6))
@@ -303,17 +341,32 @@ class AICONLogger:
 
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
-                states = np.array([run_data["task_state"][state_id][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-                ucttys = np.array([run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-                errors = np.array([run_data["estimation_error"][state_id][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+                states = [run_data["task_state"][state_id][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                ucttys = [run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                errors = [run_data["estimation_error"][state_id][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
-                state_means, state_stddevs = self.compute_mean_and_stddev(states)
-                error_means, error_stddevs = self.compute_mean_and_stddev(errors)
-                uctty_means, uctty_stddevs = self.compute_mean_and_stddev(ucttys)
+                state_means, state_stddevs, state_collisions = self.compute_mean_and_stddev(states)
+                error_means, error_stddevs, error_collisions = self.compute_mean_and_stddev(errors)
+                uctty_means, uctty_stddevs, uctty_collisions = self.compute_mean_and_stddev(ucttys)
                 for i in range(len(indices)):
-                    self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], "Task State", label, "Offset from Desired Distance", y_bounds=ybounds[0][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
-                    self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], "Estimation Error", label, "Estimation Error", y_bounds=ybounds[1][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
-                    self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], "Estimation Uncertainty", label, "Estimation Uncertainty (stddev)", y_bounds=ybounds[2][i], style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)    
+                    self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], state_collisions, label, plotting_config)
+                    self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], error_collisions, label, plotting_config)
+                    self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], uctty_collisions, label, plotting_config)    
+            
+            titles   = ["Task State", "Estimation Error", "Estimation Uncertainty"]
+            y_labels = ["Offset from Desired Distance", "Estimation Error", "Estimation Uncertainty (stddev)"]
+            max_steps = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
+            for j in range(3):
+                axs[j][i].set_title(titles[j], fontsize=16)
+                axs[j][i].set_ylabel(y_labels[j], fontsize=16)
+                axs[j][i].set_xlabel("Time Step", fontsize=16)
+                axs[j][i].grid(True)
+                axs[j][i].legend()
+                axs[j][i].set_xlim(0, max_steps)
+                if ybounds is not None:
+                    axs[j][i].set_ylim(ybounds[j][i])
+            
+            
             # save / show
             path = os.path.join(save_path, f"records/state_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
@@ -329,10 +382,10 @@ class AICONLogger:
             variation = plotting_config["axes"][axs_id]
             self.set_variation(variation)
             if runs is None:
-                runs = list(self.current_data.keys())
-            states = np.array([self.variations[self.current_variation_id]['data'][run]["task_state"][state_id][:,indices] for run in runs])
-            ucttys = np.array([self.variations[self.current_variation_id]['data'][run]["estimators"][state_id]["uncertainty"][:,indices] for run in runs])
-            errors = np.array([self.variations[self.current_variation_id]['data'][run]["estimation_error"][state_id][:,indices] for run in runs])
+                runs = list(self.variations[self.current_variation_id]['data'].keys())
+            states = [self.variations[self.current_variation_id]['data'][run]["task_state"][state_id][:,indices] for run in runs]
+            ucttys = [self.variations[self.current_variation_id]['data'][run]["estimators"][state_id]["uncertainty"][:,indices] for run in runs]
+            errors = [self.variations[self.current_variation_id]['data'][run]["estimation_error"][state_id][:,indices] for run in runs]
             for i in range(len(indices)):
                 self.plot_runs(axs[0][i], states, runs, i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, True)
                 self.plot_runs(axs[1][i], errors, runs, i, None, "Estimation Error" if i==0 else None, None, True)
@@ -345,36 +398,50 @@ class AICONLogger:
             self.save_fig(fig, path, show)
 
     def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], plot_subgoals:bool, save_path:str=None, show:bool=False):
+        if not "style" in plotting_config.keys():
+            plotting_config["style"] = {}
+            colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'purple', 'brown', 'pink']
+            for i, ax_label in enumerate(plotting_config["axes"].keys()):
+                for label in [f"{ax_label} total loss"] + [f"{ax_label} {subgoal_key} loss" for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"]]:
+                    plotting_config["style"][label] = {'color': colors[i]}
+        else:
+            for label, style in list(plotting_config["style"].items()):
+                plotting_config["style"][f"{label} total loss"] = style
+                for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"]:
+                    plotting_config["style"][f"{label} {subgoal_key} loss"] = style
         num_goals = len(plotting_config["goals"])
         # Plot goal losses
-        fig_goal, axs_goal = plt.subplots(1, num_goals, figsize=(12, 10*num_goals))
+        fig_goal, axs = plt.subplots(1, num_goals, figsize=(12, 10*num_goals))
         if num_goals == 1:
-            axs_goal = [axs_goal]
+            axs = [axs]
         for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
             ybounds = config["ybounds"]
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
-                total_loss = np.array([[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+                total_loss = [[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"][goal_key].keys():
-                    goal_losses = np.array([run_data["goal_loss"][goal_key][subgoal_key] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-                    total_loss += goal_losses
+                    goal_losses = [run_data["goal_loss"][goal_key][subgoal_key] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                    for j in range(len(total_loss)):
+                        total_loss[j] += goal_losses[j]
                     if plot_subgoals:
-                        goal_loss_means, goal_loss_stddevs = self.compute_mean_and_stddev(goal_losses)
-                        self.plot_mean_stddev(axs_goal[i], goal_loss_means, goal_loss_stddevs, f"{goal_key} goal loss", f"{label} {subgoal_key} loss", "Loss Mean and Stddev", ybounds, style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
-                total_loss_means, total_loss_stddevs = self.compute_mean_and_stddev(total_loss)
-                self.plot_mean_stddev(axs_goal[i], total_loss_means, total_loss_stddevs, f"{goal_key} goal loss", f"{label} total loss", "Loss Mean and Stddev", ybounds, style_dict=plotting_config["style"][label] if "style" in plotting_config.keys() else None)
+                        goal_loss_means, goal_loss_stddevs, goal_loss_collisions = self.compute_mean_and_stddev(goal_losses)
+                        self.plot_mean_stddev(axs[i], goal_loss_means, goal_loss_stddevs, goal_loss_collisions, f"{label} {subgoal_key} loss", "Loss Mean and Stddev", plotting_config)
+                total_loss_means, total_loss_stddevs, total_loss_collisions = self.compute_mean_and_stddev(total_loss)
+                self.plot_mean_stddev(axs[i], total_loss_means, total_loss_stddevs, total_loss_collisions, f"{label} total loss", plotting_config)
+            axs[i].set_title(f"{goal_key} Goal Loss", fontsize=16)
+            axs[i].set_ylabel("Loss Value", fontsize=16)
+            axs[i].set_xlabel("Time Step", fontsize=16)
+            axs[i].grid(True)
+            axs[i].legend()
+            axs[i].set_xlim(0, max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values()))
+            if ybounds is not None:
+                axs[i].set_ylim(ybounds[i])
         # save / show
         loss_path = os.path.join(save_path, f"records/loss_{plotting_config['name']}.png") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)
 
     def save(self, save_path:str):
-        yaml_dict = {
-            variation_id: {
-                "variation": variation["config"],
-                "data":      variation["data"],
-            } for variation_id, variation in self.variations.items()
-        }
         with open(os.path.join(save_path, "records/data.pkl"), 'wb') as f:
-            pickle.dump(yaml_dict, f)
+            pickle.dump(self.variations, f)
 
     
