@@ -36,6 +36,7 @@ class Runner:
         self.env_config["moving_target"] = variation["moving_target"]
         self.env_config["observation_loss"] = variation["observation_loss"]
         self.env_config["fv_noise"] = variation["fv_noise"]
+        self.env_config["target_distance"] = variation["desired_distance"]
         self.aicon_type = {
             "smcs": variation["smcs"],
             "control": variation["control"],

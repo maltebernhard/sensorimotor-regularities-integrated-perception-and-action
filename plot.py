@@ -117,7 +117,7 @@ if __name__ == "__main__":
                 "labels" : ["Distance"],
                 "ybounds": [
                     # Distance State
-                    [(-1, 20)],
+                    [(-1, 30)],
                     # Distance Estimation Error
                     [(-1, 20)],
                     # Distance Estimation Uncertainty
@@ -181,11 +181,11 @@ if __name__ == "__main__":
                 "labels" : ["Distance"],
                 "ybounds": [
                     # Distance State
-                    [(-10, 20)],
+                    [(-1, 30)],
                     # Distance Estimation Error
-                    [(-10, 20)],
+                    [(-1, 20)],
                     # Distance Estimation Uncertainty
-                    [(-10, 20)],
+                    [(-1, 30)],
                 ]
             },
         }
@@ -205,4 +205,4 @@ if __name__ == "__main__":
         #     #"observation_loss": ("TriDistLoss", [configs.observation_loss.dist_loss, configs.observation_loss.tri_loss]),
         #     "observation_loss": ("NoObsLoss", [configs.observation_loss.no_obs_loss]),
         # }
-        plot_states_and_losses(analysis, invariant_config, plotting_states)#, plot_ax_runs=("nosmcs",None), run_demo=8)#, show=False, print_ax_keys=True, plot_ax_runs=("nosmcs",None), run_demo=1)#, plot_ax_runs=("nosmcs",None), exclude_runs=[9])
+        plot_states_and_losses(analysis, invariant_config, plotting_states, plot_ax_runs=("nosmcs",None), run_demo=8)#, show=False, print_ax_keys=True, plot_ax_runs=("nosmcs",None), run_demo=1)#, plot_ax_runs=("nosmcs",None), exclude_runs=[9])

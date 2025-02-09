@@ -59,7 +59,7 @@ class VariationLogger:
                     for subgoal_key in gradients[goal_key].keys()}
                 for goal_key in gradients.keys()},
                 "action":               np.empty((0,) + action.shape),     # action
-                "desired_distance": env_state["desired_target_distance"],
+                "desired_distance":     env_state["desired_target_distance"],
                 "collision":            np.array([]),     # collision flag
                 # TODO: log run seed and config Analysis to skip runs which are already logged
             }
@@ -355,7 +355,7 @@ class AICONLogger:
                     self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], uctty_collisions, label, plotting_config)    
             
             titles   = ["Task State", "Estimation Error", "Estimation Uncertainty"]
-            y_labels = ["Offset from Desired Distance", "Estimation Error", "Estimation Uncertainty (stddev)"]
+            y_labels = ["Distance to Target", "Distance Estimation Error", "Distance Estimation Uncertainty (stddev)"]
             max_steps = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
             for j in range(3):
                 axs[j][i].set_title(titles[j], fontsize=16)

@@ -118,12 +118,12 @@ base_env_config = {
 }
 
 base_run_config = {
-    "num_steps":        300,
+    "num_steps":        10,
     "initial_action":   [0.0, 0.0, 0.0],
     "seed":             1,
 }
 
-runs_per_variation = 10
+runs_per_variation = 1
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -152,7 +152,7 @@ if __name__ == "__main__":
             "base_run_config":            base_run_config,
             "record_videos":              False,
             "variations":                 variations,
-            "wandb":                      True,
+            "wandb":                      False,
         })
         analysis.run_analysis()
 
