@@ -12,13 +12,13 @@ os.environ["WANDB_SILENT"] = "true"
 # ==================================================================================
 
 class VariationLogger:
-    def __init__(self, variation_config:dict, variation_id:int, logging_config:dict):
+    def __init__(self, variation_config:dict, variation_id:int, wandb_config:dict):
         self.data = {}
         self.run = len(self.data.keys())
         self.variation_config = variation_config
         self.variation_id = variation_id
-        self.wandb_project: str = logging_config['wandb_project']
-        self.wandb_group: str = logging_config['wandb_group']
+        self.wandb_project: str = wandb_config['wandb_project'] if wandb_config is not None else None
+        self.wandb_group: str = wandb_config['wandb_group'] if wandb_config is not None else None
         self.wandb_run = None
 
     def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
@@ -29,44 +29,38 @@ class VariationLogger:
                 self.create_wandb_run()
         # log data
         real_state = self.create_real_state(estimators, env_state)
+        step_log = self.create_step_log(step, time, estimators, real_state, observation, goal_loss, action, gradients)
         if self.wandb_run is not None:
-            self.log_wandb(estimators, real_state)
-        self.log_local(step, time, estimators, real_state, observation, goal_loss, action, gradients)
+            self.log_wandb(step_log)
+        self.log_local(step_log)
 
     def create_run_dict(self, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
         self.data[self.run] = {
-                "step":             np.array([]),     # time step
-                "time":             np.array([]),     # time in seconds
+                "step":                 np.array([]),     # time step
+                "time":                 np.array([]),     # time in seconds
                 "estimators": {estimator_key: {
-                    'mean':         np.empty((0,) + estimators[estimator_key]["mean"].shape),     # mean of state estimate
-                    'cov':          np.empty((0,) + estimators[estimator_key]["cov"].shape),      # covariance of state estimate
-                    "uncertainty":  np.empty((0,) + (estimators[estimator_key]["mean"].shape[0],)), # uncertainty of state estimate: sqrt(diag(covariance))
-                    "motion_noise": np.array(estimators[estimator_key]["forward_noise"].tolist()),     # static estimator motion noise
+                    'mean':             np.empty((0,) + estimators[estimator_key]["mean"].shape),     # mean of state estimate
+                    'cov':              np.empty((0,) + estimators[estimator_key]["cov"].shape),      # covariance of state estimate
+                    'uncertainty':      np.empty((0,) + (estimators[estimator_key]["mean"].shape[0],)), # uncertainty of state estimate: sqrt(diag(covariance))
+                    #"motion_noise":     np.array(estimators[estimator_key]["forward_noise"].tolist()),     # static estimator motion noise
+                    'estimation_error': np.empty((0,) + estimators[estimator_key]["mean"].shape),     # estimation error: estimation - real state
+                    'env_state':        np.empty((0,) + estimators[estimator_key]["mean"].shape),     # task state: real state with subtracted offsets (like desired target distance)
                 } for estimator_key in estimators.keys()},
                 "observation": {obs_key: {
-                    "measurement":  np.array([]),     # measurement
-                    "noise":        np.array([]),           # noise
+                    "measurement":      np.array([]),     # measurement
+                    "noise":            np.array([]),           # noise
                 } for obs_key in observation.keys()},
-                "env_state": {
-                    state_key:      np.empty((0,) + estimators[state_key]["mean"].shape)      # real state
-                for state_key in estimators.keys()},
-                "task_state": {
-                    state_key:      np.empty((0,) + estimators[state_key]["mean"].shape)      # task state: real state with subtracted offsets (like desired target distance)
-                for state_key in estimators.keys()},
-                "estimation_error": {
-                    state_key:      np.empty((0,) + estimators[state_key]["mean"].shape)      # estimation error: estimation - real state
-                for state_key in estimators.keys()},
                 "goal_loss": {goal_key: {
-                    subgoal_key: np.array([])     # goal loss function value
+                    subgoal_key:        np.array([])     # goal loss function value
                     for subgoal_key in goal_loss[goal_key].keys()}
                 for goal_key in goal_loss.keys()},
                 "gradient": {goal_key: {
-                    subgoal_key: np.empty((0,) + gradients[goal_key][subgoal_key].shape)     # gradient of goal loss function
+                    subgoal_key:        np.empty((0,) + gradients[goal_key][subgoal_key].shape)     # gradient of goal loss function
                     for subgoal_key in gradients[goal_key].keys()}
                 for goal_key in gradients.keys()},
-                "action":           np.empty((0,) + action.shape),     # action
+                "action":               np.empty((0,) + action.shape),     # action
                 "desired_distance": env_state["desired_target_distance"],
-                "collision":        np.array([]),     # collision flag
+                "collision":            np.array([]),     # collision flag
                 # TODO: log run seed and config Analysis to skip runs which are already logged
             }
 
@@ -78,7 +72,7 @@ class VariationLogger:
             name=f'{self.variation_id}_{self.run}',
             group=self.wandb_group,
             config = {
-                "id": self.variation_config,
+                "id": self.variation_id,
                 "smcs": self.variation_config["smcs"],
                 "control": self.variation_config["control"],
                 "distance_sensor": self.variation_config["distance_sensor"],
@@ -115,10 +109,10 @@ class VariationLogger:
                 real_state[key] = np.array([
                     env_state[f"{obj}_radius"]
                 ])
-        real_state["collision"] = any([val==1.0 for key, val in env_state.items() if "collision" in key])
+        real_state["collision"] = max([val for key, val in env_state.items() if "collision" in key])
         return real_state
 
-    def log_wandb(self, estimators: Dict[str,Dict[str,torch.Tensor]], real_state: Dict[str,Dict[str,torch.Tensor]]):
+    def log_wandb(self, step_log: dict):
         if self.variation_config["moving_target"] != "stationary":
             index_keys = {
                 "PolarTargetPos": ["distance", "angle", "distance_dot", "angle_dot", "radius"],
@@ -130,52 +124,56 @@ class VariationLogger:
                 "RobotVel": ["frontal", "lateral", "rot"],
             }
         self.wandb_run.log({
-            #"step": step,
-            #"time": time,
+            #"step": step_log["step"],
+            #"time": step_log["time"],
             "estimators": {estimator_key: {
-                'mean': {index_keys[estimator_key][i]: val for i, val in enumerate(np.array(estimator['mean'].tolist())[:len(index_keys[estimator_key])])},
-                #'cov': estimator['cov'],
-                'uncertainty': {index_keys[estimator_key][i]: val for i, val in enumerate(np.sqrt(np.diag(np.array(estimator['cov'].tolist())))[:len(index_keys[estimator_key])])},
-                'estimation_error': {index_keys[estimator_key][i]: val for i, val in enumerate(real_state[estimator_key] - np.array(estimator['mean'].tolist())[:len(real_state[estimator_key])])},
-                'task_state': {index_keys[estimator_key][i]: val for i, val in enumerate((real_state[estimator_key] - self.data[self.run]["desired_distance"] * np.array([1.0]+[0.0]*(len(real_state[estimator_key])-1))) if estimator_key == "PolarTargetPos" else real_state[estimator_key])},
-            } for estimator_key, estimator in estimators.items() if estimator_key != "RobotVel"},
-            "collision": real_state["collision"],
-            #"observation": observation,
-            #"goal_loss": goal_loss,
-            #"gradients": gradients,
-            #"action": action,
+                attribute_key: {index_keys[estimator_key][i]: val for i, val in enumerate(estimator[attribute_key])} for attribute_key in estimator.keys()
+            } for estimator_key, estimator in step_log["estimators"].items() if estimator_key != "RobotVel"},
+            "collision": step_log["collision"],
+            #"observation": {obs_key: {sub_key: val for sub_key, val in obs.items()} for obs_key, obs in step_log["observation"].items()},
+            "goal_loss": {goal_key: {subgoal_key: val for subgoal_key, val in goal.items()} for goal_key, goal in step_log["goal_loss"].items()},
+            #"gradient": {goal_key: {subgoal_key: val for subgoal_key, val in goal.items()} for goal_key, goal in step_log["gradient"].items()},
+            #"action": step_log["action"],
         })
 
-    def log_local(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], real_state: Dict[str,Dict[str,torch.Tensor]], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
-        self.data[self.run]["step"] = np.append(self.data[self.run]["step"], step)
-        self.data[self.run]["time"] = np.append(self.data[self.run]["time"], time)
-        for state_key in estimators.keys():
-            # log estimator values
-            estimator_mean = np.array(estimators[state_key]['mean'].tolist())
-            estimator_cov = np.array(estimators[state_key]['cov'].tolist())
-            self.data[self.run]["estimators"][state_key]['mean'] = np.append(self.data[self.run]["estimators"][state_key]['mean'], [estimator_mean], axis=0)
-            self.data[self.run]["estimators"][state_key]['cov'] = np.append(self.data[self.run]["estimators"][state_key]['cov'], [estimator_cov], axis=0)
-            # log uncertainty
-            estimator_cov[estimator_cov < 0] = 0
-            self.data[self.run]["estimators"][state_key]["uncertainty"] = np.append(self.data[self.run]["estimators"][state_key]["uncertainty"], [np.sqrt(np.diag(estimator_cov))], axis=0)
-            # log env_state
-            self.data[self.run]["env_state"][state_key] = np.append(self.data[self.run]["env_state"][state_key], [real_state[state_key]], axis=0)
-            task_state = real_state[state_key]
-            self.data[self.run]["estimation_error"][state_key] = np.append(self.data[self.run]["estimation_error"][state_key], [task_state - estimator_mean[:len(task_state)]], axis=0)
-            if state_key == "PolarTargetPos":
-                task_state[0] -= self.data[self.run]["desired_distance"]
-            self.data[self.run]["task_state"][state_key] = np.append(self.data[self.run]["task_state"][state_key], [task_state], axis=0)
-        for obs_key in observation.keys():
-            self.data[self.run]["observation"][obs_key]["measurement"] = np.append(self.data[self.run]["observation"][obs_key]["measurement"], [observation[obs_key]["measurement"]], axis=0)
-            self.data[self.run]["observation"][obs_key]["noise"] = np.append(self.data[self.run]["observation"][obs_key]["noise"], [observation[obs_key]["noise"]], axis=0)
-        for goal_key in goal_loss.keys():
-            for subgoal_key in goal_loss[goal_key].keys():
-                self.data[self.run]["goal_loss"][goal_key][subgoal_key] = np.append(self.data[self.run]["goal_loss"][goal_key][subgoal_key], goal_loss[goal_key][subgoal_key].item())
-        for goal_key in gradients.keys():
-            for subgoal_key in gradients[goal_key].keys():
-                self.data[self.run]["gradient"][goal_key][subgoal_key] = np.append(self.data[self.run]["gradient"][goal_key][subgoal_key], [gradients[goal_key][subgoal_key].tolist()], axis=0)
-        self.data[self.run]["action"] = np.append(self.data[self.run]["action"], [action.tolist()], axis=0)
-        self.data[self.run]["collision"] = np.append(self.data[self.run]["collision"], [real_state["collision"]])
+    def create_step_log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], real_state: Dict[str,Dict[str,torch.Tensor]], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
+        estimators = {estimator_key: {attribute_key: estimators[estimator_key][attribute_key].cpu().numpy() for attribute_key in estimators[estimator_key].keys()} for estimator_key in estimators.keys()}
+        # HACK: remove negative covariances
+        # TODO: check why they even exist
+        for estimator in estimators.values():
+            estimator['cov'][estimator['cov'] < 0] = 0
+        return {
+            "step": step,
+            "time": time,
+            "estimators": {estimator_key: {
+                'mean': estimator['mean'],
+                'cov': estimator['cov'],
+                'uncertainty': np.sqrt(np.diag(estimator['cov'])),
+                'estimation_error': real_state[estimator_key] - estimator['mean'],
+                'env_state': real_state[estimator_key],
+            } for estimator_key, estimator in estimators.items() if estimator_key != "RobotVel"},
+            "collision": real_state["collision"],
+            "observation": observation,
+            "goal_loss": {goal_key: {subgoal_key: goal_loss[goal_key][subgoal_key].cpu().numpy() for subgoal_key in goal_loss[goal_key].keys()} for goal_key in goal_loss.keys()},
+            "gradient": {goal_key: {subgoal_key: gradients[goal_key][subgoal_key].cpu().numpy() for subgoal_key in gradients[goal_key].keys()} for goal_key in gradients.keys()},
+            "action": action.cpu().numpy(),
+        }
+
+    def log_local(self, step_log: dict):
+        for key in ["step", "time", "collision"]:
+            if key != "estimators":
+                self.data[self.run][key] = np.append(self.data[self.run][key], step_log[key])
+        for estimator_key in step_log["estimators"].keys():
+            for attribute_key in step_log["estimators"][estimator_key].keys():
+                self.data[self.run]["estimators"][estimator_key][attribute_key] = np.append(self.data[self.run]["estimators"][estimator_key][attribute_key], [step_log["estimators"][estimator_key][attribute_key]], axis=0)
+        for obs_key in step_log["observation"].keys():
+            for sub_key in step_log["observation"][obs_key].keys():
+                self.data[self.run]["observation"][obs_key][sub_key] = np.append(self.data[self.run]["observation"][obs_key][sub_key], [step_log["observation"][obs_key][sub_key]], axis=0)
+        for goal_key in step_log["goal_loss"].keys():
+            for subgoal_key in step_log["goal_loss"][goal_key].keys():
+                self.data[self.run]["goal_loss"][goal_key][subgoal_key] = np.append(self.data[self.run]["goal_loss"][goal_key][subgoal_key], [step_log["goal_loss"][goal_key][subgoal_key]], axis=0)
+                self.data[self.run]["gradient"][goal_key][subgoal_key] = np.append(self.data[self.run]["gradient"][goal_key][subgoal_key], [step_log["gradient"][goal_key][subgoal_key]], axis=0)
+        self.data[self.run]["action"] = np.append(self.data[self.run]["action"], [step_log["action"]], axis=0)
 
     def end_wandb_run(self):
         if self.wandb_run is not None:
@@ -335,15 +333,18 @@ class AICONLogger:
                 fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
 
             for i in range(len(indices)):
+                # HACK: plot desired distance
+                # TODO: think about how to handle this if there are different desired distances
+                axs[0][i].axhline(y=list(plotting_config['axes'].values())[0]['desired_distance'], color='black', linestyle='--', linewidth=1)
                 axs[0][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
                 axs[1][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
                 axs[2][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
 
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
-                states = [run_data["task_state"][state_id][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                states = [run_data["estimators"][state_id]["env_state"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 ucttys = [run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                errors = [run_data["estimation_error"][state_id][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                errors = [run_data["estimators"][state_id]["estimation_error"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
                 state_means, state_stddevs, state_collisions = self.compute_mean_and_stddev(states)
                 error_means, error_stddevs, error_collisions = self.compute_mean_and_stddev(errors)
@@ -383,9 +384,9 @@ class AICONLogger:
             self.set_variation(variation)
             if runs is None:
                 runs = list(self.variations[self.current_variation_id]['data'].keys())
-            states = [self.variations[self.current_variation_id]['data'][run]["task_state"][state_id][:,indices] for run in runs]
+            states = [self.variations[self.current_variation_id]['data'][run]["estimators"][state_id]["env_state"][:,indices] for run in runs]
             ucttys = [self.variations[self.current_variation_id]['data'][run]["estimators"][state_id]["uncertainty"][:,indices] for run in runs]
-            errors = [self.variations[self.current_variation_id]['data'][run]["estimation_error"][state_id][:,indices] for run in runs]
+            errors = [self.variations[self.current_variation_id]['data'][run]["estimators"][state_id]["estimation_error"][:,indices] for run in runs]
             for i in range(len(indices)):
                 self.plot_runs(axs[0][i], states, runs, i, f"{state_id} {labels[i]}", "State" if i==0 else None, None, True)
                 self.plot_runs(axs[1][i], errors, runs, i, None, "Estimation Error" if i==0 else None, None, True)

@@ -13,16 +13,16 @@ import networkx as nx
 
 from components.aicon import AICON
 from components.logger import AICONLogger, VariationLogger
-from models.old.base.aicon import BaseAICON
-from models.old.experiment1.aicon import Experiment1AICON
-from models.old.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
-from models.old.divergence.aicon import DivergenceAICON
-from models.old.global_vels.aicon import GlobalVelAICON
-from models.old.single_estimator.aicon import SingleEstimatorAICON
+# from models.old.base.aicon import BaseAICON
+# from models.old.experiment1.aicon import Experiment1AICON
+# from models.old.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
+# from models.old.divergence.aicon import DivergenceAICON
+# from models.old.global_vels.aicon import GlobalVelAICON
+# from models.old.single_estimator.aicon import SingleEstimatorAICON
 from models.smc_ais.aicon import SMCAICON
 
-from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
-from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
+# from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
+# from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
 import multiprocessing as mp
 
 # ========================================================================================================
@@ -51,7 +51,7 @@ class Runner:
         self.prints = run_config['prints']
         self.step_by_step = run_config['step_by_step']
         
-        self.logger: VariationLogger = VariationLogger(variation, variation_id, wandb_config) if wandb_config is not None else None
+        self.logger: VariationLogger = VariationLogger(variation, variation_id, wandb_config)
         self.aicon = self.create_model()
 
         self.num_run = self.logger.run if self.logger is not None else 0
@@ -73,21 +73,20 @@ class Runner:
     
     def create_model(self):
         if self.model == "SMC":                    return SMCAICON(self.env_config, self.aicon_type)
+        # elif self.model == "Base":                   return BaseAICON(self.env_config)
+        # elif self.model == "Experiment1":            return Experiment1AICON(self.env_config, self.aicon_type)
+        # elif self.model == "ExperimentFovealVision": return ExperimentFovealVisionAICON(self.env_config)
+        # elif self.model == "SingleEstimator":        return SingleEstimatorAICON(self.env_config)
+        # elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
+        # elif self.model == "GlobalVel":              return GlobalVelAICON(self.env_config)
 
-        elif self.model == "Base":                   return BaseAICON(self.env_config)
-        elif self.model == "Experiment1":            return Experiment1AICON(self.env_config, self.aicon_type)
-        elif self.model == "ExperimentFovealVision": return ExperimentFovealVisionAICON(self.env_config)
-        elif self.model == "SingleEstimator":        return SingleEstimatorAICON(self.env_config)
-        elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
-        elif self.model == "GlobalVel":              return GlobalVelAICON(self.env_config)
-
-        elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
-        elif self.model == "Estimator":              return ContingentEstimatorAICON(self.env_config)
-        elif self.model == "Visibility":             return VisibilityAICON(self.env_config)
+        # elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
+        # elif self.model == "Estimator":              return ContingentEstimatorAICON(self.env_config)
+        # elif self.model == "Visibility":             return VisibilityAICON(self.env_config)
         else:
             raise ValueError(f"Model Type {self.model} not recognized")
 
-def run_variation(base_run_config, base_env_config, variation_id, variation, logging_config, num_runs, queue:mp.Queue, counter):
+def run_variation(base_run_config, base_env_config, variation_id, variation, wandb_config, num_runs, queue:mp.Queue, counter):
     # TODO: think about parallelizing even single seeded runs
     # TODO: measure parallelization performance
     runner = Runner(
@@ -95,13 +94,14 @@ def run_variation(base_run_config, base_env_config, variation_id, variation, log
         base_env_config=base_env_config,
         variation=variation,
         variation_id=variation_id,
-        wandb_config=logging_config,
+        wandb_config=wandb_config,
     )
     for run in range(num_runs):
         runner.run()
         with counter.get_lock():
             counter.value += 1
-        runner.logger.end_wandb_run()
+        if wandb_config is not None:
+            runner.logger.end_wandb_run()
         queue.put((variation_id, run+1, runner.logger.data[run+1].copy()))
     del runner.aicon.env
     del runner.aicon
@@ -128,12 +128,13 @@ class Analysis:
         self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
         self.record_videos = experiment_config["record_videos"]
 
+        self.wandb_config = None
         if self.experiment_config['wandb'] and self.experiment_config.get("wandb_group", None) is None:
             self.experiment_config['wandb_group'] = f"{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
-        self.wandb_config = {
-            "wandb_project": f"aicon-{self.experiment_config['name']}",
-            "wandb_group": self.experiment_config['wandb_group'],
-        }
+            self.wandb_config = {
+                "wandb_project": f"aicon-{self.experiment_config['name']}",
+                "wandb_group": self.experiment_config['wandb_group'],
+            }
 
     def generate_env_config(self, base_env_config):
         with open("environment/env_config.yaml") as file:

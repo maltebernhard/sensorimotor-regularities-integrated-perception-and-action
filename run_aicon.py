@@ -26,6 +26,7 @@ if __name__ == "__main__":
         "observation_noise":    observation_noise,
         "observation_loss":     observation_loss,
         "fv_noise":             fv_noise,
+        "desired_distance":     10,
     }
 
     run_config = {
