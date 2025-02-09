@@ -1,6 +1,6 @@
 from components.analysis import Analysis, Runner
 from configs import ExperimentConfig as config
-from plot import plot_states_and_losses
+from plot import create_standard_plotting_states, plot_states_and_losses
 import sys
 from pprint import pprint
 
@@ -118,12 +118,12 @@ base_env_config = {
 }
 
 base_run_config = {
-    "num_steps":        10,
+    "num_steps":        300,
     "initial_action":   [0.0, 0.0, 0.0],
     "seed":             1,
 }
 
-runs_per_variation = 1
+runs_per_variation = 10
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -152,7 +152,7 @@ if __name__ == "__main__":
             "base_run_config":            base_run_config,
             "record_videos":              False,
             "variations":                 variations,
-            "wandb":                      False,
+            "wandb":                      True,
         })
         analysis.run_analysis()
 
@@ -160,16 +160,5 @@ if __name__ == "__main__":
     # analysis.run_demo(variations[0], 1, True)
     # raise ValueError("Demo run complete")
 
-    if experiment_type == 1:
-        invariant_config = {
-            "smcs": None,
-            #"fv_noise": None,
-        }
-    elif experiment_type == 2:
-        invariant_config = {
-            #"sensor_noise":     None,
-            #"fv_noise":         None,
-            "moving_target":    None,
-            "observation_loss": None,
-        }
-    plot_states_and_losses(analysis, invariant_config)
+    plotting_states, invariant_config, plot_styles = create_standard_plotting_states(experiment_type)
+    plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles)

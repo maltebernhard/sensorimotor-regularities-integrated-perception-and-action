@@ -172,7 +172,9 @@ class VariationLogger:
         for goal_key in step_log["goal_loss"].keys():
             for subgoal_key in step_log["goal_loss"][goal_key].keys():
                 self.data[self.run]["goal_loss"][goal_key][subgoal_key] = np.append(self.data[self.run]["goal_loss"][goal_key][subgoal_key], [step_log["goal_loss"][goal_key][subgoal_key]], axis=0)
-                self.data[self.run]["gradient"][goal_key][subgoal_key] = np.append(self.data[self.run]["gradient"][goal_key][subgoal_key], [step_log["gradient"][goal_key][subgoal_key]], axis=0)
+        for goal_key in step_log["gradient"].keys():
+            for subgoal_key in step_log["gradient"][goal_key].keys():
+                self.data[self.run]["gradient"][subgoal_key] = np.append(self.data[self.run]["gradient"][goal_key][subgoal_key], [step_log["gradient"][goal_key][subgoal_key]], axis=0)
         self.data[self.run]["action"] = np.append(self.data[self.run]["action"], [step_log["action"]], axis=0)
 
     def end_wandb_run(self):
@@ -377,9 +379,11 @@ class AICONLogger:
             indices = np.array(config["indices"])
             labels = config["labels"]
             ybounds = config["ybounds"]
-            fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
             if len(indices) == 1:
+                fig, axs = plt.subplots(len(indices), 3, figsize=(21, 6))
                 axs = [[ax] for ax in axs]
+            else:
+                fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
             variation = plotting_config["axes"][axs_id]
             self.set_variation(variation)
             if runs is None:
