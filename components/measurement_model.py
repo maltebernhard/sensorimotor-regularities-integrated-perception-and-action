@@ -145,7 +145,7 @@ class ActiveInterconnection(ABC, ImplicitMeasurementModel):
         returns the expected sensor noise (tuple of mean and stddev) for each sensory component.
         OVERWRITE for SMCs to include additional effects, such as foveal vision noise.
         """
-        return {key: obs.sensor_noise for key, obs in self.connected_observations.items()}
+        return {key: obs.static_sensor_noise for key, obs in self.connected_observations.items()}
     
     def all_observations_updated(self):
         return all(obs.updated for obs in self.connected_observations.values())
@@ -161,9 +161,9 @@ class ActiveInterconnection(ABC, ImplicitMeasurementModel):
         cov_dict = {id: buffer_dict[id]['cov'] + buffer_dict[id]['update_uncertainty'] for id in self.required_estimators if id != estimator_id}
         # observation_covs
         obs_noise = self.get_expected_meas_noise(buffer_dict)
-        for key, obs in self.connected_observations.items():
+        for key in self.required_observations:
             meas_offset_dict[key] = obs_noise[key][0]
-            cov_dict[key] = obs_noise[key][1].pow(2) + obs.update_uncertainty
+            cov_dict[key] = obs_noise[key][1].pow(2)
         return meas_offset_dict, cov_dict
 
     @abstractmethod
@@ -205,8 +205,8 @@ class SensorimotorContingency(ActiveInterconnection):
         """
         contingent_noise = self.get_contingent_noise(buffer_dict[self.state_component]['mean'])
         noise = {key: (
-            obs.sensor_noise[0] + contingent_noise[key][0],
-            obs.sensor_noise[1] + contingent_noise[key][1]
+            obs.static_sensor_noise[0] + contingent_noise[key][0],
+            obs.static_sensor_noise[1] + contingent_noise[key][1]
         ) for key, obs in self.connected_observations.items()}
         return noise
     

@@ -24,6 +24,7 @@ class AICON(ABC):
         self.MMs: Dict[str, Tuple[ActiveInterconnection,List[str]]] = self.define_measurement_models()
         self.AIs: Dict[str, ActiveInterconnection] = self.define_active_interconnections()
         self.obs: Dict[str, Observation] = self.set_observations()
+        self.set_static_sensor_noises()
         self.connect_states()
         self.goals: Dict[str, Goal] = self.define_goals()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
@@ -174,13 +175,18 @@ class AICON(ABC):
         obs: Dict[str, Observation] = {}
         required_observations = [key for key in [obs for mm in [val[0] for val in self.MMs.values()] for obs in mm.required_observations] + [obs for ai in self.AIs.values() for obs in ai.required_observations] if key in self.env.observations.keys()]
         # TODO: Try not passing information about exact mean and stddev of sensor noise to the model
-        observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else (0.0,0.0)) for key in required_observations}
+        #observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else (0.0,0.0)) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
             # TODO: Find better way to configure update uncertainty
-            obs[key] = Observation(key, 1, (torch.tensor(observation_noise[key][0]), torch.eye(1)*observation_noise[key][1]), self.get_observation_update_noise(key))
+            #obs[key] = Observation(key, 1, (torch.tensor(observation_noise[key][0]), torch.eye(1)*observation_noise[key][1]), self.get_observation_update_noise(key))
+            obs[key] = Observation(key, 1)
         self.last_observation: Tuple[dict,dict] = None
         return obs
+
+    def set_static_sensor_noises(self):
+        for obs_key, obs in self.obs.items():
+            obs.static_sensor_noise = self.get_static_sensor_noise(obs_key)
 
     def connect_states(self):
         for connection in list(self.AIs.values()) + [val[0] for val in self.MMs.values()]:
@@ -391,19 +397,12 @@ class AICON(ABC):
         """
         return {key: state.get_buffer_dict() for key, state in self.REs.items()}
     
-    def get_observation_update_noise(self, key):
+    def get_static_sensor_noise(self, obs_key) -> Tuple[torch.Tensor,torch.Tensor]:
         """
         Returns the uncertainty to be added to inflate observation covariances for updates.
         This is done to increase Kalman Filter stability. SHOULD be overwritten by user.
         """
-        return 0.0 * torch.eye(1)
-    
-    # def get_expected_sensor_noise(self, obs: dict) -> Dict[str,Tuple[torch.Tensor,torch.Tensor]]:
-    #     """
-    #     Returns noise based on the model's knowledge of environment properties (e.g. foveal vision), which is added to static sensor noise.
-    #     Only to be implemented if there is any noise depending on the state.
-    #     """
-    #     return {key: self.obs[key].sensor_noise for key in obs.keys()}
+        return torch.zeros(1), 0.0 * torch.eye(1)
 
     def adapt_contingent_measurements(self, buffer_dict: dict):
         """
@@ -428,15 +427,18 @@ class DroneEnvAICON(AICON):
         return GazeFixEnv(self.env_config)
 
     def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):
+        polar_cov = polar_cov[:2,:2]
+        r = polar_mean[0]
+        phi = polar_mean[1]
         mean = torch.stack([
-            polar_mean[0] * torch.cos(polar_mean[1]),
-            polar_mean[0] * torch.sin(polar_mean[1])
+            r * torch.cos(phi),
+            r * torch.sin(phi)
         ])
-        cov = torch.zeros((2, 2), device=self.device)
-        cov[0, 0] = polar_cov[0, 0] * torch.cos(polar_mean[1])**2 + polar_cov[1, 1] * torch.sin(polar_mean[1])**2
-        cov[1, 1] = polar_cov[0, 0] * torch.sin(polar_mean[1])**2 + polar_cov[1, 1] * torch.cos(polar_mean[1])**2
-        cov[0, 1] = (polar_cov[0, 0] - polar_cov[1, 1]) * torch.cos(polar_mean[1]) * torch.sin(polar_mean[1])
-        cov[1, 0] = cov[0, 1]
+        jac = torch.tensor([
+            [torch.cos(phi), -r * torch.sin(phi)],
+            [torch.sin(phi),  r * torch.cos(phi)]
+        ], device=self.device, dtype=r.dtype)
+        cov = jac @ polar_cov @ jac.T
         return mean, cov
     
     def get_control_input(self, action):

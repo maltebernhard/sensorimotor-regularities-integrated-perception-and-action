@@ -75,7 +75,7 @@ class ExperimentFovealVisionAICON(AICON):
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
 
-    def get_observation_update_noise(self, key):
+    def get_static_sensor_noise(self, key):
         if "angle" in key or "_rot" in key:
             update_uncertainty = 1e-1
         else:

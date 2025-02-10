@@ -46,13 +46,12 @@ class State(Module):
 # =========================================================================================
 
 class Observation:
-    def __init__(self, id, obs_dim, sensor_noise: Tuple[torch.Tensor,torch.Tensor], update_noise: torch.Tensor):
+    def __init__(self, id, obs_dim):
         self.id = id
         self.dim = obs_dim
         self.updated = False
         self.last_updated = -1.0
-        self.sensor_noise: Tuple[torch.Tensor,torch.Tensor] = sensor_noise
-        self.update_uncertainty: torch.Tensor = update_noise.pow(2)
+        self.static_sensor_noise: Tuple[torch.Tensor,torch.Tensor] = None
 
     def set_observation(self, obs: torch.Tensor, time=None):
         self.last_measurement = obs

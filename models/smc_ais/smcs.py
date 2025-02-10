@@ -30,18 +30,18 @@ class DroneEnv_SMC(SensorimotorContingency):
         for key, obs in self.connected_observations.items():
             if "vel" in key or ("distance" in key and not "dot" in key) or "angle_dot" in key:
                 noise[key] = (
-                    (obs.sensor_noise[0] + contingent_noise[key][0]) * predicted_meas[key],
-                    (obs.sensor_noise[1] + contingent_noise[key][1]) * torch.abs(predicted_meas[key])
+                    (obs.static_sensor_noise[0] + contingent_noise[key][0]) * predicted_meas[key],
+                    (obs.static_sensor_noise[1] + contingent_noise[key][1]) * torch.abs(predicted_meas[key])
                 )
             elif "distance_dot" in key:
                 noise[key] = (
-                    (obs.sensor_noise[0] + contingent_noise[key][0]) * predicted_meas[key.replace("_dot", "")],
-                    (obs.sensor_noise[1] + contingent_noise[key][1]) * torch.abs(predicted_meas[key.replace("_dot", "")])
+                    (obs.static_sensor_noise[0] + contingent_noise[key][0]) * predicted_meas[key.replace("_dot", "")],
+                    (obs.static_sensor_noise[1] + contingent_noise[key][1]) * torch.abs(predicted_meas[key.replace("_dot", "")])
                 )
             else:
                 noise[key] = (
-                    obs.sensor_noise[0] + contingent_noise[key][0],
-                    obs.sensor_noise[1] + contingent_noise[key][1]
+                    obs.static_sensor_noise[0] + contingent_noise[key][0],
+                    obs.static_sensor_noise[1] + contingent_noise[key][1]
                 )
         return noise
 

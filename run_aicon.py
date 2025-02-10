@@ -16,7 +16,7 @@ if __name__ == "__main__":
         "moving_target":     config.moving_target.stationary_target,
         "sensor_noise":      config.sensor_noise.small_noise,
         "observation_loss":  config.observation_loss.no_obs_loss,
-        "fv_noise":          config.fv_noise.fv_noise,
+        "fv_noise":          config.fv_noise.no_fv_noise,
         "desired_distance":  10,
     }
 
