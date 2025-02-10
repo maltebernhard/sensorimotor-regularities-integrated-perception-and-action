@@ -1,4 +1,4 @@
-from components.analysis import Analysis, Runner
+from components.analysis import Analysis
 from configs import ExperimentConfig as config
 from plot import create_standard_plotting_states, plot_states_and_losses
 import sys
@@ -33,10 +33,12 @@ def create_aicon_type_configs(experiment_id, smcs_list=None):
 
 def get_sensor_noise_config(smcs_config, experiment_id):
     if experiment_id == 1:
-        # noise_config = ["small_noise", "large_noise"]
-        # if smcs_config == "both":
-        #     noise_config += ["tri_noise", "div_noise"]
-        noise_config = ["small_noise"]
+        noise_config = ["small_noise", "large_noise"]
+        if smcs_config == "both" or smcs_config == "div":
+            noise_config += ["div_noise"]
+        if smcs_config == "both" or smcs_config == "tri":
+            noise_config += ["tri_noise"]
+        #noise_config = ["small_noise"]
     elif experiment_id == 2:
         # noise_config = ["small_noise", "large_noise", "dist_noise", "huge_dist_noise"]
         # if smcs_config == "both":
@@ -55,22 +57,22 @@ def get_moving_target_config(experiment_id):
         # return ["stationary_target"]
         return ["stationary_target", "sine_target"]
     elif experiment_id == 2:
-        #return ["stationary_target", "sine_target"]
-        return ["sine_target"]
+        return ["stationary_target", "sine_target"]
+        #return ["sine_target"]
     
 def get_observation_loss_config(smcs_config, experiment_id):
     if experiment_id == 1:
-        return ["no_obs_loss"]
+        loss_config = ["no_obs_loss"]
     elif experiment_id == 2:
-        # loss_config =["no_obs_loss", "dist_loss"]
+        loss_config = ["no_obs_loss"]#, "dist_loss"]
         # if smcs_config == "both" or smcs_config == "div":
         #     loss_config += ["div_loss"]
         # if smcs_config == "both" or smcs_config == "tri":
         #     loss_config += ["tri_loss"]
-        # return loss_config
+    return loss_config
         # TODO: for dist loss, only compute small noise | for no loss, compare small and huge_dist noise
         #return ["no_obs_loss"]
-        return ["dist_loss"]
+        #return ["dist_loss"]
 
 def create_variations(experiment_id):
     exp_configs = []
@@ -90,7 +92,7 @@ def create_variations(experiment_id):
                             "sensor_noise":        observation_noise_config,
                             "observation_loss":    observation_loss_config,
                             "fv_noise":            fv_noise_config,
-                            "desired_distance":    10,
+                            "desired_distance":    5,
                         })
                         exp_configs.append({
                             "smcs":                config.smcs.__dict__[aicon_type_config["smcs"]],
@@ -100,7 +102,7 @@ def create_variations(experiment_id):
                             "sensor_noise":        config.sensor_noise.__dict__[observation_noise_config],
                             "observation_loss":    config.observation_loss.__dict__[observation_loss_config],
                             "fv_noise":            config.fv_noise.__dict__[fv_noise_config],
-                            "desired_distance":    10,
+                            "desired_distance":    5,
                         })
     print(f"================ all variations =================")
     for variation in exp_config_keys:
@@ -123,7 +125,7 @@ base_run_config = {
     "seed":             1,
 }
 
-runs_per_variation = 10
+runs_per_variation = 20
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:

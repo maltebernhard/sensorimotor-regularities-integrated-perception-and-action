@@ -48,7 +48,8 @@ class VariationLogger:
                 } for estimator_key in estimators.keys()},
                 "observation": {obs_key: {
                     "measurement":      np.array([]),     # measurement
-                    "noise":            np.array([]),           # noise
+                    "noise_mean":       np.array([]),     # mean of noise
+                    "noise_stddev":     np.array([]),     # stddev of noise
                 } for obs_key in observation.keys()},
                 "goal_loss": {goal_key: {
                     subgoal_key:        np.array([])     # goal loss function value
@@ -112,6 +113,35 @@ class VariationLogger:
         real_state["collision"] = max([val for key, val in env_state.items() if "collision" in key])
         return real_state
 
+    def create_step_log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], real_state: Dict[str,Dict[str,torch.Tensor]], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
+        estimators = {estimator_key: {attribute_key: estimators[estimator_key][attribute_key].cpu().numpy() for attribute_key in estimators[estimator_key].keys()} for estimator_key in estimators.keys()}
+        # HACK: remove negative covariances
+        # TODO: check why they even exist
+        for estimator in estimators.values():
+            estimator['cov'][estimator['cov'] < 0] = 0
+        return {
+            "step": step,
+            "time": time,
+            "estimators": {estimator_key: {
+                'mean': estimator['mean'],
+                'cov': estimator['cov'],
+                'uncertainty': np.sqrt(np.diag(estimator['cov'])),
+                'estimation_error': real_state[estimator_key] - estimator['mean'],
+                'env_state': real_state[estimator_key],
+            } for estimator_key, estimator in estimators.items() if estimator_key != "RobotVel"},
+            "collision": real_state["collision"],
+            "observation": {
+                obs_key: {
+                    "measurement": observation[obs_key]["measurement"],
+                    "noise_mean": observation[obs_key]["noise"][0],
+                    "noise_stddev": observation[obs_key]["noise"][1],
+                } for obs_key in observation.keys()
+            },
+            "goal_loss": {goal_key: {subgoal_key: goal_loss[goal_key][subgoal_key].cpu().numpy() for subgoal_key in goal_loss[goal_key].keys()} for goal_key in goal_loss.keys()},
+            "gradient": {goal_key: {subgoal_key: gradients[goal_key][subgoal_key].cpu().numpy() for subgoal_key in gradients[goal_key].keys()} for goal_key in gradients.keys()},
+            "action": action.cpu().numpy(),
+        }
+
     def log_wandb(self, step_log: dict):
         if self.variation_config["moving_target"] != "stationary":
             index_keys = {
@@ -130,34 +160,11 @@ class VariationLogger:
                 attribute_key: {index_keys[estimator_key][i]: val for i, val in enumerate(estimator[attribute_key])} for attribute_key in estimator.keys()
             } for estimator_key, estimator in step_log["estimators"].items() if estimator_key != "RobotVel"},
             "collision": step_log["collision"],
-            #"observation": {obs_key: {sub_key: val for sub_key, val in obs.items()} for obs_key, obs in step_log["observation"].items()},
-            "goal_loss": {goal_key: {subgoal_key: val for subgoal_key, val in goal.items()} for goal_key, goal in step_log["goal_loss"].items()},
-            #"gradient": {goal_key: {subgoal_key: val for subgoal_key, val in goal.items()} for goal_key, goal in step_log["gradient"].items()},
+            #"observation": step_log["observation"],
+            "goal_loss": step_log["goal_loss"],
+            #"gradient": step_log["gradient"],
             #"action": step_log["action"],
         })
-
-    def create_step_log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], real_state: Dict[str,Dict[str,torch.Tensor]], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
-        estimators = {estimator_key: {attribute_key: estimators[estimator_key][attribute_key].cpu().numpy() for attribute_key in estimators[estimator_key].keys()} for estimator_key in estimators.keys()}
-        # HACK: remove negative covariances
-        # TODO: check why they even exist
-        for estimator in estimators.values():
-            estimator['cov'][estimator['cov'] < 0] = 0
-        return {
-            "step": step,
-            "time": time,
-            "estimators": {estimator_key: {
-                'mean': estimator['mean'],
-                'cov': estimator['cov'],
-                'uncertainty': np.sqrt(np.diag(estimator['cov'])),
-                'estimation_error': real_state[estimator_key] - estimator['mean'],
-                'env_state': real_state[estimator_key],
-            } for estimator_key, estimator in estimators.items() if estimator_key != "RobotVel"},
-            "collision": real_state["collision"],
-            "observation": observation,
-            "goal_loss": {goal_key: {subgoal_key: goal_loss[goal_key][subgoal_key].cpu().numpy() for subgoal_key in goal_loss[goal_key].keys()} for goal_key in goal_loss.keys()},
-            "gradient": {goal_key: {subgoal_key: gradients[goal_key][subgoal_key].cpu().numpy() for subgoal_key in gradients[goal_key].keys()} for goal_key in gradients.keys()},
-            "action": action.cpu().numpy(),
-        }
 
     def log_local(self, step_log: dict):
         for key in ["step", "time", "collision"]:
@@ -338,6 +345,10 @@ class AICONLogger:
                 # HACK: plot desired distance
                 # TODO: think about how to handle this if there are different desired distances
                 axs[0][i].axhline(y=list(plotting_config['axes'].values())[0]['desired_distance'], color='black', linestyle='--', linewidth=1)
+                if list(plotting_config["axes"].values())[0]['distance_sensor'] == "distsensor":
+                    axs[0][i].axvspan(100, 200, color='grey', alpha=0.2, label='distance sensor failure')
+                    axs[1][i].axvspan(100, 200, color='grey', alpha=0.2, label='distance sensor failure')
+                    axs[2][i].axvspan(100, 200, color='grey', alpha=0.2, label='distance sensor failure')
                 axs[0][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
                 axs[1][i].axhline(y=0, color='black', linestyle='--', linewidth=1)
                 axs[2][i].axhline(y=0, color='black', linestyle='--', linewidth=1)

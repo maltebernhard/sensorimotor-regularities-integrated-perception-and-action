@@ -31,12 +31,7 @@ class Runner:
     def __init__(self, run_config: dict, base_env_config: dict, variation: dict, variation_id=None, wandb_config:dict=None):
         self.model = "SMC"
 
-        self.env_config = base_env_config.copy()
-        self.env_config["observation_noise"] = variation["sensor_noise"]
-        self.env_config["moving_target"] = variation["moving_target"]
-        self.env_config["observation_loss"] = variation["observation_loss"]
-        self.env_config["fv_noise"] = variation["fv_noise"]
-        self.env_config["target_distance"] = variation["desired_distance"]
+        self.env_config = self.generate_env_config(base_env_config, variation)
         self.aicon_type = {
             "smcs": variation["smcs"],
             "control": variation["control"],
@@ -52,10 +47,24 @@ class Runner:
         self.prints = run_config['prints']
         self.step_by_step = run_config['step_by_step']
         
-        self.logger: VariationLogger = VariationLogger(variation, variation_id, wandb_config)
+        self.logger: VariationLogger = VariationLogger(variation, variation_id, wandb_config) if variation_id is not None else None
         self.aicon = self.create_model()
 
         self.num_run = self.logger.run if self.logger is not None else 0
+
+    def generate_env_config(self, base_env_config, variation):
+        with open("environment/env_config.yaml") as file:
+            env_config = yaml.load(file, Loader=yaml.FullLoader)
+            env_config["num_obstacles"] = base_env_config["num_obstacles"]
+            env_config["action_mode"] = 3 if base_env_config["vel_control"] else 1
+            env_config["robot_sensor_angle"] = base_env_config["sensor_angle_deg"] / 180 * np.pi
+            env_config["timestep"] = base_env_config["timestep"]
+            env_config["observation_noise"] = variation["sensor_noise"]
+            env_config["moving_target"] = variation["moving_target"]
+            env_config["observation_loss"] = variation["observation_loss"]
+            env_config["fv_noise"] = variation["fv_noise"]
+            env_config["target_distance"] = variation["desired_distance"]
+        return env_config
 
     def run(self):
         self.num_run += 1
@@ -111,7 +120,7 @@ def run_variation(base_run_config, base_env_config, variation_id, variation, wan
 
 class Analysis:
     def __init__(self, experiment_config: dict):
-        self.base_env_config: dict = self.generate_env_config(experiment_config['base_env_config'])
+        self.base_env_config: dict = experiment_config['base_env_config']
         
         self.base_run_config: dict = experiment_config['base_run_config']
         self.base_run_config['render'] = False
@@ -137,15 +146,6 @@ class Analysis:
                 "wandb_group": self.experiment_config['wandb_group'],
             }
 
-    def generate_env_config(self, base_env_config):
-        with open("environment/env_config.yaml") as file:
-            env_config = yaml.load(file, Loader=yaml.FullLoader)
-            env_config["num_obstacles"] = base_env_config["num_obstacles"]
-            env_config["action_mode"] = 3 if base_env_config["vel_control"] else 1
-            env_config["robot_sensor_angle"] = base_env_config["sensor_angle_deg"] / 180 * np.pi
-            env_config["timestep"] = base_env_config["timestep"]
-        return env_config
-
     def add_and_run_variations(self, variations: List[dict]):
         self.variations += [variation for variation in variations if variation not in self.variations]
         self.logger.add_variations(variations)
@@ -162,13 +162,20 @@ class Analysis:
             counter = mp.Value('i', 0)
             data_queue = mp.Queue()
             processes = []
+            active_processes = []
             for variation in variations:
                 var_id = self.logger.set_variation(variation)
                 p = mp.Process(target=run_variation, args=(self.base_run_config, self.base_env_config, var_id, variation, self.wandb_config, self.num_runs, data_queue, counter))
                 processes.append(p)
-                p.start()
             run_save_counter = 0
-            while counter.value < total_runs:
+            while len(processes) > 0 or len(active_processes) > 0:
+                for p in active_processes:
+                    if not p.is_alive():
+                        p.join()
+                        active_processes.remove(p)
+                if len(active_processes) < mp.cpu_count() and len(processes) > 0:
+                    active_processes.append(processes.pop(0))
+                    active_processes[-1].start()
                 pbar.update(counter.value - pbar.n)
                 if not data_queue.empty():
                     var_id, num_run, data_dict = data_queue.get(timeout=5)
@@ -193,10 +200,10 @@ class Analysis:
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
         #self.visualize_graph(aicon=runner.aicon, save=True, show=False)
-        #print("Saving Data ...")
         with open(os.path.join(self.record_dir, 'configs/experiment_config.yaml'), 'w') as file:
             yaml.dump(self.experiment_config, file)
         self.logger.save(self.record_dir)
+        print(f"Saved recorded runs to {self.record_dir}")
 
     @staticmethod
     def load(folder: str):

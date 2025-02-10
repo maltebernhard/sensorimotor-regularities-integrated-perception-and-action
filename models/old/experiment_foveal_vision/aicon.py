@@ -82,7 +82,7 @@ class ExperimentFovealVisionAICON(AICON):
             update_uncertainty = 5e-1
         return update_uncertainty * torch.eye(1)
 
-    def get_custom_sensor_noise(self, obs: dict):
+    def get_expected_sensor_noise(self, obs: dict):
         observation_noise = {}
         for key in obs.keys():
             if key == "target_offset_angle":

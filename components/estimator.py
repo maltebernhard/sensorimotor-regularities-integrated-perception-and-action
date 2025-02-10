@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 import torch
 from torch.nn import Module
 from torch.func import functional_call
@@ -45,16 +45,17 @@ class State(Module):
 
 # =========================================================================================
 
-class Observation(State):
-    def __init__(self, id, state_dim, sensor_noise, update_noise: torch.Tensor, device=None, dtype=None):
-        super().__init__(id, state_dim, device, dtype)
+class Observation:
+    def __init__(self, id, obs_dim, sensor_noise: Tuple[torch.Tensor,torch.Tensor], update_noise: torch.Tensor):
+        self.id = id
+        self.dim = obs_dim
         self.updated = False
         self.last_updated = -1.0
-        self.sensor_noise: torch.Tensor = sensor_noise
+        self.sensor_noise: Tuple[torch.Tensor,torch.Tensor] = sensor_noise
         self.update_uncertainty: torch.Tensor = update_noise.pow(2)
 
-    def set_observation(self, obs: torch.Tensor, custom_obs_noise: torch.Tensor=None, time=None):
-        self.set_state(obs, custom_obs_noise**2)
+    def set_observation(self, obs: torch.Tensor, time=None):
+        self.last_measurement = obs
         self.updated = True
         self.last_updated = time
 
@@ -122,13 +123,13 @@ class RecursiveEstimator(ABC, State):
 
     def update_with_specific_meas(self, meas_dict: dict,
                                   implicit_meas_model,
-                                  custom_measurement_noise: Optional[Dict] = None):
+                                  measurement_noise: Optional[Dict] = None):
         #NOTE: this doesn't work with current ActiveInterconnection implementation
         # assert meas_dict.keys() == implicit_meas_model.meas_config.keys(), (
         #     f'All measurements must be provided as mentioned in {implicit_meas_model} meas_config')
-        if custom_measurement_noise is not None:
-            assert meas_dict.keys() == custom_measurement_noise.keys(), (
-                f'All measurements must be provided as mentioned in {custom_measurement_noise}')
+        if measurement_noise is not None:
+            assert meas_dict.keys() == measurement_noise.keys(), (
+                f'All measurements must be provided as mentioned in {measurement_noise}')
             
         # Make sure scalar measurements are treated as 1D tensors
         for key in meas_dict.keys():
@@ -149,34 +150,30 @@ class RecursiveEstimator(ABC, State):
         K_part_2 = K_part_1_2 # K_part_2 will get additional terms below
 
         for key in meas_dict.keys():
-            if custom_measurement_noise is None:
-                # NOTE cannot also have (or custom_measurement_noise[key] is None) in the if because
-                # vmap doesn't broadcast over None within a dict!
-                #print(f"Q: {getattr(implicit_meas_model, f'_Q_{key}')}")
-                #print(f"F_t.t: {F_t_dict[key].t()}")
-                K_part_2 += torch.matmul(F_t_dict[key], torch.matmul(getattr(implicit_meas_model, f'_Q_{key}'), F_t_dict[key].t()))
+            if measurement_noise is None:
+                raise Exception("Custom measurement noise must be provided.")
             else:
                 # Sometimes it is beneficial to send only the diagonal of the noise covariance
                 # Especially when the measurement is very high dimensional (and assumed to be uncorrelated)
                 # So, although this is a HACK, it should work for all known cases
-                if custom_measurement_noise[key].ndim == 1:
+                if measurement_noise[key].ndim == 1:
                     # This can be memory intensive for really large measurement dimensions
                     # custom_measurement_noise[key] = torch.diag(custom_measurement_noise[key])
                     # So to mitigate that, this is mathematically equivalent to the else case below
                     # but only holds true for diagonal noise covariance!
-                    K_part_2 += torch.matmul(F_t_dict[key] * custom_measurement_noise[key][None, :], F_t_dict[key].t())
-                elif custom_measurement_noise[key].ndim > 2 or (
-                        custom_measurement_noise[key].ndim == 2 and 
-                        custom_measurement_noise[key].shape[0] != custom_measurement_noise[key].shape[1]):
+                    K_part_2 += torch.matmul(F_t_dict[key] * measurement_noise[key][None, :], F_t_dict[key].t())
+                elif measurement_noise[key].ndim > 2 or (
+                        measurement_noise[key].ndim == 2 and 
+                        measurement_noise[key].shape[0] != measurement_noise[key].shape[1]):
                     # A block-diagonal matrix must be given!
                     # NOTE this is not tested very well, and there no asserts
                     # So use with caution!!
-                    block_size = custom_measurement_noise[key].shape[-1]
+                    block_size = measurement_noise[key].shape[-1]
                     
                     # Convert an n-D tensor to 3D tensor with first dimension being the batch
                     # over the actual 2D block diagonal matrices. This makes it independent of the
                     # outside vmapped/batched dimension
-                    block_diagonal_custom_measurement_noise = custom_measurement_noise[key].reshape(
+                    block_diagonal_custom_measurement_noise = measurement_noise[key].reshape(
                         -1, block_size, block_size)
                     
                     # Chunk up the Jacobian matrix into blocks
@@ -188,15 +185,7 @@ class RecursiveEstimator(ABC, State):
                     
                     K_part_2 += torch.sum(_propagate_covariance_block, dim=0)
                 else:
-                    K_part_2 += self._propagate_covariance(F_t_dict[key], custom_measurement_noise[key])
-        
-
-        # if self.id == "PolarTargetPos":# and "RobotVel" in meas_dict.keys():
-        #     for key in ["target_offset_angle", "target_offset_angle_dot"]:
-        #         print(f"{key} mean: {meas_dict[key].item():.3f} | cov: {custom_measurement_noise[key].item():.3f}")
-        #     print(f"F_t: {F_t_dict}")
-        #     print(f"K_part_2: {K_part_2}")
-
+                    K_part_2 += self._propagate_covariance(F_t_dict[key], measurement_noise[key])
 
         K_part_2 = torch.atleast_2d(K_part_2) # in case state is 1D 
 
@@ -301,10 +290,12 @@ class RecursiveEstimator(ABC, State):
 
     def call_update_with_active_interconnection(self, active_interconnection, buffer_dict: Dict[str, torch.Tensor]):
         args_to_be_passed = ('update_with_specific_meas', active_interconnection)
-        kwargs = {'meas_dict': active_interconnection.get_state_dict(buffer_dict, self.id), 'custom_measurement_noise': active_interconnection.get_cov_dict(buffer_dict, self.id)}
+        state_dict = active_interconnection.get_state_dict(buffer_dict, self.id)
+        meas_offsets, covs = active_interconnection.get_cov_dict(buffer_dict, self.id)
+        kwargs = {'meas_dict': {meas_key: state_dict[meas_key] - meas_offset for meas_key, meas_offset in meas_offsets.items()}, 'custom_measurement_noise': covs}
         return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)
     
     def call_update_with_smc(self, smc, buffer_dict: Dict[str, torch.Tensor]):
         args_to_be_passed = ('update_with_specific_meas', smc)
-        kwargs = {'meas_dict': smc.get_state_dict_with_expected_meas(buffer_dict, self.id), 'custom_measurement_noise': smc.get_cov_dict(buffer_dict, self.id)}
+        kwargs = {'meas_dict': smc.get_state_dict_with_predicted_meas(buffer_dict, self.id), 'custom_measurement_noise': smc.get_cov_dict(buffer_dict, self.id)[1]}
         return functional_call(self, buffer_dict[self.id], args_to_be_passed, kwargs)

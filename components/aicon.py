@@ -75,7 +75,7 @@ class AICON(ABC):
                     time = self.env.time,
                     estimators = {key: val for key, val in buffer_dict.items() if key in self.REs.keys()},
                     env_state = env_state,
-                    observation = {key: {"measurement": self.last_observation[0][key], "noise": (self.last_observation[1][key])} for key in self.last_observation[0].keys()},
+                    observation = {key: {"measurement": self.last_observation[0][key], "noise": self.last_observation[1][key]} for key in self.last_observation[0].keys()},
                     goal_loss = {key: goal.loss_function_from_buffer(buffer_dict) for key, goal in self.goals.items()},
                     action = action,
                     gradients = gradients,
@@ -134,18 +134,26 @@ class AICON(ABC):
 
     def meas_updates(self, buffer_dict):
         if self.prints > 0 and self.current_step % self.prints == 0:
-            print("Real Measurements: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in self.last_observation[0].items()])
+            real_state = self.env.get_state()
+            print("Real State: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in real_state.items() if key in self.last_observation[0].keys()])
+            print("Measurements: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in self.last_observation[0].items()])
             print("Pre Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
             print("Pre Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
         for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
+                    if self.prints > 0 and self.current_step % self.prints == 0:
+                        esti_offsets, esti_stddevs = meas_model.get_cov_dict(buffer_dict, estimator_key)
+                        real_noise = {obs_key: (mean, stddev) for obs_key, (mean, stddev) in self.last_observation[1].items() if obs_key in meas_model.connected_observations.keys()}
+                        esti_noise = {obs_key: (mean, esti_stddevs[obs_key]) for obs_key, mean in esti_offsets.items() if obs_key in meas_model.connected_observations.keys()}
+                        print(f"---------------- {mm_key} {estimator_key} ----------------")
+                        print(f"Real Noise (mean,stddev): {real_noise}")
+                        print(f"Estimates Noise (mean,stddev): {esti_noise}")
                     self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
                     if self.prints > 0 and self.current_step % self.prints == 0:
                         print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)
                         if abs(buffer_dict["PolarTargetPos"]["mean"][2].item()) > 3e+4:
-                            raise ValueError("Target distance is too large")
-                        #print("Post Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+                            raise ValueError("Target distance is too large. Something is wrong.")
 
     def contingent_meas_updates(self, buffer_dict: dict):
         """
@@ -165,25 +173,25 @@ class AICON(ABC):
     def set_observations(self):
         obs: Dict[str, Observation] = {}
         required_observations = [key for key in [obs for mm in [val[0] for val in self.MMs.values()] for obs in mm.required_observations] + [obs for ai in self.AIs.values() for obs in ai.required_observations] if key in self.env.observations.keys()]
-        observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else 0.0) for key in required_observations}
+        # TODO: Try not passing information about exact mean and stddev of sensor noise to the model
+        observation_noise = {key: (self.env.observation_noise[key] if key in self.env.observation_noise.keys() else (0.0,0.0)) for key in required_observations}
         self.env.required_observations = required_observations
         for key in required_observations:
-            obs[key] = Observation(key, 1, torch.eye(1)*observation_noise[key], self.get_observation_update_noise(key))
+            # TODO: Find better way to configure update uncertainty
+            obs[key] = Observation(key, 1, (torch.tensor(observation_noise[key][0]), torch.eye(1)*observation_noise[key][1]), self.get_observation_update_noise(key))
         self.last_observation: Tuple[dict,dict] = None
         return obs
 
     def connect_states(self):
         for connection in list(self.AIs.values()) + [val[0] for val in self.MMs.values()]:
-            connection.set_connected_states([self.REs[estimator_id] for estimator_id in connection.required_estimators] + [self.obs[obs_id] for obs_id in connection.required_observations])
+            connection.set_connected_states([self.REs[estimator_id] for estimator_id in connection.required_estimators], [self.obs[obs_id] for obs_id in connection.required_observations])
 
     def update_observations(self):
         self.last_observation = self.env.get_observation()
-        custom_sensor_noise = self.get_custom_sensor_noise(self.last_observation[0])
         for key, value in self.last_observation[0].items():
             if value is not None:
                 self.obs[key].set_observation(
                     obs = torch.tensor([value]),
-                    custom_obs_noise = custom_sensor_noise[key],
                     time = self.env.time,
                 )
 
@@ -381,7 +389,7 @@ class AICON(ABC):
         Gets the buffer_dict of all estimators, used for simulating update steps
         on a state detached from the real estimate, for gradient computation.
         """
-        return {key: state.get_buffer_dict() for key, state in list(self.REs.items()) + list(self.obs.items())}
+        return {key: state.get_buffer_dict() for key, state in self.REs.items()}
     
     def get_observation_update_noise(self, key):
         """
@@ -390,12 +398,12 @@ class AICON(ABC):
         """
         return 0.0 * torch.eye(1)
     
-    def get_custom_sensor_noise(self, obs: dict):
-        """
-        Returns noise based on the model's knowledge of environment properties (e.g. foveal vision), which is added to static sensor noise.
-        Only to be implemented if there is any noise depending on the state.
-        """
-        return {key: self.obs[key].sensor_noise * torch.eye(1) for key in obs.keys()}
+    # def get_expected_sensor_noise(self, obs: dict) -> Dict[str,Tuple[torch.Tensor,torch.Tensor]]:
+    #     """
+    #     Returns noise based on the model's knowledge of environment properties (e.g. foveal vision), which is added to static sensor noise.
+    #     Only to be implemented if there is any noise depending on the state.
+    #     """
+    #     return {key: self.obs[key].sensor_noise for key in obs.keys()}
 
     def adapt_contingent_measurements(self, buffer_dict: dict):
         """

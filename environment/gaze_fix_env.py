@@ -90,9 +90,9 @@ class GazeFixEnv(BaseEnv):
         # "flight" - target moves in a flight pattern
         self.moving_target: str = config["moving_target"]
         self.moving_obstacles: bool = config["moving_obstacles"]
-        self.observation_noise: Dict[str,float] = config["observation_noise"]
+        self.observation_noise: Dict[str,Tuple[float,float]] = config["observation_noise"]
         self.observation_loss: Dict[str,List[Tuple[float,float]]] = config["observation_loss"]
-        self.fv_noise: Dict[str,float] = config["fv_noise"]
+        self.fv_noise: Dict[str,Tuple[float,float]] = config["fv_noise"]
 
         # env dimensions
         self.world_size = config["world_size"]
@@ -329,7 +329,7 @@ class GazeFixEnv(BaseEnv):
 
     def generate_target(self):
         #distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
-        distance = 10
+        initial_spawn_distance = 10
         #angle = np.random.uniform(-np.pi/2, np.pi/2)
         angle = np.random.uniform(-np.pi, np.pi)
         # x = distance * np.cos(angle)
@@ -337,8 +337,8 @@ class GazeFixEnv(BaseEnv):
         radius = 1.0
         #desired_distance = np.random.uniform(5*radius, self.max_target_distance)
         desired_distance = self.desired_target_distance
-        x = self.robot.pos[0] + (distance + desired_distance) * np.cos(angle)
-        y = self.robot.pos[1] + (distance + desired_distance) * np.sin(angle)
+        x = self.robot.pos[0] + (initial_spawn_distance + desired_distance) * np.cos(angle)
+        y = self.robot.pos[1] + (initial_spawn_distance + desired_distance) * np.sin(angle)
         if self.target is None:
             self.target = Target(
                 pos = np.array([x,y]),
@@ -518,7 +518,7 @@ class GazeFixEnv(BaseEnv):
     def isolate_sensor_readings_from_observations(self, env_state: Dict[str, float]) -> Dict[str, float]:
         observation = env_state.copy()
         # delete all observations not provided to any measurement model
-        keys_to_delete = [key for key in observation if key not in self.required_observations] + [key for key, step_ranges in self.observation_loss.items() if any([self.current_step >= step_range[0] and self.current_step < step_range[1] for step_range in step_ranges])]
+        keys_to_delete = list(set([key for key in observation if key not in self.required_observations] + [key for key, step_ranges in self.observation_loss.items() if any([self.current_step >= step_range[0] and self.current_step < step_range[1] for step_range in step_ranges])]))
         for key in keys_to_delete:
             del observation[key]
         # delete all occluded observations
@@ -537,12 +537,14 @@ class GazeFixEnv(BaseEnv):
         return observation
 
     def apply_sensor_noise(self, observation: Dict[str, float]) -> Dict[str, float]:
-        observation_noise = {}
+        observation_noise_means = {}
+        observation_noise_stddevs = {}
         observation_noise_factor = {}
         for key, value in observation.items():
             if observation[key] is not None:
                 if key in self.observation_noise.keys():
-                    observation_noise[key] = self.observation_noise[key]
+                    observation_noise_means[key] = self.observation_noise[key][0]
+                    observation_noise_stddevs[key] = self.observation_noise[key][1]
                     if key == "vel_frontal":
                         observation_noise_factor[key] = np.abs(self.robot.vel[0])
                     elif key == "vel_lateral":
@@ -560,19 +562,21 @@ class GazeFixEnv(BaseEnv):
                         observation_noise_factor[key] = np.abs(observation[key])
                     else:
                         observation_noise_factor[key] = 1.0
-                else:
-                    observation_noise[key] = 0.0
-                    observation_noise_factor[key] = 1.0
+                # else:
+                #     observation_noise_means[key] = 0.0
+                #     observation_noise_stddevs[key] = 0.0
+                #     observation_noise_factor[key] = 1.0
                 if key in self.fv_noise.keys():
                     if "target" in key: obj = self.target
                     elif "obstacle1" in key: obj = self.obstacles[0]
                     elif "obstacle2" in key: obj = self.obstacles[1]
                     else:
                         raise NotImplementedError
-                    observation_noise[key] += self.fv_noise[key] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
+                    observation_noise_means[key] += self.fv_noise[key][0] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
+                    observation_noise_stddevs[key] += self.fv_noise[key][1] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
                 #print("NOISE:", key, observation_noise[key], observation_noise_factor[key])
-                observation[key] = value + observation_noise[key] * observation_noise_factor[key] * np.random.randn()
-        return observation, {key: observation_noise[key] * observation_noise_factor[key] if key in observation_noise.keys() else 0.0 for key in observation.keys()}
+                observation[key] = value + (observation_noise_means[key]*((value/abs(value) if value!=0 else 1.0)) + observation_noise_stddevs[key]*np.random.randn()) * observation_noise_factor[key]
+        return observation, {key: (observation_noise_means[key]*observation_noise_factor[key], observation_noise_stddevs[key]*observation_noise_factor[key]) if key in observation_noise_stddevs.keys() else (0.0,0.0) for key in observation.keys()}
 
     def get_observation_from_state(self, env_state: Dict[str, float]) -> Dict[str, float]:
         """Applies gaussion noise and occlusions to real state."""

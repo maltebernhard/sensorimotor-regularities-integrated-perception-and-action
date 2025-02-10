@@ -31,12 +31,12 @@ class SMCAICON(AICON):
             meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"]) if self.env_config["moving_target"] == "stationary" else (DistanceVel_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
         meas_models["VelMM"]   = (Robot_Vel_MM(), ["RobotVel"])
         meas_models["AngleMM"] = (Angle_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
-        if "Triangulation" in self.smcs:
-            smc = Triangulation_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else TriangulationVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
-            meas_models["TriangulationSMC"] = (smc, ["PolarTargetPos"])
         if "Divergence" in self.smcs:
             smc = Divergence_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else DivergenceVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
             meas_models["DivergenceSMC"] = (smc, ["PolarTargetPos"])
+        if "Triangulation" in self.smcs:
+            smc = Triangulation_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else TriangulationVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
+            meas_models["TriangulationSMC"] = (smc, ["PolarTargetPos"])
         return meas_models
 
     def define_active_interconnections(self):
@@ -77,22 +77,26 @@ class SMCAICON(AICON):
     def compute_action_from_gradient(self, gradients):
         # TODO: improve timestep scaling of action generation
         decay = 0.9 ** (self.env_config["timestep"] / 0.05)
-        gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 3e2]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+        gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 2e1]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         state = buffer_dict['PolarTargetPos']['mean'] if buffer_dict is not None else self.REs['PolarTargetPos'].mean
-        self.print_vector(state[:2] - torch.tensor([env_state['target_distance'], env_state['target_offset_angle']]), "PolarTargetPos Err.")
-        print(f"True PolarTargetPos: [{env_state['target_distance']:.3f}, {env_state['target_offset_angle']:.3f}")
+        real_state = torch.tensor([env_state['target_distance'], env_state['target_offset_angle']])
+        if self.env_config["moving_target"] != "stationary":
+            real_state = torch.cat([real_state, torch.tensor([env_state['target_distance_dot_global'], env_state['target_offset_angle_dot_global']])])
+        real_state = torch.cat([real_state, torch.tensor([env_state['target_radius']])])
+        self.print_vector(state - real_state, "PolarTargetPos Err.")
+        self.print_vector(real_state, "True PolarTargetPos: ")
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
     
     def get_observation_update_noise(self, key):
         if "angle" in key or "rot" in key:
-            update_uncertainty: torch.Tensor = 5e-2 * torch.eye(1)
+            update_uncertainty: torch.Tensor = 5e-1 * torch.eye(1)
         else:
-            update_uncertainty: torch.Tensor = 2e-1 * torch.eye(1)
+            update_uncertainty: torch.Tensor = 1e0 * torch.eye(1)
         return update_uncertainty
