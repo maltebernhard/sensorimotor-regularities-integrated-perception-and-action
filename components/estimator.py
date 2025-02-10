@@ -7,6 +7,21 @@ from torch.func import jacrev
 
 # =========================================================================================
 
+class Observation:
+    def __init__(self, id, obs_dim):
+        self.id = id
+        self.dim = obs_dim
+        self.updated = False
+        self.last_updated = -1.0
+        self.static_sensor_noise: Tuple[torch.Tensor,torch.Tensor] = None
+
+    def set_observation(self, obs: torch.Tensor, time=None):
+        self.last_measurement = obs
+        self.updated = True
+        self.last_updated = time
+
+# =========================================================================================
+
 class State(Module):
     def __init__(self, id, state_dim, device=None, dtype=None):
         super().__init__()
@@ -42,21 +57,6 @@ class State(Module):
         self.cov = torch.eye(
             self.state_dim, dtype=self.dtype, device=self.mean.device) if cov is None else cov
         self.get_buffer_dict()
-
-# =========================================================================================
-
-class Observation:
-    def __init__(self, id, obs_dim):
-        self.id = id
-        self.dim = obs_dim
-        self.updated = False
-        self.last_updated = -1.0
-        self.static_sensor_noise: Tuple[torch.Tensor,torch.Tensor] = None
-
-    def set_observation(self, obs: torch.Tensor, time=None):
-        self.last_measurement = obs
-        self.updated = True
-        self.last_updated = time
 
 # =========================================================================================
 

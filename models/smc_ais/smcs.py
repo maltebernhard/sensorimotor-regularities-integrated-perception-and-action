@@ -16,7 +16,7 @@ class DroneEnv_SMC(SensorimotorContingency):
         returns the expected total sensor noise (tuple of mean and stddev) for each sensory component.
         OVERWRITE to include additional effects, such as noise scaling with value (e.g. for robot vel)
         """
-        return super().get_expected_meas_noise(buffer_dict)
+        #return super().get_expected_meas_noise(buffer_dict)
         # TODO: something about this scaling function doesn't work
         # I want to indicate to the robot that a higher value for some sensors means more noise
         # however, it seams that this leads to weird behavior
@@ -28,16 +28,21 @@ class DroneEnv_SMC(SensorimotorContingency):
         contingent_noise = self.get_contingent_noise(buffer_dict[self.state_component]['mean'])
         noise = {}
         for key, obs in self.connected_observations.items():
-            if "vel" in key or ("distance" in key and not "dot" in key) or "angle_dot" in key:
+            if "vel" in key or ("distance" in key and not "dot" in key):
                 noise[key] = (
-                    (obs.static_sensor_noise[0] + contingent_noise[key][0]) * predicted_meas[key],
-                    (obs.static_sensor_noise[1] + contingent_noise[key][1]) * torch.abs(predicted_meas[key])
+                    obs.static_sensor_noise[0] + contingent_noise[key][0] * predicted_meas[key],
+                    obs.static_sensor_noise[1] + contingent_noise[key][1] * torch.abs(predicted_meas[key])
                 )
             elif "distance_dot" in key:
                 noise[key] = (
-                    (obs.static_sensor_noise[0] + contingent_noise[key][0]) * predicted_meas[key.replace("_dot", "")],
-                    (obs.static_sensor_noise[1] + contingent_noise[key][1]) * torch.abs(predicted_meas[key.replace("_dot", "")])
+                    obs.static_sensor_noise[0] + contingent_noise[key][0] * predicted_meas[key.replace("_dot", "")],
+                    obs.static_sensor_noise[1] + contingent_noise[key][1] * torch.abs(predicted_meas[key.replace("_dot", "")])
                 )
+            # elif "angle_dot" in key:
+            #     noise[key] = (
+            #         obs.static_sensor_noise[0] + contingent_noise[key][0] * buffer_dict[self.state_component]['mean'][1],
+            #         obs.static_sensor_noise[1] + contingent_noise[key][1] * torch.abs(buffer_dict[self.state_component]['mean'][1])
+            #     )
             else:
                 noise[key] = (
                     obs.static_sensor_noise[0] + contingent_noise[key][0],

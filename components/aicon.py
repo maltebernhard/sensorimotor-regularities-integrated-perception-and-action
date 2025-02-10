@@ -452,3 +452,7 @@ class DroneEnvAICON(AICON):
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
+
+    def custom_reset(self):
+        self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
+    

@@ -77,7 +77,7 @@ class SMCAICON(AICON):
     def compute_action_from_gradient(self, gradients):
         # TODO: improve timestep scaling of action generation
         decay = 0.9 ** (self.env_config["timestep"] / 0.05)
-        gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 2e2]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+        gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 3e1]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):
@@ -91,9 +91,6 @@ class SMCAICON(AICON):
         self.print_vector(state - real_state, "PolarTargetPos Err.")
         self.print_vector(real_state, "True PolarTargetPos: ")
 
-    def custom_reset(self):
-        self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
-    
     def get_static_sensor_noise(self, key):
         # NOTE: you can use this to get real env sesnor noise
         #(self.env.observation_noise[obs_key])
