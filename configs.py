@@ -56,6 +56,17 @@ large_distance_noise = {
     "target_distance":          (0.0, 0.1),
     "target_distance_dot":      (0.0, 0.1),
 }
+distance_offset_noise = {
+    "target_offset_angle":      (0.0, 0.02),
+    "target_offset_angle_dot":  (0.0, 0.02),
+    "target_visual_angle":      (0.0, 0.02),
+    "target_visual_angle_dot":  (0.0, 0.02),
+    "vel_frontal":              (0.0, 0.02),
+    "vel_lateral":              (0.0, 0.02),
+    "vel_rot":                  (0.0, 0.02),
+    "target_distance":          (-0.2, 0.1),
+    "target_distance_dot":      (-0.2, 0.1),
+}
 huge_distance_noise = {
     "target_offset_angle":      (0.0, 0.02),
     "target_offset_angle_dot":  (0.0, 0.02),
@@ -138,6 +149,7 @@ class SensorNoiseConfig:
     tri_noise = large_triang_noise
     div_noise = large_divergence_noise
     dist_noise = large_distance_noise
+    dist_offset_noise = distance_offset_noise
     huge_dist_noise = huge_distance_noise
 
 class FovealVisionNoiseConfig:

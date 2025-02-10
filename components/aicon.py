@@ -149,7 +149,7 @@ class AICON(ABC):
                         esti_noise = {obs_key: (mean, esti_stddevs[obs_key]) for obs_key, mean in esti_offsets.items() if obs_key in meas_model.connected_observations.keys()}
                         print(f"---------------- {mm_key} {estimator_key} ----------------")
                         print(f"Real Noise (mean,stddev): {real_noise}")
-                        print(f"Estimates Noise (mean,stddev): {esti_noise}")
+                        print(f"Estimated Noise (mean,stddev): {esti_noise}")
                     self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
                     if self.prints > 0 and self.current_step % self.prints == 0:
                         print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)

@@ -88,6 +88,8 @@ def plot_states_and_losses(analysis: Analysis, invariant_config, plotting_states
     plot_configs = create_plot_names_and_invariants(experiment_variations, invariant_config)
     for config in plot_configs:
         axes = create_axes(experiment_variations, config[1])
+        if plot_styles is not None and not all([ax_key in plot_styles.keys() for ax_key in axes.keys()]):
+            plot_styles=None
         plotting_config = create_plotting_config(config[0], plotting_states_config, axes, plot_styles=plot_styles, exclude_runs=exclude_runs)
         print(f"Plot {config[0]} has the following axes:")
         print([key for key in axes.keys()])
@@ -112,59 +114,60 @@ def create_standard_plotting_states(exp_id: int):
         """
         invariant_config = {
             "smcs": None,
-            "moving_target": None,
-            "control": None,
+            #"moving_target": None,
+            "sensor_noise": None,
+            #"control": None,
             #"fv_noise": None,
         }
         plot_styles = {
-            # 'aicon_stationary_target': {
-            #     'label': 'AICON control | stationary target',
-            #     'color': 'blue', # red, green, blue, cyan, magenta, yellow, black, white
-            #     'linestyle': 'solid', # dotted, dashed, dashdot
-            #     'linewidth': 2
-            # },
-            # 'aicon_sine_target': {
-            #     'label': 'AICON control | moving target',
-            #     'color': 'blue',
-            #     'linestyle': 'dashed',
-            #     'linewidth': 2
-            # },
-            # 'manual_stationary_target': {
-            #     'label': 'designed control | stationary target',
-            #     'color': 'red',
-            #     'linestyle': 'solid',
-            #     'linewidth': 2
-            # },
-            # 'manual_sine_target': {
-            #     'label': 'designed control | moving target',
-            #     'color': 'red',
-            #     'linestyle': 'dashed',
-            #     'linewidth': 2
-            # }
-            'small_noise': {
-                'label': 'small noise',
+            'aicon_stationary_target': {
+                'label': 'AICON control | stationary target',
+                'color': 'blue', # red, green, blue, cyan, magenta, yellow, black, white
+                'linestyle': 'solid', # dotted, dashed, dashdot
+                'linewidth': 2
+            },
+            'aicon_sine_target': {
+                'label': 'AICON control | moving target',
                 'color': 'blue',
-                'linestyle': 'solid',
+                'linestyle': 'dashed',
                 'linewidth': 2
             },
-            'large_noise': {
-                'label': 'large noise',
-                'color': 'green',
-                'linestyle': 'solid',
-                'linewidth': 2
-            },
-            'div_noise': {
-                'label': 'divergence noise',
-                'color': 'orange',
-                'linestyle': 'solid',
-                'linewidth': 2
-            },
-            'tri_noise': {
-                'label': 'triangulation noise',
+            'manual_stationary_target': {
+                'label': 'designed control | stationary target',
                 'color': 'red',
                 'linestyle': 'solid',
                 'linewidth': 2
             },
+            'manual_sine_target': {
+                'label': 'designed control | moving target',
+                'color': 'red',
+                'linestyle': 'dashed',
+                'linewidth': 2
+            }
+            # 'small_noise': {
+            #     'label': 'small noise',
+            #     'color': 'blue',
+            #     'linestyle': 'solid',
+            #     'linewidth': 2
+            # },
+            # 'large_noise': {
+            #     'label': 'large noise',
+            #     'color': 'green',
+            #     'linestyle': 'solid',
+            #     'linewidth': 2
+            # },
+            # 'div_noise': {
+            #     'label': 'divergence noise',
+            #     'color': 'orange',
+            #     'linestyle': 'solid',
+            #     'linewidth': 2
+            # },
+            # 'tri_noise': {
+            #     'label': 'triangulation noise',
+            #     'color': 'red',
+            #     'linestyle': 'solid',
+            #     'linewidth': 2
+            # },
         }
         plotting_states = {
             "PolarTargetPos": {
@@ -184,7 +187,7 @@ def create_standard_plotting_states(exp_id: int):
     elif exp_id == 2:
         invariant_config = {
             #"smcs":             ("BothVSNone", ["nosmcs", "both"]),
-            "smcs":             None,
+            #"smcs":             None,
             #"sensor_noise":     None,
             #"fv_noise":         None,
             "moving_target":    None,
@@ -264,4 +267,4 @@ if __name__ == "__main__":
 
     analysis = Analysis.load(path)
     plotting_states, invariant_config, plot_styles = create_standard_plotting_states(exp_id)
-    plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles, plot_ax_runs=("aicon_sine_target",None), run_demo=9)#, show=False, print_ax_keys=True, plot_ax_runs=("nosmcs",None), run_demo=1)#, plot_ax_runs=("nosmcs",None), exclude_runs=[9])
+    plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles)#, plot_ax_runs=("aicon_sine_target",None), run_demo=9)#, show=False, print_ax_keys=True, plot_ax_runs=("nosmcs",None), run_demo=1)#, plot_ax_runs=("nosmcs",None), exclude_runs=[9])

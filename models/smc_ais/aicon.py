@@ -97,6 +97,9 @@ class SMCAICON(AICON):
         if "angle" in key or "rot" in key:
             sensor_noise_mean   = 0.0
             sensor_noise_stddev = 1e-1
+        elif "distance" in key:
+            sensor_noise_mean   = 0.0
+            sensor_noise_stddev = 10e0
         else:
             sensor_noise_mean   = 0.0
             sensor_noise_stddev = 5e-1
