@@ -1,5 +1,8 @@
+from typing import List
+
+import yaml
 from components.analysis import Analysis
-from configs import ExperimentConfig as config
+from configs.configs import ExperimentConfig as config
 from plot import create_standard_plotting_states, plot_states_and_losses
 import sys
 from pprint import pprint
@@ -15,18 +18,18 @@ def get_config_keys(key) -> dict:
 def create_aicon_type_configs(experiment_id, smcs_list=None):
     aicon_type_configs = []
     for smcs in get_config_keys("smcs") if smcs_list is None else smcs_list:
-        for control in get_config_keys("control"):
+        for controller in get_config_keys("controller"):
             for distance_sensor in get_config_keys("distance_sensor"):
                 if experiment_id == 1 and distance_sensor=="no_dist_sensor" and smcs!="nosmcs":
                     aicon_type_configs.append({
                         "smcs":            smcs,
-                        "control":         control,
+                        "controller":      controller,
                         "distance_sensor": distance_sensor,
                     })
-                elif experiment_id == 2 and distance_sensor=="dist_sensor" and control=="aicon":
+                elif experiment_id == 2 and distance_sensor=="dist_sensor" and controller=="aicon":
                     aicon_type_configs.append({
                         "smcs":            smcs,
-                        "control":         control,
+                        "controller":      controller,
                         "distance_sensor": distance_sensor,
                     })
     return aicon_type_configs
@@ -34,16 +37,15 @@ def create_aicon_type_configs(experiment_id, smcs_list=None):
 def get_sensor_noise_config(smcs_config, experiment_id):
     if experiment_id == 1:
         noise_config = ["small_noise", "large_noise"]
-        if smcs_config == "both" or smcs_config == "div":
-            noise_config += ["div_noise"]
-        if smcs_config == "both" or smcs_config == "tri":
-            noise_config += ["tri_noise"]
-        #noise_config = ["small_noise"]
+        # if smcs_config == "both" or smcs_config == "div":
+        #     noise_config += ["div_noise"]
+        # if smcs_config == "both" or smcs_config == "tri":
+        #     noise_config += ["tri_noise"]
     elif experiment_id == 2:
-        # noise_config = ["small_noise", "large_noise", "dist_noise", "huge_dist_noise"]
+        noise_config = ["small_noise", "large_noise", "huge_dist_noise", "dist_offset_noise"]
         # if smcs_config == "both":
         #     noise_config += ["tri_noise", "div_noise"]
-        noise_config = ["dist_offset_noise"]#, "huge_dist_noise"]
+        #noise_config = ["dist_offset_noise"]#, "huge_dist_noise"]
     return noise_config
 
 def get_fv_noise_config(experiment_id):
@@ -54,9 +56,11 @@ def get_fv_noise_config(experiment_id):
 
 def get_moving_target_config(experiment_id):
     if experiment_id == 1:
-        return ["stationary_target", "sine_target"]
+        #return ["stationary_target", "sine_target"]
+        return ["sine_target"]
     elif experiment_id == 2:
-        return ["stationary_target"]#, "sine_target"]
+        #return ["stationary_target", "sine_target"]
+        return ["sine_target"]
     
 def get_observation_loss_config(smcs_config, experiment_id):
     if experiment_id == 1:
@@ -82,29 +86,43 @@ def create_variations(experiment_id):
                     for observation_loss_config in get_observation_loss_config(aicon_type_config["smcs"], experiment_id):
                         exp_config_keys.append({
                             "smcs":                aicon_type_config["smcs"],
-                            "control":             aicon_type_config["control"],
+                            "controller":          aicon_type_config["controller"],
                             "distance_sensor":     aicon_type_config["distance_sensor"],
                             "moving_target":       moving_target_config,
                             "sensor_noise":        observation_noise_config,
                             "observation_loss":    observation_loss_config,
                             "fv_noise":            fv_noise_config,
-                            "desired_distance":    10,
+                            "desired_distance":    5,
+                            "control":             "vel",
                         })
                         exp_configs.append({
                             "smcs":                config.smcs.__dict__[aicon_type_config["smcs"]],
-                            "control":             config.control.__dict__[aicon_type_config["control"]],
+                            "controller":          config.control.__dict__[aicon_type_config["controller"]],
                             "distance_sensor":     config.distance_sensor.__dict__[aicon_type_config["distance_sensor"]],
                             "moving_target":       config.moving_target.__dict__[moving_target_config],
                             "sensor_noise":        config.sensor_noise.__dict__[observation_noise_config],
                             "observation_loss":    config.observation_loss.__dict__[observation_loss_config],
                             "fv_noise":            config.fv_noise.__dict__[fv_noise_config],
-                            "desired_distance":    10,
+                            "desired_distance":    5,
+                            "control":             "vel",
                         })
     print(f"================ all variations =================")
     for variation in exp_config_keys:
         pprint(variation)
     print("=================================================")
     return exp_configs
+
+def create_analysis(name, num_runs, base_env_config, base_run_config, variations):
+    return Analysis({
+        "name":                       name,
+        "num_runs":                   num_runs,
+        "model_type":                 "SMC",
+        "base_env_config":            base_env_config,
+        "base_run_config":            base_run_config,
+        "record_videos":              False,
+        "variations":                 variations,
+        "wandb":                      True,
+    })
 
 # ==================================================================================
 
@@ -114,49 +132,98 @@ base_env_config = {
     "num_obstacles":        0,
     "timestep":             0.05,
 }
-
 base_run_config = {
     "num_steps":        300,
     "initial_action":   [0.0, 0.0, 0.0],
     "seed":             1,
 }
-
 runs_per_variation = 10
 
+# ==================================================================================
+
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python run_analysis.py <experiment_type>")
+    if len(sys.argv) != 3:
+        print("Usage: python run_analysis.py requires two arguments: <action> <argument>")
+        print("Action: auto   | Argument: experiment_type: int [1,2]")
+        print("Action: custom | Argument: config path: str")
+        print("Action: rerun  | Argument: analysis_path: str -> useful after changing model or environment code")
+        print("Action: plot   | Argument: analysis_path: str")
         sys.exit(1)
-    try:
-        experiment_type = int(sys.argv[1])
-        analysis = None
-    except ValueError:
-        if "records/" in sys.argv[1]:
-            experiment_type = 1 if "Experiment1" in sys.argv[1] else 2
-            analysis = Analysis.load(sys.argv[1])
-        else:
-            print("Experiment type must be an integer.")
-            sys.exit(1)
-    
-    variations = create_variations(experiment_type)
-    if analysis is not None:
-        analysis.add_and_run_variations(variations)
     else:
-        analysis = Analysis({
-            "name":                       f"Experiment{experiment_type}",
-            "num_runs":                   runs_per_variation,
-            "model_type":                 "SMC",
-            "base_env_config":            base_env_config,
-            "base_run_config":            base_run_config,
-            "record_videos":              False,
-            "variations":                 variations,
-            "wandb":                      True,
-        })
-        analysis.run_analysis()
+        if sys.argv[1] == "auto":
+            try:
+                experiment_type = int(sys.argv[2])
+            except ValueError:
+                print("Experiment type must be an integer in [1,2].")
+                sys.exit(1)
+            variations = create_variations(experiment_type)
+            analysis = create_analysis(f"Experiment{experiment_type}", runs_per_variation, base_env_config, base_run_config, variations)
+            analysis.run_analysis()
+            plotting_states, invariant_config, plot_styles = create_standard_plotting_states(experiment_type)
+            plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles, plot_ax_runs=True)
+        elif sys.argv[1] == "custom":
+            config_path = sys.argv[2]
+            with open(config_path, "r") as config_file:
+                custom_config = yaml.safe_load(config_file)
+            custom_name = config_path.split("/")[-1].split(".")[0]
+            custom_same_for_all = custom_config["same_for_all"]
+            custom_variations: List[dict] = custom_config["variations"]
+            for var in custom_variations:
+                var.update(custom_same_for_all)
+            variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key!="desired_distance" else val) for key, val in var.items()} for var in custom_variations]
+            custom_plotting_config = custom_config["plotting_config"]
+            analysis = create_analysis(custom_name, runs_per_variation, base_env_config, base_run_config, variations)
+            analysis.run_analysis()
+            plot_states_and_losses(analysis, plot_ax_runs=True, plot_styles=custom_plotting_config)
+        elif sys.argv[1] == "rerun":
+            try:
+                analysis = Analysis.load(sys.argv[2])
+            except:
+                print("No valid analysis path.")
+                sys.exit(1)
+            analysis.run_analysis()
+            plot_states_and_losses(analysis, plot_ax_runs=True)
+        elif sys.argv[1] == "plot":
+            try:
+                experiment_type = 1 if "Experiment1" in sys.argv[1] else 2
+                analysis = Analysis.load(sys.argv[2])
+            except:
+                print("No valid analysis path.")
+                sys.exit(1)
+            plotting_states, invariant_config, plot_styles = create_standard_plotting_states(experiment_type)
+            plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles)
+        # elif sys.argv[1] == "extend_auto":
+        #     try:
+        #         experiment_type = 1 if "Experiment1" in sys.argv[2] else 2
+        #         analysis = Analysis.load(sys.argv[1])
+        #     except:
+        #         print("No valid analysis path.")
+        #         sys.exit(1)
+        #     variations = create_variations(experiment_type)
+        #     analysis.add_and_run_variations(variations)
+        #     plot_states_and_losses(analysis, plot_ax_runs=True)
+        # elif sys.argv[1] == "extend_custom":
+        #     try:
+        #         analysis = Analysis.load(sys.argv[1])
+        #     except:
+        #         print("No valid analysis path.")
+        #         sys.exit(1)
+        #     if len(sys.argv) == 3:
+        #         config_path = sys.argv[2]
+        #         try:
+        #             with yaml.safe_load(open(config_path, "r")) as custom_config:
+        #                 custom_name = custom_config["name"]
+        #                 custom_same_for_all = custom_config["same_for_all"]
+        #                 custom_variations = custom_config["variations"]
+        #         except:
+        #             print("No valid custom config path.")
+        #             sys.exit(1)
+        #     for var in custom_variations:
+        #         var.update(custom_same_for_all)
+        #     analysis.add_and_run_variations(custom_variations)
+        #     plot_states_and_losses(analysis, plot_ax_runs=True)
+
 
     # NOTE: use this to run a single demo with rendering and prints, for a specific variation, e.g. to check bugs
     # analysis.run_demo(variations[0], 1, True)
     # raise ValueError("Demo run complete")
-
-    plotting_states, invariant_config, plot_styles = create_standard_plotting_states(experiment_type)
-    plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles)

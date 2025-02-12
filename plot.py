@@ -1,6 +1,6 @@
 from typing import Dict, List, Tuple
 from components.analysis import Analysis
-from configs import ExperimentConfig as configs
+from configs.configs import ExperimentConfig as configs
 from itertools import product
 import sys
 
@@ -32,6 +32,8 @@ def create_axes(experiment_variations: list, invariants: Dict[str,list]):
             "observation_loss":    variation["observation_loss"],
             "fv_noise":            variation["fv_noise"],
             "desired_distance":    variation["desired_distance"],
+            "wind":                variation["wind"],
+            "controller":          variation["controller"],
         } for variation in experiment_variations if all([variation[key] in invariants[key] for key in invariants.keys()])
     }
     return axes
@@ -60,47 +62,54 @@ def create_plotting_config(name: str, state_config: dict, axes_config: dict, plo
         plotting_config["style"] = plot_styles
     return plotting_config
 
-def create_plot_names_and_invariants(experiment_variations: list, invariance_config = Dict[str,Tuple[str,List[object]]]):
+def create_plot_names_and_variation_values(experiment_variations: list, invariance_config = Dict[str,Tuple[str,List[object]]]):
     """
     Creates a list of name-config-tuples specifying plots.
     Args:
         experiment_variations: list of all variations in the experiment
         invariance_config: dictionary specifying which parameters should be invariant for each plot
     """
-    invariants: Dict[str,Tuple[str,object]] = {}
-    for iv_config_key, iv_config in invariance_config.items():
-        if iv_config is None:
-            # get all possible configs for invariant key
-            invariants[iv_config_key] = [(subconfig_key, [val]) for subconfig_key, val in configs.__dict__[iv_config_key].__dict__.items() if val in [variation[iv_config_key] for variation in experiment_variations]]
-        else:
-            iv_name, iv_value_keys = iv_config
-            invariants[iv_config_key] = [(iv_name, [configs.__dict__[iv_config_key].__dict__[value_key] for value_key in iv_value_keys])]
-    plot_configs = []
-    for combination in product(*[invariants[key] for key in invariants.keys()]):
-        # join names of invariant properties to form plot name
-        config_name = "_".join([item[0] for item in combination])
-        config_dict = {key: item[1] for key, item in zip(invariants.keys(), combination)}
-        plot_configs.append((config_name, config_dict))
+    if len(invariance_config) > 0:
+        invariants: Dict[str,Tuple[str,list]] = {}
+        for iv_config_key, iv_config in invariance_config.items():
+            if iv_config is None:
+                # get all possible configs for invariant key
+                invariants[iv_config_key] = [(subconfig_key, [val]) for subconfig_key, val in configs.__dict__[iv_config_key].__dict__.items() if val in [variation[iv_config_key] for variation in experiment_variations]]
+            else:
+                iv_name, iv_value_keys = iv_config
+                invariants[iv_config_key] = [(iv_name, [configs.__dict__[iv_config_key].__dict__[value_key] for value_key in iv_value_keys])]
+        plot_configs = []
+        for combination in product(*[invariants[key] for key in invariants.keys()]):
+            # join names of invariant properties to form plot name
+            config_name = "_".join([item[0] for item in combination])
+            config_dict = {key: item[1] for key, item in zip(invariants.keys(), combination)}
+            plot_configs.append((config_name, config_dict))
+    else:
+        plot_configs = [("all", {key: [variation[key] for variation in experiment_variations] for key in configs.keys})]
     return plot_configs
 
-def plot_states_and_losses(analysis: Analysis, invariant_config, plotting_states_config=None, show=False, plot_styles=None, plot_ax_runs:str=None, run_demo:int=None, exclude_runs=[]):
+def plot_states_and_losses(analysis: Analysis, invariant_config={}, plotting_states_config=None, show=False, plot_styles=None, plot_ax_runs:str=None, run_demo:int=None, exclude_runs=[]):
     experiment_variations = analysis.variations
-    plot_configs = create_plot_names_and_invariants(experiment_variations, invariant_config)
-    for config in plot_configs:
-        axes = create_axes(experiment_variations, config[1])
+    plot_configs = create_plot_names_and_variation_values(experiment_variations, invariant_config)
+    for plot_name, plot_variation_values in plot_configs:
+        axes = create_axes(experiment_variations, plot_variation_values)
         if plot_styles is not None and not all([ax_key in plot_styles.keys() for ax_key in axes.keys()]):
             plot_styles=None
-        plotting_config = create_plotting_config(config[0], plotting_states_config, axes, plot_styles=plot_styles, exclude_runs=exclude_runs)
-        print(f"Plot {config[0]} has the following axes:")
+        plotting_config = create_plotting_config(plot_name, plotting_states_config, axes, plot_styles=plot_styles, exclude_runs=exclude_runs)
+        print(f"Plot {plot_name} has the following axes:")
         print([key for key in axes.keys()])
         analysis.plot_states(plotting_config, save=True, show=show)
         analysis.plot_goal_losses(plotting_config, save=True, show=show)
     if plot_ax_runs is not None:
-        if type(plot_ax_runs) is str:
-            plot_ax_runs = (plot_ax_runs, None)
-        analysis.plot_state_runs(plotting_config, plot_ax_runs[0], plot_ax_runs[1], save=True, show=False)
-        if run_demo is not None:
-            analysis.run_demo(axes[plot_ax_runs[0]], run_number=run_demo, step_by_step=True, record_video=False)
+        if type(plot_ax_runs) == bool and plot_ax_runs:
+            for ax_key in axes.keys():
+                analysis.plot_state_runs(plotting_config, ax_key, save=True, show=show)
+        else:
+            if type(plot_ax_runs) is str:
+                plot_ax_runs = (plot_ax_runs, None)
+            analysis.plot_state_runs(plotting_config, plot_ax_runs[0], plot_ax_runs[1], save=True, show=False)
+            if run_demo is not None:
+                analysis.run_demo(axes[plot_ax_runs[0]], run_number=run_demo, step_by_step=True, record_video=False)
 
 def create_standard_plotting_states(exp_id: int):
     if exp_id == 1:
@@ -186,12 +195,12 @@ def create_standard_plotting_states(exp_id: int):
 
     elif exp_id == 2:
         invariant_config = {
-            #"smcs":             ("BothVSNone", ["nosmcs", "both"]),
+            "smcs":             ("BothVSNone", ["nosmcs", "both"]),
             #"smcs":             None,
             #"sensor_noise":     None,
             #"fv_noise":         None,
             "moving_target":    None,
-            #"observation_loss": None,
+            "observation_loss": None,
         }
         plot_styles = {
             # 'nosmcs': {

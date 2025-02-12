@@ -66,8 +66,6 @@ class AICON(ABC):
             if prints > 0 and step % prints == 0:
                 print("------------ Computing Action Gradient -------------")
             gradients, action = self.compute_action()
-            if prints > 0 and step % prints == 0:
-                print("Action: ", end=""), self.print_vector(action)
             env_state = self.env.get_state()
             if logger is not None:
                 buffer_dict = self.get_buffer_dict()
@@ -120,8 +118,8 @@ class AICON(ABC):
         buffer_dict = self.get_buffer_dict()
 
         # estimator forward models
-        u = self.get_control_input(action)
-        for estimator in self.REs.values():
+        for est_key, estimator in self.REs.items():
+            u = self.get_control_input(action, buffer_dict, est_key)
             estimator.call_predict(u, buffer_dict)
 
         # measurement updates
@@ -143,13 +141,13 @@ class AICON(ABC):
         for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
-                    if self.prints > 0 and self.current_step % self.prints == 0:
-                        esti_offsets, esti_stddevs = meas_model.get_cov_dict(buffer_dict, estimator_key)
-                        real_noise = {obs_key: (mean, stddev) for obs_key, (mean, stddev) in self.last_observation[1].items() if obs_key in meas_model.connected_observations.keys()}
-                        esti_noise = {obs_key: (mean, esti_stddevs[obs_key]) for obs_key, mean in esti_offsets.items() if obs_key in meas_model.connected_observations.keys()}
-                        print(f"---------------- {mm_key} {estimator_key} ----------------")
-                        print(f"Real Noise (mean,stddev): {real_noise}")
-                        print(f"Estimated Noise (mean,stddev): {esti_noise}")
+                    # if self.prints > 0 and self.current_step % self.prints == 0:
+                    #     esti_offsets, esti_stddevs = meas_model.get_cov_dict(buffer_dict, estimator_key)
+                    #     real_noise = {obs_key: (mean, stddev) for obs_key, (mean, stddev) in self.last_observation[1].items() if obs_key in meas_model.connected_observations.keys()}
+                    #     esti_noise = {obs_key: (mean, esti_stddevs[obs_key]) for obs_key, mean in esti_offsets.items() if obs_key in meas_model.connected_observations.keys()}
+                    #     print(f"---------------- {mm_key} {estimator_key} ----------------")
+                    #     print(f"Real Noise (mean,stddev): {real_noise}")
+                    #     print(f"Estimated Noise (mean,stddev): {esti_noise}")
                     self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
                     if self.prints > 0 and self.current_step % self.prints == 0:
                         print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)
@@ -358,9 +356,9 @@ class AICON(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def get_control_input(self, action) -> torch.Tensor:
+    def get_control_input(self, action, buffer_dict, estimator_key) -> torch.Tensor:
         """
-        MUST be implemented by user. Returns the control input for the estimator forward models given an action.
+        MUST be implemented by user. Returns the control input for an estimator's forward models given an action of the robot's control space.
         As of now, control input is supposed to be the same for all forward models.
         """
         raise NotImplementedError
@@ -441,11 +439,13 @@ class DroneEnvAICON(AICON):
         cov = jac @ polar_cov @ jac.T
         return mean, cov
     
-    def get_control_input(self, action):
+    def get_control_input(self, action, buffer_dict, estimator_key) -> torch.Tensor:
         env_action = torch.empty_like(action)
         env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.env_config["action_mode"]==3 else self.env.robot.max_acc)
         env_action[2] = action[2] * (self.env.robot.max_vel_rot if self.env_config["action_mode"]==3 else self.env.robot.max_acc_rot)
-        return torch.concat([torch.tensor([0.05], device=self.device), env_action])
+        if self.prints > 0 and self.current_step % self.prints == 0:
+            print("Action: ", end=""), self.print_vector(env_action)
+        return torch.concat([torch.tensor([self.env_config["timestep"]]), env_action])
     
     def render(self):
         target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].mean, self.REs["PolarTargetPos"].cov)

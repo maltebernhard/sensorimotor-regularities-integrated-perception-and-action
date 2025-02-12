@@ -93,6 +93,7 @@ class GazeFixEnv(BaseEnv):
         self.observation_noise: Dict[str,Tuple[float,float]] = config["observation_noise"]
         self.observation_loss: Dict[str,List[Tuple[float,float]]] = config["observation_loss"]
         self.fv_noise: Dict[str,Tuple[float,float]] = config["fv_noise"]
+        self.wind = np.array(config["wind"])
 
         # env dimensions
         self.world_size = config["world_size"]
@@ -297,10 +298,12 @@ class GazeFixEnv(BaseEnv):
         return self.robot.vel_rot
 
     def get_vel_frontal(self):
-        return self.robot.vel[0]
+        wind_robot_frame = self.rotation_matrix(-self.robot.orientation) @ self.wind
+        return self.robot.vel[0] + wind_robot_frame[0]
 
     def get_vel_lateral(self):
-        return self.robot.vel[1]
+        wind_robot_frame = self.rotation_matrix(-self.robot.orientation) @ self.wind
+        return self.robot.vel[1] + wind_robot_frame[1]
 
     def create_object_state_function(self, state_function, obj):
         def func():
@@ -429,7 +432,7 @@ class GazeFixEnv(BaseEnv):
 
     def move_robot(self):
         # move robot
-        self.robot.pos += (self.rotation_matrix(self.robot.orientation) @ self.robot.vel) * self.timestep
+        self.robot.pos += (self.rotation_matrix(self.robot.orientation) @ self.robot.vel + self.wind) * self.timestep
         self.robot.orientation += self.robot.vel_rot * self.timestep
         self.robot.vel = self.rotation_matrix(-self.robot.vel_rot * self.timestep) @ self.robot.vel
         # handle orientation overflow to range [-pi, pi]

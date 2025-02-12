@@ -33,8 +33,8 @@ class Runner:
 
         self.env_config = self.generate_env_config(base_env_config, variation)
         self.aicon_type = {
-            "smcs": variation["smcs"],
-            "control": variation["control"],
+            "smcs":            variation["smcs"],
+            "controller":      variation["controller"],
             "distance_sensor": variation["distance_sensor"],
         }
 
@@ -56,7 +56,6 @@ class Runner:
         with open("environment/env_config.yaml") as file:
             env_config = yaml.load(file, Loader=yaml.FullLoader)
             env_config["num_obstacles"] = base_env_config["num_obstacles"]
-            env_config["action_mode"] = 3 if base_env_config["vel_control"] else 1
             env_config["robot_sensor_angle"] = base_env_config["sensor_angle_deg"] / 180 * np.pi
             env_config["timestep"] = base_env_config["timestep"]
             env_config["observation_noise"] = variation["sensor_noise"]
@@ -64,6 +63,8 @@ class Runner:
             env_config["observation_loss"] = variation["observation_loss"]
             env_config["fv_noise"] = variation["fv_noise"]
             env_config["target_distance"] = variation["desired_distance"]
+            env_config["action_mode"] = 3 if variation["control"] == "vel" else 1
+            env_config["wind"] = variation["wind"]
         return env_config
 
     def run(self):
@@ -147,7 +148,7 @@ class Analysis:
             }
 
     def add_and_run_variations(self, variations: List[dict]):
-        self.variations += [variation for variation in variations if variation not in self.variations]
+        self.variations += [variation for variation in variations if not any(all(variation[sub_key]==var[sub_key] for sub_key in var) for var in self.variations)]
         self.logger.add_variations(variations)
         self.experiment_config["variations"] = self.variations
         self.run_analysis(variations)
@@ -232,11 +233,6 @@ class Analysis:
         run_config['render'] = True
         run_config['prints'] = 1
         run_config['step_by_step'] = step_by_step
-        aicon_type = {
-            "smcs": variation["smcs"],
-            "control": variation["control"],
-            "distance_sensor": variation["distance_sensor"],
-        }
         runner = Runner(
             variation = variation,
             run_config = run_config,
