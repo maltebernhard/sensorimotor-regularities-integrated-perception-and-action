@@ -131,7 +131,7 @@ class GazeFixEnv(BaseEnv):
         self.action = self.limit_action(action) # make sure acceleration / velocity vector is within bounds
         self.update_robot_velocity()
         self.move_robot()
-        if self.moving_target != "stationary":
+        if self.moving_target[0] != "stationary":
             self.move_target()
         if self.moving_obstacles:
             self.move_obstacles()
@@ -345,7 +345,7 @@ class GazeFixEnv(BaseEnv):
         if self.target is None:
             self.target = Target(
                 pos = np.array([x,y]),
-                vel = 0.5 * self.robot.max_vel,
+                vel = self.moving_target[1] * self.robot.max_vel,
                 base_movement_direction = np.random.uniform(-np.pi, np.pi),
                 radius = radius,
                 distance = desired_distance
@@ -448,12 +448,16 @@ class GazeFixEnv(BaseEnv):
             self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
-        if self.moving_target == "linear":
+        if self.moving_target[0] == "linear":
             pass
-        elif self.moving_target == "sine":
+        elif self.moving_target[0] == "sine":
             self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
-        elif self.moving_target == "flight":
+        elif self.moving_target[0] == "flight":
             self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
+        elif self.moving_target[0] == "chase":
+            self.target.current_movement_direction = - np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
+        else:
+            raise ValueError(f"{self.moving_target[0]} is not a valid moving target config.")
         self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
 
     def move_obstacles(self):
@@ -601,7 +605,7 @@ class GazeFixEnv(BaseEnv):
         return offset_angle_dot
 
     def compute_offset_angle_dot_object_component(self, obj: EnvObject):
-        if (type(obj) == Target and self.moving_target != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target[0] != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
         else:
@@ -617,7 +621,7 @@ class GazeFixEnv(BaseEnv):
         return object_distance_dot
 
     def compute_distance_dot_object_component(self, obj: EnvObject):
-        if (type(obj) == Target and self.moving_target != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target[0] != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
         else:
@@ -661,7 +665,7 @@ class GazeFixEnv(BaseEnv):
         if self.action_mode in [1,2]:
             # draw an arrow for the robot's velocity
             self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.robot.vel[1],self.robot.vel[0]), self.robot.size*10*(np.linalg.norm(self.robot.vel)/self.robot.max_vel), self.robot.size*1.5, BLUE)
-        if self.moving_target != "stationary":
+        if self.moving_target[0] != "stationary":
             # draw an arrow for the target's movement
             self.draw_arrow(self.target.pos, self.target.current_movement_direction, self.robot.size*10*self.target.vel/self.robot.max_vel, self.robot.size*1.5, DARK_GREEN)
 

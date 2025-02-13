@@ -1,0 +1,46 @@
+
+same_for_all:
+  #smcs:            both
+  distance_sensor:  no_dist_sensor
+  controller:       aicon
+  moving_target:    stationary_target
+  sensor_noise:     small_noise
+  observation_loss: no_obs_loss
+  fv_noise:         no_fv_noise
+  desired_distance: 10
+  wind:             light_wind
+  control:          acc
+
+variations:
+  - smcs: nosmcs
+  - smcs: tri
+  - smcs: div
+  - smcs: both
+
+plotting_state_config:
+  PolarTargetPos:
+    indices: [0]
+    labels:  [Distance]
+    ybounds: [[[-1, 20]], [[-5, 10]], [[-1, 10]]]
+
+plotting_style_config:
+  nosmcs:
+    label:     No SMCs
+    color:     red      # red, green, blue, cyan, magenta, yellow, black, white
+    linestyle: solid    # dotted, dashed, dashdot
+    linewidth: 2
+  tri:
+    label:     Triangulation
+    color:     orange
+    linestyle: solid
+    linewidth: 2
+  div:
+    label:     Divergence
+    color:     green
+    linestyle: solid
+    linewidth: 2
+  both:
+    label:     Triangulation + Divergence
+    color:     blue
+    linestyle: solid
+    linewidth: 2

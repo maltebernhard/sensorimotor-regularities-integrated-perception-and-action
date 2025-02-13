@@ -242,6 +242,7 @@ class AICON(ABC):
                 for gradkey, grad in gradient.items():
                     if not torch.allclose(grad, torch.zeros_like(grad)):
                         print(f"{gradkey}: {[f'{-x:.3f}' for x in grad.tolist()]}")
+                print("------------------------------------------------------")
         return gradients
 
     def get_steepest_gradient(self, gradients: Dict[str, torch.Tensor]):

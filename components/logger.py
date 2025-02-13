@@ -14,7 +14,7 @@ os.environ["WANDB_SILENT"] = "true"
 class VariationLogger:
     def __init__(self, variation_config:dict, variation_id:int, wandb_config:dict):
         self.data = {}
-        self.run = len(self.data.keys())
+        self.run_seed = 0
         self.variation_config = variation_config
         self.variation_id = variation_id
         self.wandb_project: str = wandb_config['wandb_project'] if wandb_config is not None else None
@@ -23,7 +23,7 @@ class VariationLogger:
 
     def log(self, step: int, time: float, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
         # for new run, set up logging dict
-        if self.run not in self.data:
+        if self.run_seed not in self.data:
             self.create_run_dict(estimators, env_state, observation, goal_loss, action, gradients)
             if self.wandb_group is not None:
                 self.create_wandb_run()
@@ -35,7 +35,7 @@ class VariationLogger:
         self.log_local(step_log)
 
     def create_run_dict(self, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
-        self.data[self.run] = {
+        self.data[self.run_seed] = {
                 "step":                 np.array([]),     # time step
                 "time":                 np.array([]),     # time in seconds
                 "estimators": {estimator_key: {
@@ -70,7 +70,7 @@ class VariationLogger:
             self.wandb_run.finish()
         self.wandb_run = wandb.init(
             project=self.wandb_project,
-            name=f'{self.variation_id}_{self.run}',
+            name=f'{self.variation_id}_{self.run_seed}',
             group=self.wandb_group,
             config = {
                 "id":               self.variation_id,
@@ -170,20 +170,20 @@ class VariationLogger:
     def log_local(self, step_log: dict):
         for key in ["step", "time", "collision"]:
             if key != "estimators":
-                self.data[self.run][key] = np.append(self.data[self.run][key], step_log[key])
+                self.data[self.run_seed][key] = np.append(self.data[self.run_seed][key], step_log[key])
         for estimator_key in step_log["estimators"].keys():
             for attribute_key in step_log["estimators"][estimator_key].keys():
-                self.data[self.run]["estimators"][estimator_key][attribute_key] = np.append(self.data[self.run]["estimators"][estimator_key][attribute_key], [step_log["estimators"][estimator_key][attribute_key]], axis=0)
+                self.data[self.run_seed]["estimators"][estimator_key][attribute_key] = np.append(self.data[self.run_seed]["estimators"][estimator_key][attribute_key], [step_log["estimators"][estimator_key][attribute_key]], axis=0)
         for obs_key in step_log["observation"].keys():
             for sub_key in step_log["observation"][obs_key].keys():
-                self.data[self.run]["observation"][obs_key][sub_key] = np.append(self.data[self.run]["observation"][obs_key][sub_key], [step_log["observation"][obs_key][sub_key]], axis=0)
+                self.data[self.run_seed]["observation"][obs_key][sub_key] = np.append(self.data[self.run_seed]["observation"][obs_key][sub_key], [step_log["observation"][obs_key][sub_key]], axis=0)
         for goal_key in step_log["goal_loss"].keys():
             for subgoal_key in step_log["goal_loss"][goal_key].keys():
-                self.data[self.run]["goal_loss"][goal_key][subgoal_key] = np.append(self.data[self.run]["goal_loss"][goal_key][subgoal_key], [step_log["goal_loss"][goal_key][subgoal_key]], axis=0)
+                self.data[self.run_seed]["goal_loss"][goal_key][subgoal_key] = np.append(self.data[self.run_seed]["goal_loss"][goal_key][subgoal_key], [step_log["goal_loss"][goal_key][subgoal_key]], axis=0)
         for goal_key in step_log["gradient"].keys():
             for subgoal_key in step_log["gradient"][goal_key].keys():
-                self.data[self.run]["gradient"][subgoal_key] = np.append(self.data[self.run]["gradient"][goal_key][subgoal_key], [step_log["gradient"][goal_key][subgoal_key]], axis=0)
-        self.data[self.run]["action"] = np.append(self.data[self.run]["action"], [step_log["action"]], axis=0)
+                self.data[self.run_seed]["gradient"][subgoal_key] = np.append(self.data[self.run_seed]["gradient"][goal_key][subgoal_key], [step_log["gradient"][goal_key][subgoal_key]], axis=0)
+        self.data[self.run_seed]["action"] = np.append(self.data[self.run_seed]["action"], [step_log["action"]], axis=0)
 
     def end_wandb_run(self):
         if self.wandb_run is not None:
@@ -381,6 +381,9 @@ class AICONLogger:
                 collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
                 state_means, state_stddevs, state_collisions = self.compute_mean_and_stddev(states, collisions)
+                # HACK: overwrite distances to target at collision step, cause they slightly vary due to how much "inside" the agent is in the target at the step
+                for i, col in enumerate(state_collisions):
+                    state_collisions[i] = (col[0], 0.0)
                 error_means, error_stddevs, error_collisions = self.compute_mean_and_stddev(errors, collisions)
                 uctty_means, uctty_stddevs, uctty_collisions = self.compute_mean_and_stddev(ucttys, collisions)
                 for i in range(len(indices)):
@@ -434,7 +437,7 @@ class AICONLogger:
                 axs[2][i].set_ylim(ybounds[2][i])
 
             # save / show
-            path = os.path.join(save_path, f"records/state_runs_{axs_id}.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/runs_{axs_id}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], plot_subgoals:bool, save_path:str=None, show:bool=False):

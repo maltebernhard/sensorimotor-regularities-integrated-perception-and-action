@@ -13,12 +13,12 @@ if __name__ == "__main__":
         "smcs":              config.smcs.both,
         "distance_sensor":   config.distance_sensor.dist_sensor,
         "controller":        config.controller.aicon,
-        "moving_target":     config.moving_target.stationary_target,
+        "moving_target":     config.moving_target.sine_target,
         "sensor_noise":      config.sensor_noise.small_noise,
         "observation_loss":  config.observation_loss.no_obs_loss,
         "fv_noise":          config.fv_noise.no_fv_noise,
         "desired_distance":  10,
-        "wind":              config.wind.no_wind,
+        "wind":              config.wind.light_wind,
         "control":           config.control.acc,
     }
 

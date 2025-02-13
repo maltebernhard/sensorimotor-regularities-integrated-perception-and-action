@@ -39,7 +39,8 @@ class Runner:
         }
 
         self.num_steps = run_config['num_steps']
-        self.seed = run_config['seed']
+        self.base_seed = run_config['seed']
+        self.seed = self.base_seed
         self.initial_action = run_config['initial_action']
 
         self.render = run_config['render']
@@ -50,7 +51,7 @@ class Runner:
         self.logger: VariationLogger = VariationLogger(variation, variation_id, wandb_config) if variation_id is not None else None
         self.aicon = self.create_model()
 
-        self.num_run = self.logger.run if self.logger is not None else 0
+        self.num_run = self.logger.run_seed if self.logger is not None else 0
 
     def generate_env_config(self, base_env_config, variation):
         with open("environment/env_config.yaml") as file:
@@ -69,17 +70,18 @@ class Runner:
 
     def run(self):
         self.num_run += 1
+        self.seed = self.base_seed + self.num_run - 1
         if self.logger is not None:
-            self.logger.run = self.num_run
+            self.logger.run_seed = self.seed
         self.aicon.run(
-            timesteps=self.num_steps,
-            env_seed=self.seed+self.num_run-1,
-            initial_action=torch.tensor(self.initial_action),
-            render=self.render,
-            prints=self.prints,
-            step_by_step=self.step_by_step,
-            logger=self.logger,
-            video_path=self.video_record_path,
+            timesteps      = self.num_steps,
+            env_seed       = self.seed,
+            initial_action = torch.tensor(self.initial_action),
+            render         = self.render,
+            prints         = self.prints,
+            step_by_step   = self.step_by_step,
+            logger         = self.logger,
+            video_path     = self.video_record_path,
         )
     
     def create_model(self):
@@ -129,14 +131,18 @@ class Analysis:
         self.base_run_config['step_by_step'] = False
 
         self.experiment_config = experiment_config
-        self.name = experiment_config["name"]
         self.model = experiment_config["model_type"]
         self.num_runs = experiment_config["num_runs"]
 
         self.variations = experiment_config["variations"]
         
-        self.logger = AICONLogger(self.variations)        
-        self.record_dir = f"records/{datetime.now().strftime('%Y_%m_%d_%H_%M')}_{self.name}/"
+        self.logger = AICONLogger(self.variations)
+        if "path" in experiment_config:
+            pass
+        elif "name" in experiment_config:
+            self.record_dir = f"records/{datetime.now().strftime('%Y-%m-%d-%H-%M')}_{experiment_config["name"]}/"
+        else:
+            raise ValueError("No Experiment name or path provided.")
         self.record_videos = experiment_config["record_videos"]
 
         self.wandb_config = None
@@ -159,7 +165,7 @@ class Analysis:
         total_configs = len(variations)
         total_runs = total_configs * self.num_runs
         mp.set_start_method('spawn', force=True)
-        with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True, ) as pbar:
+        with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True, smoothing=0.0) as pbar:
             counter = mp.Value('i', 0)
             data_queue = mp.Queue()
             processes = []
@@ -200,6 +206,7 @@ class Analysis:
     def save(self):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
+        open(os.path.join(self.record_dir, 'notes.txt'), 'w').close()
         #self.visualize_graph(aicon=runner.aicon, save=True, show=False)
         with open(os.path.join(self.record_dir, 'configs/experiment_config.yaml'), 'w') as file:
             yaml.dump(self.experiment_config, file)
@@ -219,7 +226,7 @@ class Analysis:
         analysis.record_dir = folder
         return analysis
 
-    def run_demo(self, variation: dict, run_number, step_by_step:bool=False, record_video=False):
+    def run_demo(self, variation: dict, run_seed=None, step_by_step:bool=False, record_video=False):
         print("================ DEMO Variation ================")
         for key, value in variation.items():
             if type(value) == dict:
@@ -238,11 +245,11 @@ class Analysis:
             run_config = run_config,
             base_env_config = self.base_env_config,
         )
-        runner.num_run = run_number-1
+        runner.base_seed = run_seed if run_seed is not None else 1
         if record_video:
             self.logger.set_variation(variation)
             config_id = self.logger.current_variation_id
-            video_path = self.record_dir + f"/records/variation{config_id}_seed{runner.seed+runner.num_run-1}.mp4"
+            video_path = self.record_dir + f"/records/variation{config_id}_seed{runner.base_seed+runner.num_run-1}.mp4"
             runner.video_record_path = video_path
         runner.run()
 

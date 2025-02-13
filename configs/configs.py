@@ -75,17 +75,19 @@ huge_distance_noise = {
     "vel_frontal":              (0.0, 0.02),
     "vel_lateral":              (0.0, 0.02),
     "vel_rot":                  (0.0, 0.02),
-    "target_distance":          (0.0, 0.2),
-    "target_distance_dot":      (0.0, 0.2),
+    "target_distance":          (0.0, 0.3),
+    "target_distance_dot":      (0.0, 0.3),
 }
-
-noise_dict = {
-    "SmallNoise":    general_small_noise,
-    "LargeNoise":    general_large_noise,
-    "TriNoise":      large_triang_noise,
-    "DivNoise":      large_divergence_noise,
-    "DistNoise":     large_distance_noise,
-    "HugeDistNoise": huge_distance_noise,
+huge_distance_offset_noise = {
+    "target_offset_angle":      (0.0, 0.02),
+    "target_offset_angle_dot":  (0.0, 0.02),
+    "target_visual_angle":      (0.0, 0.02),
+    "target_visual_angle_dot":  (0.0, 0.02),
+    "vel_frontal":              (0.0, 0.02),
+    "vel_lateral":              (0.0, 0.02),
+    "vel_rot":                  (0.0, 0.02),
+    "target_distance":          (0.3, 0.1),
+    "target_distance_dot":      (0.3, 0.1),
 }
 
 # --------------------- observation loss configs ---------------------
@@ -131,36 +133,41 @@ fv_noise = {
 
 class SMCConfig:
     nosmcs = []
-    both = ["Divergence", "Triangulation"]
-    tri = ["Triangulation"]
-    div = ["Divergence"]
+    both   = ["Divergence", "Triangulation"]
+    tri    = ["Triangulation"]
+    div    = ["Divergence"]
 
 class ControllerConfig:
-    aicon   = "aicon"
+    aicon  = "aicon"
     manual = "manual"
 
 class DistanceSensorConfig:
-    dist_sensor = "distsensor"
+    dist_sensor    = "distsensor"
     no_dist_sensor = "nodistsensor"
 
 class SensorNoiseConfig:
-    small_noise = general_small_noise
-    large_noise = general_large_noise
-    tri_noise = large_triang_noise
-    div_noise = large_divergence_noise
-    dist_noise = large_distance_noise
-    dist_offset_noise = distance_offset_noise
-    huge_dist_noise = huge_distance_noise
+    small_noise       = general_small_noise
+    large_noise       = general_large_noise
+    tri_noise         = large_triang_noise
+    div_noise         = large_divergence_noise
+    dist_noise        = large_distance_noise
+    dist_o_noise      = distance_offset_noise
+    huge_dist_noise   = huge_distance_noise
+    huge_dist_o_noise = huge_distance_offset_noise
 
 class FovealVisionNoiseConfig:
     fv_noise = fv_noise
     no_fv_noise = {}
 
 class MovingTargetConfig:
-    stationary_target = "stationary"
-    linear_target = "linear"
-    sine_target = "sine"
-    flight_target = "flight"
+    """
+    first tuple value defines movement direction pattern, second defines fraction of robot max vel
+    """
+    stationary_target = ("stationary", 0.0)
+    linear_target     = ("linear",     0.5)
+    sine_target       = ("sine",       0.5)
+    flight_target     = ("flight",     0.5)
+    chase_target      = ("chase",      0.5)
 
 class ObservationLossConfig:
     no_obs_loss = no_obs_loss

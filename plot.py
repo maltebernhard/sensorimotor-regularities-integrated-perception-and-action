@@ -109,7 +109,7 @@ def plot_states_and_losses(analysis: Analysis, invariant_config={}, plotting_sta
                 plot_ax_runs = (plot_ax_runs, None)
             analysis.plot_state_runs(plotting_config, plot_ax_runs[0], plot_ax_runs[1], save=True, show=False)
             if run_demo is not None:
-                analysis.run_demo(axes[plot_ax_runs[0]], run_number=run_demo, step_by_step=True, record_video=False)
+                analysis.run_demo(axes[plot_ax_runs[0]], run_seed=run_demo, step_by_step=True, record_video=False)
 
 def create_standard_plotting_states(exp_id: int):
     if exp_id == 1:

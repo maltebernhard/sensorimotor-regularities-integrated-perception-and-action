@@ -1,0 +1,50 @@
+
+same_for_all:
+  smcs:             both
+  distance_sensor:  no_dist_sensor
+  #controller:      aicon
+  #moving_target:   stationary_target
+  sensor_noise:     small_noise
+  observation_loss: no_obs_loss
+  fv_noise:         no_fv_noise
+  desired_distance: 10
+  wind:             no_wind
+  control:          vel
+
+variations:
+  - controller:    aicon
+    moving_target: stationary_target
+  - controller:    aicon
+    moving_target: sine_target
+  - controller:    manual
+    moving_target: stationary_target
+  - controller:    manual
+    moving_target: sine_target
+
+plotting_state_config:
+  PolarTargetPos:
+    indices: [0]
+    labels:  [Distance]
+    ybounds: [[[5, 30]], [[-1, 10]], [[-1, 20]]]
+
+plotting_style_config:
+  stationary_target_aicon:
+    label:     AICON control | stationary target
+    color:     blue     # red, green, blue, cyan, magenta, yellow, black, white
+    linestyle: solid    # dotted, dashed, dashdot
+    linewidth: 2
+  sine_target_aicon:
+    label:     AICON control | moving target
+    color:     blue
+    linestyle: dashed
+    linewidth: 2
+  stationary_target_manual:
+    label:     designed control | stationary target
+    color:     red
+    linestyle: solid
+    linewidth: 2
+  sine_target_manual:
+    label:     designed control | moving target
+    color:     red
+    linestyle: dashed
+    linewidth: 2

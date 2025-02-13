@@ -1,6 +1,6 @@
 *.pyc
 *.mp4
-*.yaml
 *.png
 *.pkl
 wandb/*
+records/*

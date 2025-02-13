@@ -3,9 +3,10 @@ from typing import List
 import yaml
 from components.analysis import Analysis
 from configs.configs import ExperimentConfig as config
-from plot import create_standard_plotting_states, plot_states_and_losses
+from plot import create_axes, create_standard_plotting_states, plot_states_and_losses
 import sys
 from pprint import pprint
+import os
 
 # ==================================================================================
 
@@ -144,13 +145,78 @@ runs_per_variation = 10
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         print("Usage: python run_analysis.py requires two arguments: <action> <argument>")
-        print("Action: auto   | Argument: experiment_type: int [1,2]")
-        print("Action: custom | Argument: config path: str")
-        print("Action: rerun  | Argument: analysis_path: str -> useful after changing model or environment code")
-        print("Action: plot   | Argument: analysis_path: str")
+        print("Action: run         | Argument: config path: str")
+        print("Action: rerun       | Argument: analysis_path: str -> useful after changing model or environment code")
+        print("Action: replot      | Argument: analysis_path: str -> useful after changing plotting config")
+        print("Action: auto_run    | Argument: experiment_type: int [1,2]")
+        print("Action: auto_replot | Argument: analysis_path: str")
         sys.exit(1)
     else:
-        if sys.argv[1] == "auto":
+        if sys.argv[1]   == "run":
+            config_path = sys.argv[2]
+            with open(config_path, "r") as config_file:
+                custom_config = yaml.safe_load(config_file)
+            custom_name = config_path.split("/")[-1].split(".")[0]
+            custom_same_for_all = custom_config["same_for_all"]
+            custom_variations: List[dict] = custom_config["variations"]
+            for var in custom_variations:
+                var.update(custom_same_for_all)
+            variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key!="desired_distance" else val) for key, val in var.items()} for var in custom_variations]
+            custom_plotting_state_config = custom_config["plotting_state_config"]
+            custom_plotting_style_config = custom_config["plotting_style_config"]
+            analysis = create_analysis(custom_name, runs_per_variation, base_env_config, base_run_config, variations)
+            analysis.run_analysis()
+            plot_states_and_losses(analysis, plotting_states_config=custom_plotting_state_config, plot_styles=custom_plotting_style_config, plot_ax_runs=True)
+        elif sys.argv[1] == "demo":
+            try:
+                analysis = Analysis.load(sys.argv[2])
+            except:
+                print("No valid analysis path.")
+                sys.exit(1)
+            variations = analysis.variations
+            axes = create_axes(variations, {key: [variation[key] for variation in variations] for key in config.keys})
+            print(f"Available Variations:")
+            for i, key in enumerate(axes.keys()):
+                print(f"{i+1}: {key}")
+            try:
+                key = int(input(f"Choose your variation (1-{len(axes.keys())}): "))
+                analysis.run_demo(list(axes.values())[key], 1, True)
+            except:
+                print("Error: Didn't work.")
+        elif sys.argv[1] == "rerun":
+            try:
+                analysis = Analysis.load(sys.argv[2])
+            except:
+                print("No valid analysis path.")
+                sys.exit(1)
+            analysis.run_analysis()
+            plot_states_and_losses(analysis, plot_ax_runs=True)
+        elif sys.argv[1] == "replot":
+            config_path = sys.argv[2]
+            with open(config_path, "r") as config_file:
+                custom_config = yaml.safe_load(config_file)
+            custom_name = config_path.split("/")[-1].split(".")[0]
+            custom_plotting_state_config = custom_config["plotting_state_config"]
+            custom_plotting_style_config = custom_config["plotting_style_config"]
+            records_path = "./records"
+            found_counter = 0
+            for subfolder_name in os.listdir(records_path):
+                if '_'.join(subfolder_name.split('_')[1:]) == custom_name:
+                    found_counter += 1
+                    analysis = Analysis.load(os.path.join(records_path, subfolder_name))
+                    plot_states_and_losses(analysis, plotting_states_config=custom_plotting_state_config, plot_styles=custom_plotting_style_config, plot_ax_runs=True)
+            else:
+                print(f"Replotted {found_counter} analyses.")
+        elif sys.argv[1] == "auto_replot":
+            try:
+                experiment_type = 1 if "Experiment1" in sys.argv[1] else 2
+                analysis = Analysis.load(sys.argv[2])
+            except:
+                print("No valid analysis path.")
+                sys.exit(1)
+            plotting_states, invariant_config, plot_styles = create_standard_plotting_states(experiment_type)
+            plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles)
+        elif sys.argv[1] == "auto_run":
             try:
                 experiment_type = int(sys.argv[2])
             except ValueError:
@@ -161,69 +227,4 @@ if __name__ == "__main__":
             analysis.run_analysis()
             plotting_states, invariant_config, plot_styles = create_standard_plotting_states(experiment_type)
             plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles, plot_ax_runs=True)
-        elif sys.argv[1] == "custom":
-            config_path = sys.argv[2]
-            with open(config_path, "r") as config_file:
-                custom_config = yaml.safe_load(config_file)
-            custom_name = config_path.split("/")[-1].split(".")[0]
-            custom_same_for_all = custom_config["same_for_all"]
-            custom_variations: List[dict] = custom_config["variations"]
-            for var in custom_variations:
-                var.update(custom_same_for_all)
-            variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key!="desired_distance" else val) for key, val in var.items()} for var in custom_variations]
-            custom_plotting_config = custom_config["plotting_config"]
-            analysis = create_analysis(custom_name, runs_per_variation, base_env_config, base_run_config, variations)
-            analysis.run_analysis()
-            plot_states_and_losses(analysis, plot_ax_runs=True, plot_styles=custom_plotting_config)
-        elif sys.argv[1] == "rerun":
-            try:
-                analysis = Analysis.load(sys.argv[2])
-            except:
-                print("No valid analysis path.")
-                sys.exit(1)
-            analysis.run_analysis()
-            plot_states_and_losses(analysis, plot_ax_runs=True)
-        elif sys.argv[1] == "plot":
-            try:
-                experiment_type = 1 if "Experiment1" in sys.argv[1] else 2
-                analysis = Analysis.load(sys.argv[2])
-            except:
-                print("No valid analysis path.")
-                sys.exit(1)
-            plotting_states, invariant_config, plot_styles = create_standard_plotting_states(experiment_type)
-            plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles)
-        # elif sys.argv[1] == "extend_auto":
-        #     try:
-        #         experiment_type = 1 if "Experiment1" in sys.argv[2] else 2
-        #         analysis = Analysis.load(sys.argv[1])
-        #     except:
-        #         print("No valid analysis path.")
-        #         sys.exit(1)
-        #     variations = create_variations(experiment_type)
-        #     analysis.add_and_run_variations(variations)
-        #     plot_states_and_losses(analysis, plot_ax_runs=True)
-        # elif sys.argv[1] == "extend_custom":
-        #     try:
-        #         analysis = Analysis.load(sys.argv[1])
-        #     except:
-        #         print("No valid analysis path.")
-        #         sys.exit(1)
-        #     if len(sys.argv) == 3:
-        #         config_path = sys.argv[2]
-        #         try:
-        #             with yaml.safe_load(open(config_path, "r")) as custom_config:
-        #                 custom_name = custom_config["name"]
-        #                 custom_same_for_all = custom_config["same_for_all"]
-        #                 custom_variations = custom_config["variations"]
-        #         except:
-        #             print("No valid custom config path.")
-        #             sys.exit(1)
-        #     for var in custom_variations:
-        #         var.update(custom_same_for_all)
-        #     analysis.add_and_run_variations(custom_variations)
-        #     plot_states_and_losses(analysis, plot_ax_runs=True)
 
-
-    # NOTE: use this to run a single demo with rendering and prints, for a specific variation, e.g. to check bugs
-    # analysis.run_demo(variations[0], 1, True)
-    # raise ValueError("Demo run complete")
