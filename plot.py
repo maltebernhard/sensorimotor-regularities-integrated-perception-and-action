@@ -99,6 +99,7 @@ def plot_states_and_losses(analysis: Analysis, invariant_config={}, plotting_sta
         print(f"Plot {plot_name} has the following axes:")
         print([key for key in axes.keys()])
         analysis.plot_states(plotting_config, save=True, show=show)
+        analysis.plot_loss_and_gradient(plotting_config, save=True, show=show)
         analysis.plot_goal_losses(plotting_config, save=True, show=show)
     if plot_ax_runs is not None:
         if type(plot_ax_runs) == bool and plot_ax_runs:

@@ -143,13 +143,16 @@ runs_per_variation = 10
 # ==================================================================================
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    def print_usage():
         print("Usage: python run_analysis.py requires two arguments: <action> <argument>")
         print("Action: run         | Argument: config path: str")
         print("Action: rerun       | Argument: analysis_path: str -> useful after changing model or environment code")
         print("Action: replot      | Argument: analysis_path: str -> useful after changing plotting config")
         print("Action: auto_run    | Argument: experiment_type: int [1,2]")
         print("Action: auto_replot | Argument: analysis_path: str")
+
+    if len(sys.argv) != 3:
+        print_usage()
         sys.exit(1)
     else:
         if sys.argv[1]   == "run":
@@ -227,4 +230,6 @@ if __name__ == "__main__":
             analysis.run_analysis()
             plotting_states, invariant_config, plot_styles = create_standard_plotting_states(experiment_type)
             plot_states_and_losses(analysis, invariant_config, plotting_states, plot_styles=plot_styles, plot_ax_runs=True)
-
+        else:
+            print("Invalid argument.")
+            print_usage()

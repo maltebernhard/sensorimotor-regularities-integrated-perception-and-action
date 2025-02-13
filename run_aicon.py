@@ -44,5 +44,6 @@ if __name__ == "__main__":
         run_config=run_config,
         base_env_config=base_env_config,
         variation=variation_config,
+        variation_id=1
     )
     runner.run()

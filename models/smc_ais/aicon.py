@@ -77,9 +77,9 @@ class SMCAICON(AICON):
             unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].cov[0][0] * self.REs["PolarTargetPos"].mean[1].sign() if len(self.env.fv_noise) > 0 else 0.0
             
             return {"PolarGoToTarget": {
-                "task_gradient": task_grad,
-                "uncertainty_gradient": unc_grad,
-                "total": task_grad + unc_grad
+                "distance":             task_grad,
+                "distance_uncertainty": unc_grad,
+                "total":                task_grad + unc_grad
             }}
 
     def compute_action_from_gradient(self, gradients):
