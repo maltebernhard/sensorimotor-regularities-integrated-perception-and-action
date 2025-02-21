@@ -410,15 +410,7 @@ class AICON(ABC):
         raise NotImplementedError
     
 class DroneEnvAICON(AICON):
-    def __init__(self, env_config:dict={
-        "vel_control": True,
-        "moving_target": False,
-        "sensor_angle_deg": 360,
-        "num_obstacles": 0,
-        "timestep": 0.05,
-        "observation_noise": {},
-        "observation_loss": {}
-    }):
+    def __init__(self, env_config: dict):
         self.env_config = env_config
         super().__init__()
 

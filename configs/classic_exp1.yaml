@@ -1,4 +1,3 @@
-
 same_for_all:
   smcs:             both
   distance_sensor:  no_dist_sensor

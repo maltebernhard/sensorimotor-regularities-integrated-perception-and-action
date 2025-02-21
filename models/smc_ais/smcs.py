@@ -6,10 +6,10 @@ import torch
 # ========================================================================================================
 
 class DroneEnv_SMC(SensorimotorContingency):
-    def __init__(self, state_component:str, action_component:str, sensory_components:list, fv_noise:dict={}, sensor_angle:float={}) -> None:
+    def __init__(self, id: str, state_component:str, action_component:str, sensory_components:list, fv_noise:dict={}, sensor_angle:float={}) -> None:
         self.fv_noise:dict = fv_noise
         self.sensor_angle = sensor_angle
-        super().__init__(state_component, action_component, sensory_components)
+        super().__init__(id, state_component, action_component, sensory_components)
 
     def get_expected_meas_noise(self, buffer_dict: Dict[str,torch.Tensor]) -> Dict[str,torch.Tensor]:
         """
@@ -62,6 +62,7 @@ class Robot_Vel_MM(DroneEnv_SMC):
     def __init__(self) -> None:
         sensory_components = ['vel_frontal', 'vel_lateral', 'vel_rot']
         super().__init__(
+            id                 = "RobotVel",
             state_component    = "RobotVel",
             action_component   = "RobotVel",
             sensory_components = sensory_components
@@ -79,6 +80,7 @@ class Distance_MM(DroneEnv_SMC):
         self.object_name = object_name
         sensory_components = [f"{object_name.lower()}_distance"]
         super().__init__(
+            id                 = f"{object_name} Distance",
             state_component    = f"Polar{object_name}Pos",
             action_component   = "RobotVel",
             sensory_components = sensory_components,
@@ -96,6 +98,7 @@ class DistanceVel_MM(DroneEnv_SMC):
         self.object_name = object_name
         sensory_components = [f"{object_name.lower()}_distance", f"{object_name.lower()}_distance_dot"]
         super().__init__(
+            id                 = f"{object_name} Distance",
             state_component    = f"Polar{object_name}Pos",
             action_component   = "RobotVel",
             sensory_components = sensory_components,
@@ -114,6 +117,7 @@ class Angle_MM(DroneEnv_SMC):
         self.object_name = object_name
         sensory_components = [f"{self.object_name.lower()}_offset_angle"]
         super().__init__(
+            id                 = f"{object_name} Angle",
             state_component    = f"Polar{object_name}Pos",
             action_component   = "RobotVel",
             sensory_components = sensory_components,
@@ -136,6 +140,7 @@ class Triangulation_SMC(DroneEnv_SMC):
         self.object_name = object_name
         sensory_components = [f"{self.object_name.lower()}_offset_angle_dot"]
         super().__init__(
+            id                 = f"{object_name} Triangulation",
             state_component    = f"Polar{self.object_name}Pos",
             action_component   = "RobotVel",
             sensory_components = sensory_components,
@@ -154,6 +159,7 @@ class TriangulationVel_SMC(DroneEnv_SMC):
         self.object_name = object_name
         sensory_components = [f"{self.object_name.lower()}_offset_angle_dot"]
         super().__init__(
+            id                 = f"{object_name} Triangulation",
             state_component    = f"Polar{self.object_name}Pos",
             action_component   = "RobotVel",
             sensory_components = sensory_components,
@@ -172,6 +178,7 @@ class Divergence_SMC(DroneEnv_SMC):
         self.object_name = object_name
         sensory_components = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
         super().__init__(
+            id                 = f"{object_name} Divergence",
             state_component    = f"Polar{self.object_name}Pos",
             action_component   = "RobotVel",
             sensory_components = sensory_components,
@@ -192,6 +199,7 @@ class DivergenceVel_SMC(DroneEnv_SMC):
         self.object_name = object_name
         sensory_components = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
         super().__init__(
+            id                 = f"{object_name} Divergence",
             state_component    = f"Polar{self.object_name}Pos",
             action_component   = "RobotVel",
             sensory_components = sensory_components,

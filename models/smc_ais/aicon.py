@@ -25,7 +25,7 @@ class SMCAICON(AICON):
             raise ValueError("Invalid action mode")
         estimators = {
             "RobotVel":         robot_vel_estimator,
-            "PolarTargetPos":   Polar_Pos_Estimator() if self.env_config["moving_target"] == "stationary" else Polar_PosVel_Estimator(),
+            "PolarTargetPos":   Polar_Pos_Estimator() if self.env_config["moving_target"][0] == "stationary" else Polar_PosVel_Estimator(),
         }
         return estimators
 
@@ -34,16 +34,17 @@ class SMCAICON(AICON):
         sensor_angle = self.env_config["robot_sensor_angle"]
         meas_models = {}
         if self.distance_sensor == "distsensor":
-            meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"]) if self.env_config["moving_target"] == "stationary" else (DistanceVel_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
+            meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"]) if self.env_config["moving_target"][0] == "stationary" else (DistanceVel_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
+        # TODO: take care: Vel meas model is gone, we only improve vel uncertainty through meas models now
         #meas_models["VelMM"]   = (Robot_Vel_MM(), ["RobotVel"])
         meas_models["AngleMM"] = (Angle_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
         if "Divergence" in self.smcs:
-            smc = Divergence_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else DivergenceVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
+            smc = Divergence_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"][0] == "stationary" else DivergenceVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
             #meas_models["DivergenceSMC"] = (smc, ["PolarTargetPos"])
             meas_models["DivergenceSMC"] = (smc, ["RobotVel", "PolarTargetPos"])
         if "Triangulation" in self.smcs:
-            smc = Triangulation_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"] == "stationary" else TriangulationVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
-            #meas_models["TriangulationSMC"] = (smc, ["RobotVel"])
+            smc = Triangulation_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"][0] == "stationary" else TriangulationVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
+            #meas_models["TriangulationSMC"] = (smc, ["PolarTargetPos"])
             meas_models["TriangulationSMC"] = (smc, ["RobotVel", "PolarTargetPos"])
         return meas_models
 
@@ -98,7 +99,7 @@ class SMCAICON(AICON):
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         state = buffer_dict['PolarTargetPos']['mean'] if buffer_dict is not None else self.REs['PolarTargetPos'].mean
         real_state = torch.tensor([env_state['target_distance'], env_state['target_offset_angle']])
-        if self.env_config["moving_target"] != "stationary":
+        if self.env_config["moving_target"][0] != "stationary":
             real_state = torch.cat([real_state, torch.tensor([env_state['target_distance_dot_global'], env_state['target_offset_angle_dot_global']])])
         real_state = torch.cat([real_state, torch.tensor([env_state['target_radius']])])
         self.print_vector(state - real_state, "PolarTargetPos Err.")
@@ -130,7 +131,7 @@ class SMCAICON(AICON):
 
 
     def get_static_sensor_noise(self, key):
-        # NOTE: you can use this to get real env sesnor noise
+        # NOTE: you can use this to get real env sensor noise
         #(self.env.observation_noise[obs_key])
         if "angle" in key or "rot" in key:
             sensor_noise_mean   = 0.0

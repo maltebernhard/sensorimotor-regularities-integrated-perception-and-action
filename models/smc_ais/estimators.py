@@ -9,8 +9,7 @@ class Robot_Vel_Estimator(RecursiveEstimator):
         super().__init__("RobotVel", 3)
         self.default_state = torch.tensor([0.0, 0.0, 0.0])
         self.default_cov = 1e-3 * torch.eye(3)
-        #self.default_motion_noise = torch.eye(3) * torch.tensor([1e-1, 1e-1, 5e-2])
-        self.default_motion_noise = torch.eye(3) * torch.tensor([1e0, 1e0, 5e-2])
+        self.default_motion_noise = torch.eye(3) * torch.tensor([1e-1, 1e-1, 1e-2])
         #self.update_uncertainty: torch.Tensor = torch.eye(self.state_dim) * torch.tensor([1e-1, 1e-1, 2e-2])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
@@ -33,12 +32,11 @@ class Robot_Vel_Estimator(RecursiveEstimator):
             torch.stack([torch.sin(rotation), torch.cos(rotation)]),
         ]).squeeze()
         new_vel = torch.matmul(rotation_matrix, u[1:3])
-
-        return torch.stack([
-            new_vel[0],
-            new_vel[1],
-            u[3],
-        ]).squeeze(), cov
+        ret_mean = torch.empty_like(x_mean)
+        ret_mean[0] = new_vel[0]
+        ret_mean[1] = new_vel[1]
+        ret_mean[2] = u[3]
+        return ret_mean, cov
     
 class Robot_Vel_Estimator_Acc_Action(RecursiveEstimator):
     def __init__(self, max_vel_trans, max_vel_rot):

@@ -12,16 +12,15 @@ class PolarGoToTargetGoal(Goal):
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         # penalty for distance to target
         estimated_distance = buffer_dict['PolarTargetPos']['mean'][0]
-        if estimated_distance > self.desired_distance:
-            loss_mean = torch.concat([
-                2e0 * torch.atleast_1d(estimated_distance - self.desired_distance),
-            ]).pow(2).sum()
-        else:
+        loss_mean = 5e0 * torch.concat([
+            torch.atleast_1d(estimated_distance - self.desired_distance),
+        ]).pow(2).sum()
+        if estimated_distance < self.desired_distance:
             #loss_mean = (100/self.desired_distance*(estimated_distance - buffer_dict['PolarTargetPos']['mean'][-1])).pow(2)
-            loss_mean = (1/(torch.max(torch.stack([estimated_distance - buffer_dict['PolarTargetPos']['mean'][-1], torch.tensor(1e-6)])) / self.desired_distance)-1.0).pow(2)
+            loss_mean += (1/(torch.max(torch.stack([estimated_distance - buffer_dict['PolarTargetPos']['mean'][-1], torch.tensor(1e-6)])) / self.desired_distance)-1.0).pow(2)
         cov = buffer_dict['PolarTargetPos']['cov'].diag()
         # penalty for uncertainty in distance
-        loss_cov_distance1 = 1e0 * cov[0]# / max(1.0, (estimated_distance/100)) 
+        loss_cov_distance1 = 1e1 * cov[0].sqrt()
         return {
             "distance": loss_mean,
             "distance_uncertainty": loss_cov_distance1,

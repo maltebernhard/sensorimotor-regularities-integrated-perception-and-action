@@ -11,13 +11,14 @@ from typing import Type
 
 class ImplicitMeasurementModel(Module):
     """
-    Code taken and adapted from Battaje, Aravind.
+    Code for this class taken and adapted with permission from Battaje, Aravind.
     Abstract interface to define a measurement model using implicit function and
     optionally its Jacobian.
 
     Notation as in Thrun et al., Probabilistic Robotics
     """
     def __init__(self,
+                 id: str,
                  device=None,
                  outlier_rejection_enabled=False,
                  outlier_threshold=1.0,
@@ -30,6 +31,9 @@ class ImplicitMeasurementModel(Module):
             dtype: Data type of the tensors
         """
         super().__init__()
+
+        self.id = id
+
         self.device = device if device is not None else torch.get_default_device()
         self.dtype = dtype if dtype is not None else torch.get_default_dtype()
 
@@ -105,7 +109,7 @@ class ImplicitMeasurementModel(Module):
         F_t_dict = jacobians[1]
 
         return H_t, F_t_dict, implicit_measurement_model_eval
-    
+
     def forward(self):
         # Multiple measurement models constrain how
         # KF goes through normal iteration. So predict
@@ -116,8 +120,8 @@ class ImplicitMeasurementModel(Module):
 # =======================================================================================
 
 class ActiveInterconnection(ABC, ImplicitMeasurementModel):
-    def __init__(self, required_estimators, required_observations=[]):
-        super().__init__()
+    def __init__(self, id, required_estimators, required_observations=[]):
+        super().__init__(id)
         self.required_estimators: List[str] = required_estimators
         self.required_observations: List[str] = required_observations
         self.connected_states: Dict[str, Type[State]] = None
@@ -173,10 +177,10 @@ class ActiveInterconnection(ABC, ImplicitMeasurementModel):
 # =======================================================================================
 
 class SensorimotorContingency(ActiveInterconnection):
-    def __init__(self, state_component: str, action_component: str, sensory_components: List[str]):
+    def __init__(self, id: str, state_component: str, action_component: str, sensory_components: List[str]):
         self.state_component = state_component
         self.action_component = action_component
-        super().__init__(required_estimators=[state_component, action_component], required_observations=sensory_components)
+        super().__init__(id, required_estimators=[state_component, action_component], required_observations=sensory_components)
 
     def implicit_interconnection_model(self, meas_dict):
         predicted_meas = self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])
@@ -190,6 +194,22 @@ class SensorimotorContingency(ActiveInterconnection):
         returns tuple of estimated means of sensory components. NEEDS to be overwritten by user
         """
         pass
+
+    # TODO: apply this for meas likelihood prediction
+    # def _get_predicted_meas_with_aux(self, state, action):
+    #     pred_meas_dict = self.get_predicted_meas(state, action)
+    #     pred_meas_tensor = torch.stack([pred_meas_dict[key] for key in self.required_observations])
+    #     return pred_meas_tensor, pred_meas_tensor
+
+    # def get_predicted_meas_eval_and_jac(self, state, action) -> Dict[str,torch.Tensor]:
+    #     (H_t, u_t), implicit_measurement_model_eval = jacrev(
+    #         self._get_predicted_meas_with_aux,
+    #         argnums=(0, 1), # x and meas_dict (all measurements within the dict!)
+    #         has_aux=True)(state, action)
+    #     return H_t, implicit_measurement_model_eval
+
+    # def get_meas_likelihood(self, buffer_dict: dict):
+    #     H_t, F_t_dict, residual = self.implicit_measurement_model_eval_and_jac(self.mean, meas_dict)
 
     def get_contingent_noise(self, state: Dict[str,torch.Tensor]) -> Dict[str,Tuple[torch.Tensor,torch.Tensor]]:
         """

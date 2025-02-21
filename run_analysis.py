@@ -138,7 +138,7 @@ base_run_config = {
     "initial_action":   [0.0, 0.0, 0.0],
     "seed":             1,
 }
-runs_per_variation = 10
+runs_per_variation = 5
 
 # ==================================================================================
 
@@ -177,13 +177,14 @@ if __name__ == "__main__":
                 print("No valid analysis path.")
                 sys.exit(1)
             variations = analysis.variations
-            axes = create_axes(variations, {key: [variation[key] for variation in variations] for key in config.keys})
-            print(f"Available Variations:")
-            for i, key in enumerate(axes.keys()):
-                print(f"{i+1}: {key}")
+            axes = create_axes(variations, {key: [variation[key] for variation in variations] for key in config.keys})     
             try:
-                key = int(input(f"Choose your variation (1-{len(axes.keys())}): "))
-                analysis.run_demo(list(axes.values())[key], 1, True)
+                keys = list(axes.keys())
+                print(f"Available Variations:")
+                for i, key in enumerate(keys):
+                    print(f"{i+1}: {key}")
+                key_index = int(input(f"Choose your variation (1-{len(axes.keys())}): ")) - 1
+                analysis.run_demo(axes[keys[key_index]], 1, True)
             except:
                 print("Error: Didn't work.")
         elif sys.argv[1] == "rerun":

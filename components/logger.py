@@ -104,7 +104,7 @@ class VariationLogger:
                     env_state[f"{obj}_distance"],
                     env_state[f"{obj}_offset_angle"],
                 ])
-                if obj=='target' and self.variation_config["moving_target"] != "stationary":
+                if obj=='target' and self.variation_config["moving_target"][0] != "stationary":
                     real_state[key] = np.append(real_state[key], env_state[f"{obj}_distance_dot_global"])
                     real_state[key] = np.append(real_state[key], env_state[f"{obj}_offset_angle_dot_global"])
                 real_state[key] = np.append(real_state[key], env_state[f"{obj}_radius"])
@@ -156,7 +156,7 @@ class VariationLogger:
         }
 
     def log_wandb(self, step_log: dict):
-        if self.variation_config["moving_target"] != "stationary":
+        if self.variation_config["moving_target"][0] != "stationary":
             index_keys = {
                 "PolarTargetPos": ["distance", "angle", "distance_dot", "angle_dot", "radius"],
                 "RobotVel": ["frontal", "lateral", "rot"],
