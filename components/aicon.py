@@ -448,4 +448,5 @@ class DroneEnvAICON(AICON):
 
     def custom_reset(self):
         self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
+        self.goals["PolarGoToTarget"].num_obstacles = self.env.num_obstacles
     

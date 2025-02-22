@@ -76,21 +76,13 @@ class VariationLogger:
     def create_wandb_run(self):
         if self.wandb_run is not None:
             self.wandb_run.finish()
+        config = self.variation_config.copy()
+        config.update({"id": self.variation_id})
         self.wandb_run = wandb.init(
             project=self.wandb_project,
             name=f'{self.variation_id}_{self.run_seed}',
             group=self.wandb_group,
-            config = {
-                "id":               self.variation_id,
-                "smcs":             self.variation_config["smcs"],
-                "controller":       self.variation_config["controller"],
-                "distance_sensor":  self.variation_config["distance_sensor"],
-                "sensor_noise":     self.variation_config["sensor_noise"],
-                "moving_target":    self.variation_config["moving_target"],
-                "observation_loss": self.variation_config["observation_loss"],
-                "fv_noise":         self.variation_config["fv_noise"],
-                "control":          self.variation_config["control"],
-            },
+            config = config,
             save_code=False,
         )
 
@@ -104,7 +96,7 @@ class VariationLogger:
                     env_state[f"{obj}_distance"],
                     env_state[f"{obj}_offset_angle"],
                 ])
-                if obj=='target' and self.variation_config["moving_target"][0] != "stationary":
+                if (obj=='target' and self.variation_config["moving_target"][0] != "stationary") or ('obstacle' in obj and self.variation_config["moving_obstacles"][0] != "stationary"):
                     real_state[key] = np.append(real_state[key], env_state[f"{obj}_distance_dot_global"])
                     real_state[key] = np.append(real_state[key], env_state[f"{obj}_offset_angle_dot_global"])
                 real_state[key] = np.append(real_state[key], env_state[f"{obj}_radius"])
@@ -497,7 +489,7 @@ class AICONLogger:
         self.save_fig(fig_goal, loss_path, show)
 
     def plot_losses_and_gradients(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
-        subgoal_labels = ["total", "distance", "uncertainty"]
+        subgoal_labels = ["total", "target_distance", "target_distance_uncertainty"]
         
         colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'purple', 'brown', 'pink']
         if not "style" in plotting_config.keys():
@@ -530,15 +522,15 @@ class AICONLogger:
                 collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 
                 total_loss = [[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                task_loss = [run_data["goal_loss"][goal_key]["distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                uctty_loss = [run_data["goal_loss"][goal_key]["distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                task_loss = [run_data["goal_loss"][goal_key]["target_distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                uctty_loss = [run_data["goal_loss"][goal_key]["target_distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 for j in range(len(total_loss)):
                     total_loss[j] = task_loss[j] + uctty_loss[j]
 
                 action = np.array([run_data["rtf_action"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
 
-                task_grad =  np.array([run_data["rtf_gradient"][goal_key]["distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-                uctty_grad = np.array([run_data["rtf_gradient"][goal_key]["distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+                task_grad =  np.array([run_data["rtf_gradient"][goal_key]["target_distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+                uctty_grad = np.array([run_data["rtf_gradient"][goal_key]["target_distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
                 total_grad = np.array([run_data["rtf_gradient"][goal_key]["total"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
                 
                 for j, loss in enumerate([total_loss, task_loss, uctty_loss]):

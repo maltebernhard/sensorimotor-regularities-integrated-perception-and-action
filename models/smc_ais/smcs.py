@@ -56,7 +56,7 @@ class DroneEnv_SMC(SensorimotorContingency):
     def get_contingent_noise(self, state: torch.Tensor):
         return {key: self.get_foveal_noise(state[1], key) for key in self.required_observations}
 
-# ----------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------------
 
 class Robot_Vel_MM(DroneEnv_SMC):
     def __init__(self) -> None:
@@ -74,28 +74,13 @@ class Robot_Vel_MM(DroneEnv_SMC):
             'vel_lateral': state[1],
             'vel_rot':     state[2]
         }
-
-class Distance_MM(DroneEnv_SMC):
-    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
-        self.object_name = object_name
-        sensory_components = [f"{object_name.lower()}_distance"]
-        super().__init__(
-            id                 = f"{object_name} Distance",
-            state_component    = f"Polar{object_name}Pos",
-            action_component   = "RobotVel",
-            sensory_components = sensory_components,
-            sensor_angle       = sensor_angle,
-            fv_noise           = fv_noise
-        )
-
-    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
-        return {
-            f"{self.object_name.lower()}_distance": state[0]
-        }
     
-class DistanceVel_MM(DroneEnv_SMC):
-    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
+# --------------------------------------------------------------------------------------------------------
+    
+class Distance_MM(DroneEnv_SMC):
+    def __init__(self, object_name:str="Target", moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
+        self.moving_object = moving_object
         sensory_components = [f"{object_name.lower()}_distance", f"{object_name.lower()}_distance_dot"]
         super().__init__(
             id                 = f"{object_name} Distance",
@@ -107,10 +92,14 @@ class DistanceVel_MM(DroneEnv_SMC):
         )
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
-        return {
-            f"{self.object_name.lower()}_distance": state[0],
-            f"{self.object_name.lower()}_distance_dot": state[2] - rotate_vector_2d(-state[1], action[:2])[0]
+        ret = {
+            f"{self.object_name.lower()}_distance": state[0]
         }
+        if self.moving_object:
+            ret[f"{self.object_name.lower()}_distance_dot"] = state[2] - rotate_vector_2d(-state[1], action[:2])[0]
+        return ret
+
+# --------------------------------------------------------------------------------------------------------
 
 class Angle_MM(DroneEnv_SMC):
     def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
@@ -135,9 +124,12 @@ class Angle_MM(DroneEnv_SMC):
             f"{self.object_name.lower()}_offset_angle": state[1]
         }
     
+# --------------------------------------------------------------------------------------------------------
+
 class Triangulation_SMC(DroneEnv_SMC):
-    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
+    def __init__(self, object_name:str="Target", moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
+        self.moving_object = moving_object
         sensory_components = [f"{self.object_name.lower()}_offset_angle_dot"]
         super().__init__(
             id                 = f"{object_name} Triangulation",
@@ -149,33 +141,18 @@ class Triangulation_SMC(DroneEnv_SMC):
         )
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
-        rtf_vel = rotate_vector_2d(-state[1], action[:2])
-        return{
-            f"{self.object_name.lower()}_offset_angle_dot": - rtf_vel[1]/state[0] - action[2]
-        }
-    
-class TriangulationVel_SMC(DroneEnv_SMC):
-    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
-        self.object_name = object_name
-        sensory_components = [f"{self.object_name.lower()}_offset_angle_dot"]
-        super().__init__(
-            id                 = f"{object_name} Triangulation",
-            state_component    = f"Polar{self.object_name}Pos",
-            action_component   = "RobotVel",
-            sensory_components = sensory_components,
-            sensor_angle       = sensor_angle,
-            fv_noise           = fv_noise
-        )
-
-    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
-        lateral_vel = rotate_vector_2d(-state[1], action[:2])[1] - state[3]*state[0] # combine robot and target vel components
+        lateral_vel = rotate_vector_2d(-state[1], action[:2])[1]
+        if self.moving_object: lateral_vel -= state[3]*state[0]     # combine robot and target vel components
         return {
             f"{self.object_name.lower()}_offset_angle_dot": - lateral_vel/state[0] - action[2]
         }
-    
+
+# --------------------------------------------------------------------------------------------------------
+
 class Divergence_SMC(DroneEnv_SMC):
-    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
+    def __init__(self, object_name:str="Target",  moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
+        self.moving_object = moving_object
         sensory_components = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
         super().__init__(
             id                 = f"{object_name} Divergence",
@@ -188,28 +165,9 @@ class Divergence_SMC(DroneEnv_SMC):
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = rotate_vector_2d(-state[1], action[:2])
-        vis_angle = torch.asin(state[2] / state[0]) * 2 if -1.0 < state[2] / state[0] < 1.0 else torch.tensor(torch.pi-1e-3)
-        return {
-            f"{self.object_name.lower()}_visual_angle": vis_angle,
-            f"{self.object_name.lower()}_visual_angle_dot": 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi-1e-3 else torch.tensor(0.0)
-        }
-
-class DivergenceVel_SMC(DroneEnv_SMC):
-    def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
-        self.object_name = object_name
-        sensory_components = [f'{self.object_name.lower()}_visual_angle', f'{self.object_name.lower()}_visual_angle_dot']
-        super().__init__(
-            id                 = f"{object_name} Divergence",
-            state_component    = f"Polar{self.object_name}Pos",
-            action_component   = "RobotVel",
-            sensory_components = sensory_components,
-            sensor_angle       = sensor_angle,
-            fv_noise           = fv_noise
-        )
-
-    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
-        rtf_vel = rotate_vector_2d(-state[1], action[:2]) - torch.stack([state[2], state[3]*state[0]])
-        vis_angle = 2 * torch.asin(state[4] / state[0]) if -1.0 < state[4] / state[0] < 1.0 else torch.tensor(torch.pi-1e-3)
+        if self.moving_object: rtf_vel -= torch.stack([state[2], state[3]*state[0]])
+        radius = state[4] if self.moving_object else state[2]
+        vis_angle = 2 * torch.asin(radius / state[0]) if -1.0 < radius / state[0] < 1.0 else torch.tensor(torch.pi-1e-3)
         return {
             f'{self.object_name.lower()}_visual_angle': vis_angle,
             f'{self.object_name.lower()}_visual_angle_dot': 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi-1e-3 else torch.tensor(0.0),

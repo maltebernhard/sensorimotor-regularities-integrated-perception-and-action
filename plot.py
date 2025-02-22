@@ -21,19 +21,10 @@ def count_variations(variations, invariant_key: str):
     return len(seen_variations)
 
 
-def create_axes(experiment_variations: list, invariants: Dict[str,list]):
+def create_axes(experiment_variations: list[dict], invariants: Dict[str,list]):
     axes = {
         "_".join([get_key_from_value(vars(vars(configs)[key]), variation[key]) for key in configs.keys if (key not in invariants.keys() or len(invariants[key])>1) and count_variations(experiment_variations, key)>1]): {
-            "smcs":                variation["smcs"],
-            "control":             variation["control"],
-            "distance_sensor":     variation["distance_sensor"],
-            "sensor_noise":        variation["sensor_noise"],
-            "moving_target":       variation["moving_target"],
-            "observation_loss":    variation["observation_loss"],
-            "fv_noise":            variation["fv_noise"],
-            "desired_distance":    variation["desired_distance"],
-            "wind":                variation["wind"],
-            "controller":          variation["controller"],
+            {subkey: variation[subkey] for subkey in variation.keys()}
         } for variation in experiment_variations if all([variation[key] in invariants[key] for key in invariants.keys()])
     }
     return axes

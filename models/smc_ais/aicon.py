@@ -3,9 +3,9 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from models.smc_ais.estimators import Polar_Pos_Estimator, Polar_PosVel_Estimator, Robot_Vel_Estimator, Robot_Vel_Estimator_Acc_Action, Robot_VelWind_Estimator
+from models.smc_ais.estimators import Polar_Pos_Estimator, Robot_Vel_Estimator, Robot_Vel_Estimator_Acc_Action, Robot_VelWind_Estimator
 from models.smc_ais.goals import PolarGoToTargetGoal
-from models.smc_ais.smcs import Angle_MM, Distance_MM, DistanceVel_MM, DivergenceVel_SMC, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC, TriangulationVel_SMC
+from models.smc_ais.smcs import Angle_MM, Distance_MM, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC
 
 # ========================================================================================================
 
@@ -17,6 +17,7 @@ class SMCAICON(AICON):
         super().__init__(env_config)
 
     def define_estimators(self):
+        moving_target = self.env_config["moving_target"][0] != "stationary"
         if self.env_config["action_mode"] == 1:
             robot_vel_estimator = Robot_Vel_Estimator_Acc_Action(self.env.robot.max_vel, self.env.robot.max_vel_rot)
         elif self.env_config["action_mode"] == 3:
@@ -25,27 +26,40 @@ class SMCAICON(AICON):
             raise ValueError("Invalid action mode")
         estimators = {
             "RobotVel":         robot_vel_estimator,
-            "PolarTargetPos":   Polar_Pos_Estimator() if self.env_config["moving_target"][0] == "stationary" else Polar_PosVel_Estimator(),
+            "PolarTargetPos":   Polar_Pos_Estimator("Target", moving_target),
         }
+        moving_obs = self.env_config["moving_obstacles"][0] != "stationary"
+        for obs in range(self.env.num_obstacles):
+            estimators[f"PolarObstacle{obs+1}Pos"] = Polar_Pos_Estimator(f"Obstacle{obs+1}", moving_obs)
         return estimators
 
     def define_measurement_models(self):
         fv_noise = self.env_config["fv_noise"]
         sensor_angle = self.env_config["robot_sensor_angle"]
         meas_models = {}
-        if self.distance_sensor == "distsensor":
-            meas_models["DistanceMM"] = (Distance_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"]) if self.env_config["moving_target"][0] == "stationary" else (DistanceVel_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
         # TODO: take care: Vel meas model is gone, we only improve vel uncertainty through meas models now
         #meas_models["VelMM"]   = (Robot_Vel_MM(), ["RobotVel"])
-        meas_models["AngleMM"] = (Angle_MM(fv_noise=fv_noise, sensor_angle=sensor_angle), ["PolarTargetPos"])
+        # ------------------- target -------------------
+        moving_target = self.env_config["moving_target"][0] != "stationary"
+        meas_models["AngleMM"] = (Angle_MM("Target", fv_noise, sensor_angle), ["PolarTargetPos"])
+        if self.distance_sensor == "distsensor":
+            meas_models["DistanceMM"] = (Distance_MM("Target", moving_target, fv_noise, sensor_angle), ["PolarTargetPos"])
         if "Divergence" in self.smcs:
-            smc = Divergence_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"][0] == "stationary" else DivergenceVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
-            #meas_models["DivergenceSMC"] = (smc, ["PolarTargetPos"])
-            meas_models["DivergenceSMC"] = (smc, ["RobotVel", "PolarTargetPos"])
+            # TODO: reflect whether or not we should update vel estimator with smc - maybe only with wind?
+            meas_models["DivergenceSMC"] = (Divergence_SMC("Target", moving_target, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
         if "Triangulation" in self.smcs:
-            smc = Triangulation_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle) if self.env_config["moving_target"][0] == "stationary" else TriangulationVel_SMC(fv_noise=fv_noise, sensor_angle=sensor_angle)
-            #meas_models["TriangulationSMC"] = (smc, ["PolarTargetPos"])
-            meas_models["TriangulationSMC"] = (smc, ["RobotVel", "PolarTargetPos"])
+            # TODO: same here
+            meas_models["TriangulationSMC"] = (Triangulation_SMC("Target", moving_target, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
+        # ------------------- obstacles -------------------
+        moving_obs = self.env_config["moving_obstacles"][0] != "stationary"
+        for obs in range(self.env.num_obstacles):
+            meas_models[f"AngleMM{obs+1}"] = (Angle_MM(f"Obstacle{obs+1}", fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
+            if self.distance_sensor == "distsensor":
+                meas_models[f"DistanceMM{obs+1}"] = (Distance_MM(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
+            if "Divergence" in self.smcs:
+                meas_models[f"DivergenceSMC{obs+1}"] = (Divergence_SMC(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), ["RobotVel", f"PolarObstacle{obs+1}Pos"])
+            if "Triangulation" in self.smcs:
+                meas_models[f"TriangulationSMC{obs+1}"] = (Triangulation_SMC(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), ["RobotVel", f"PolarObstacle{obs+1}Pos"])
         return meas_models
 
     def define_active_interconnections(self):
@@ -78,9 +92,9 @@ class SMCAICON(AICON):
             unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].cov[0][0] * self.REs["PolarTargetPos"].mean[1].sign() if len(self.env.fv_noise) > 0 else 0.0
             
             return {"PolarGoToTarget": {
-                "distance":             task_grad,
-                "distance_uncertainty": unc_grad,
-                "total":                task_grad + unc_grad
+                "target_distance":             task_grad,
+                "target_distance_uncertainty": unc_grad,
+                "total":                       task_grad + unc_grad
             }}
 
     def compute_action_from_gradient(self, gradients):
@@ -123,7 +137,7 @@ class SMCAICON(AICON):
             if self.prints > 0 and self.current_step % self.prints == 0:
                 print("Action: ", end=""), self.print_vector(env_action)
             return torch.concat([torch.tensor([self.env_config["timestep"]]), env_action])
-        elif estimator_key == "PolarTargetPos":
+        elif "Polar" in estimator_key and "Pos" in estimator_key:
             if type(self.REs["RobotVel"]) == Robot_Vel_Estimator:
                 return torch.concat([torch.tensor([self.env_config["timestep"]]), env_action])
             elif type(self.REs["RobotVel"]) in [Robot_VelWind_Estimator, Robot_Vel_Estimator_Acc_Action]:

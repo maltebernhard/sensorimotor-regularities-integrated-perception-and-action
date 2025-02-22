@@ -8,9 +8,9 @@ episode_duration:   30.0
 # collisions with environment borders
 wall_collision:     false
 # moving target
-moving_target:      true
+moving_target:      ["stationary",0.0]
 # moving obstacles
-moving_obstacles:   false
+moving_obstacles:   ["stationary",0.0]
 
 # number of obstacles in observation space
 num_obstacles:      0

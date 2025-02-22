@@ -133,7 +133,7 @@ class GazeFixEnv(BaseEnv):
         self.move_robot()
         if self.moving_target[0] != "stationary":
             self.move_target()
-        if self.moving_obstacles:
+        if self.moving_obstacles[0] != "stationary":
             self.move_obstacles()
         self.last_state, rewards, done, trun, info = self._get_state(), self.get_rewards(), self.get_terminated(), False, self.get_info()
         self.last_observation, noise = self.get_observation_from_state(self.last_state.copy())
@@ -270,14 +270,20 @@ class GazeFixEnv(BaseEnv):
             "target_collision": Observation(0.0, 1.0, self.create_object_state_function(self.compute_collision, self.target)),
         }
         for o in range(self.num_obstacles):
-            self.observations[f"obstacle{o + 1}_offset_angle"] = Observation(-self.robot.sensor_angle / 2, np.pi, self.create_object_state_function(self.compute_offset_angle, self.obstacles[o]))
-            self.observations[f"obstacle{o + 1}_offset_angle_dot"] = Observation(-np.inf, np.inf, self.create_object_state_function(self.compute_offset_angle_dot, self.obstacles[o]))
-            self.observations[f"obstacle{o + 1}_distance"] = Observation(-1.0, np.inf, self.create_object_state_function(self.compute_distance, self.obstacles[o]))
-            self.observations[f"obstacle{o + 1}_distance_dot"] = Observation(-1.0, 1.0, self.create_object_state_function(self.compute_distance_dot, self.obstacles[o]))
-            self.observations[f"obstacle{o + 1}_radius"] = Observation(0.0, np.inf, self.create_object_state_function(self.get_radius, self.obstacles[o]))
-            self.observations[f"obstacle{o + 1}_visual_angle"] = Observation(0.0, self.robot.sensor_angle, self.create_object_state_function(self.compute_visual_angle, self.obstacles[o]))
-            self.observations[f"obstacle{o + 1}_visual_angle_dot"] = Observation(-np.inf, np.inf, self.create_object_state_function(self.compute_visual_angle_dot, self.obstacles[o]))
-            self.observations[f"obstacle{o + 1}_collision"] = Observation(0.0, 1.0, self.create_object_state_function(self.compute_collision, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_offset_angle"] = Observation(-self.robot.sensor_angle / 2, np.pi, self.create_object_state_function(self.compute_offset_angle, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_offset_angle_dot"] = Observation(-np.inf, np.inf, self.create_object_state_function(self.compute_offset_angle_dot, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_offset_angle_dot_global"] = Observation(-np.inf, np.inf, self.create_object_state_function(self.compute_offset_angle_dot_object_component, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_distance"] = Observation(-1.0, np.inf, self.create_object_state_function(self.compute_distance, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_distance_dot"] = Observation(-1.0, 1.0, self.create_object_state_function(self.compute_distance_dot, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_distance_dot_global"] = Observation(-self.robot.max_vel, self.robot.max_vel, self.create_object_state_function(self.compute_distance_dot_object_component, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_radius"] = Observation(0.0, np.inf, self.create_object_state_function(self.get_radius, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_visual_angle"] = Observation(0.0, self.robot.sensor_angle, self.create_object_state_function(self.compute_visual_angle, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_visual_angle_dot"] = Observation(-np.inf, np.inf, self.create_object_state_function(self.compute_visual_angle_dot, self.obstacles[o]))
+            self.observations[f"obstacle{o+1}_collision"] = Observation(0.0, 1.0, self.create_object_state_function(self.compute_collision, self.obstacles[o]))
+
+        self.update_obs_noise_dict("target")
+        for o in range(self.num_obstacles):
+            self.update_obs_noise_dict(f"obstacle{o+1}")
 
         self.observation_indices = np.array([i for i in range(len(self.observations))])
         self.last_state = None
@@ -290,6 +296,15 @@ class GazeFixEnv(BaseEnv):
             shape=(len(self.observations),),
             dtype=np.float64
         )
+
+    def update_obs_noise_dict(self, obj: str):
+        for key in ["offset_angle", "offset_angle_dot", "visual_angle", "visual_angle_dot", "distance", "distance_dot"]:
+            if key in self.observation_noise:
+                self.observation_noise.update({obj+"_"+key: self.observation_noise[key]})
+            if key in self.fv_noise:
+                self.fv_noise.update({obj+"_"+key: self.fv_noise[key]})
+            if key in self.observation_loss:
+                self.observation_loss.update({obj+"_"+key: self.observation_loss[key]})
 
     def get_desired_target_distance(self):
         return self.target.distance
@@ -366,7 +381,7 @@ class GazeFixEnv(BaseEnv):
         obst_index = 0
         for _ in range(self.num_obstacles):
             while True:
-                radius = self.world_size / 10
+                radius = 3.0
 
                 # TODO: adapt obstacle generation according to desired experiment
                 #pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
@@ -379,7 +394,7 @@ class GazeFixEnv(BaseEnv):
                     if len(self.obstacles) == obst_index:
                         self.obstacles.append(EnvObject(
                             pos = pos,
-                            vel = 0.5 * self.robot.max_vel,
+                            vel = self.moving_obstacles[1] * self.robot.max_vel,
                             base_movement_direction = np.random.uniform(-np.pi, np.pi),
                             radius = radius
                         ))
@@ -455,15 +470,16 @@ class GazeFixEnv(BaseEnv):
         elif self.moving_target[0] == "flight":
             self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
         elif self.moving_target[0] == "chase":
-            self.target.current_movement_direction = - np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
+            self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) + np.pi
         else:
             raise ValueError(f"{self.moving_target[0]} is not a valid moving target config.")
         self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
 
     def move_obstacles(self):
-        for o in self.obstacles:
-            #o.current_movement_direction = o.current_movement_direction + np.pi/3 * np.sin(self.time/4)
-            o.pos += np.array([np.cos(o.current_movement_direction), np.sin(o.current_movement_direction)]) * o.vel * self.timestep
+        if self.moving_obstacles[0] == "chase":
+            for o in self.obstacles:
+                o.current_movement_direction = np.atan2(o.pos[1]-self.robot.pos[1], o.pos[0]-self.robot.pos[0]) + np.pi
+                o.pos += np.array([np.cos(o.current_movement_direction), np.sin(o.current_movement_direction)]) * o.vel * self.timestep
 
     def check_collision(self):
         if self.compute_distance(self.target) < self.target.radius + self.robot.size / 2:
@@ -562,17 +578,12 @@ class GazeFixEnv(BaseEnv):
                         observation_noise_factor[key] = np.abs(observation[key[:-4]]/10)
                     elif "distance" in key:
                         observation_noise_factor[key] = np.abs(observation[key])
-                    
                     elif "visual_angle" in key:
                         observation_noise_factor[key] = np.abs(observation[key])
                     elif "offset_angle_dot" in key:
                         observation_noise_factor[key] = np.abs(observation[key])
                     else:
                         observation_noise_factor[key] = 1.0
-                # else:
-                #     observation_noise_means[key] = 0.0
-                #     observation_noise_stddevs[key] = 0.0
-                #     observation_noise_factor[key] = 1.0
                 if key in self.fv_noise.keys():
                     if "target" in key: obj = self.target
                     elif "obstacle1" in key: obj = self.obstacles[0]
@@ -581,7 +592,6 @@ class GazeFixEnv(BaseEnv):
                         raise NotImplementedError
                     observation_noise_means[key] += self.fv_noise[key][0] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
                     observation_noise_stddevs[key] += self.fv_noise[key][1] * np.abs(self.compute_offset_angle(obj) / (self.robot.sensor_angle/2))
-                #print("NOISE:", key, observation_noise[key], observation_noise_factor[key])
                 observation[key] = value + (observation_noise_means[key]*((value/abs(value) if value!=0 else 1.0)) + observation_noise_stddevs[key]*np.random.randn()) * observation_noise_factor[key]
         return observation, {key: (observation_noise_means[key]*observation_noise_factor[key], observation_noise_stddevs[key]*observation_noise_factor[key]) if key in observation_noise_stddevs.keys() else (0.0,0.0) for key in observation.keys()}
 
@@ -605,7 +615,7 @@ class GazeFixEnv(BaseEnv):
         return offset_angle_dot
 
     def compute_offset_angle_dot_object_component(self, obj: EnvObject):
-        if (type(obj) == Target and self.moving_target[0] != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target[0] != "stationary") or (type(obj) == EnvObject and self.moving_obstacles[0] != "stationary"):
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
         else:
@@ -621,7 +631,7 @@ class GazeFixEnv(BaseEnv):
         return object_distance_dot
 
     def compute_distance_dot_object_component(self, obj: EnvObject):
-        if (type(obj) == Target and self.moving_target[0] != "stationary") or (type(obj) == EnvObject and self.moving_obstacles):
+        if (type(obj) == Target and self.moving_target[0] != "stationary") or (type(obj) == EnvObject and self.moving_obstacles[0] != "stationary"):
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
         else:

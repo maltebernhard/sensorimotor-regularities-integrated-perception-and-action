@@ -14,6 +14,7 @@ if __name__ == "__main__":
         "distance_sensor":   config.distance_sensor.no_dist_sensor,
         "controller":        config.controller.aicon,
         "moving_target":     config.moving_target.stationary_target,
+        "moving_obstacles":  config.moving_obstacles.rapid_chase_obstacle,
         "sensor_noise":      config.sensor_noise.small_noise,
         "observation_loss":  config.observation_loss.no_obs_loss,
         "fv_noise":          config.fv_noise.no_fv_noise,
@@ -25,7 +26,7 @@ if __name__ == "__main__":
     base_env_config = {
         "vel_control":          False,
         "sensor_angle_deg":     360,
-        "num_obstacles":        0,
+        "num_obstacles":        1,
         "timestep":             0.05,
     }
 

@@ -29,14 +29,13 @@ import multiprocessing as mp
 
 class Runner:
     def __init__(self, run_config: dict, base_env_config: dict, variation: dict, variation_id=None, wandb_config:dict=None):
-        self.model = "SMC"
-
         self.env_config = self.generate_env_config(base_env_config, variation)
         self.aicon_type = {
             "smcs":            variation["smcs"],
             "controller":      variation["controller"],
             "distance_sensor": variation["distance_sensor"],
         }
+        self.aicon = SMCAICON(self.env_config, self.aicon_type)
 
         self.num_steps = run_config['num_steps']
         self.base_seed = run_config['seed']
@@ -49,23 +48,22 @@ class Runner:
         self.step_by_step = run_config['step_by_step']
         
         self.logger: VariationLogger = VariationLogger(variation, variation_id, wandb_config) if variation_id is not None else None
-        self.aicon = self.create_model()
-
         self.num_run = self.logger.run_seed if self.logger is not None else 0
 
     def generate_env_config(self, base_env_config, variation):
         with open("environment/env_config.yaml") as file:
             env_config = yaml.load(file, Loader=yaml.FullLoader)
-            env_config["num_obstacles"] = base_env_config["num_obstacles"]
+            env_config["num_obstacles"]      = base_env_config["num_obstacles"]
             env_config["robot_sensor_angle"] = base_env_config["sensor_angle_deg"] / 180 * np.pi
-            env_config["timestep"] = base_env_config["timestep"]
-            env_config["observation_noise"] = variation["sensor_noise"]
-            env_config["moving_target"] = variation["moving_target"]
-            env_config["observation_loss"] = variation["observation_loss"]
-            env_config["fv_noise"] = variation["fv_noise"]
-            env_config["target_distance"] = variation["desired_distance"]
-            env_config["action_mode"] = 3 if variation["control"] == "vel" else 1
-            env_config["wind"] = variation["wind"]
+            env_config["timestep"]           = base_env_config["timestep"]
+            env_config["observation_noise"]  = variation["sensor_noise"]
+            env_config["moving_target"]      = variation["moving_target"]
+            env_config["moving_obstacles"]   = variation["moving_obstacles"]
+            env_config["observation_loss"]   = variation["observation_loss"]
+            env_config["fv_noise"]           = variation["fv_noise"]
+            env_config["target_distance"]    = variation["desired_distance"]
+            env_config["action_mode"]        = 3 if variation["control"] == "vel" else 1
+            env_config["wind"]               = variation["wind"]
         return env_config
 
     def run(self):
@@ -83,21 +81,6 @@ class Runner:
             logger         = self.logger,
             video_path     = self.video_record_path,
         )
-    
-    def create_model(self):
-        if self.model == "SMC":                    return SMCAICON(self.env_config, self.aicon_type)
-        # elif self.model == "Base":                   return BaseAICON(self.env_config)
-        # elif self.model == "Experiment1":            return Experiment1AICON(self.env_config, self.aicon_type)
-        # elif self.model == "ExperimentFovealVision": return ExperimentFovealVisionAICON(self.env_config)
-        # elif self.model == "SingleEstimator":        return SingleEstimatorAICON(self.env_config)
-        # elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
-        # elif self.model == "GlobalVel":              return GlobalVelAICON(self.env_config)
-
-        # elif self.model == "Divergence":             return DivergenceAICON(self.env_config)
-        # elif self.model == "Estimator":              return ContingentEstimatorAICON(self.env_config)
-        # elif self.model == "Visibility":             return VisibilityAICON(self.env_config)
-        else:
-            raise ValueError(f"Model Type {self.model} not recognized")
 
 def run_variation(base_run_config, base_env_config, variation_id, variation, wandb_config, num_runs, queue:mp.Queue, counter):
     # TODO: think about parallelizing even single seeded runs

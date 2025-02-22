@@ -1,119 +1,118 @@
 # --------------------- sensor noise configs -------------------------
-# 
 
 general_small_noise = {
-    "target_offset_angle":      (0.0, 0.02),
-    "target_offset_angle_dot":  (0.0, 0.02),
-    "target_visual_angle":      (0.0, 0.02),
-    "target_visual_angle_dot":  (0.0, 0.02),
+    "offset_angle":      (0.0, 0.02),
+    "offset_angle_dot":  (0.0, 0.02),
+    "visual_angle":      (0.0, 0.02),
+    "visual_angle_dot":  (0.0, 0.02),
     "vel_frontal":              (0.0, 0.02),
     "vel_lateral":              (0.0, 0.02),
     "vel_rot":                  (0.0, 0.02),
-    "target_distance":          (0.0, 0.02),
-    "target_distance_dot":      (0.0, 0.02),
+    "distance":          (0.0, 0.02),
+    "distance_dot":      (0.0, 0.02),
 }
 general_large_noise = {
-    "target_offset_angle":      (0.0, 0.1),
-    "target_offset_angle_dot":  (0.0, 0.1),
-    "target_visual_angle":      (0.0, 0.1),
-    "target_visual_angle_dot":  (0.0, 0.1),
+    "offset_angle":      (0.0, 0.1),
+    "offset_angle_dot":  (0.0, 0.1),
+    "visual_angle":      (0.0, 0.1),
+    "visual_angle_dot":  (0.0, 0.1),
     "vel_frontal":              (0.0, 0.1),
     "vel_lateral":              (0.0, 0.1),
     "vel_rot":                  (0.0, 0.1),
-    "target_distance":          (0.0, 0.1),
-    "target_distance_dot":      (0.0, 0.1),
+    "distance":          (0.0, 0.1),
+    "distance_dot":      (0.0, 0.1),
 }
 large_triang_noise = {
-    "target_offset_angle":      (0.0, 0.1),
-    "target_offset_angle_dot":  (0.0, 0.1),
-    "target_visual_angle":      (0.0, 0.02),
-    "target_visual_angle_dot":  (0.0, 0.02),
+    "offset_angle":      (0.0, 0.1),
+    "offset_angle_dot":  (0.0, 0.1),
+    "visual_angle":      (0.0, 0.02),
+    "visual_angle_dot":  (0.0, 0.02),
     "vel_frontal":              (0.0, 0.02),
     "vel_lateral":              (0.0, 0.02),
     "vel_rot":                  (0.0, 0.02),
-    "target_distance":          (0.0, 0.02),
-    "target_distance_dot":      (0.0, 0.02),
+    "distance":          (0.0, 0.02),
+    "distance_dot":      (0.0, 0.02),
 }
 large_divergence_noise = {
-    "target_offset_angle":      (0.0, 0.02),
-    "target_offset_angle_dot":  (0.0, 0.02),
-    "target_visual_angle":      (0.0, 0.1),
-    "target_visual_angle_dot":  (0.0, 0.1),
+    "offset_angle":      (0.0, 0.02),
+    "offset_angle_dot":  (0.0, 0.02),
+    "visual_angle":      (0.0, 0.1),
+    "visual_angle_dot":  (0.0, 0.1),
     "vel_frontal":              (0.0, 0.02),
     "vel_lateral":              (0.0, 0.02),
     "vel_rot":                  (0.0, 0.02),
-    "target_distance":          (0.0, 0.02),
-    "target_distance_dot":      (0.0, 0.02),
+    "distance":          (0.0, 0.02),
+    "distance_dot":      (0.0, 0.02),
 }
 large_distance_noise = {
-    "target_offset_angle":      (0.0, 0.02),
-    "target_offset_angle_dot":  (0.0, 0.02),
-    "target_visual_angle":      (0.0, 0.02),
-    "target_visual_angle_dot":  (0.0, 0.02),
+    "offset_angle":      (0.0, 0.02),
+    "offset_angle_dot":  (0.0, 0.02),
+    "visual_angle":      (0.0, 0.02),
+    "visual_angle_dot":  (0.0, 0.02),
     "vel_frontal":              (0.0, 0.02),
     "vel_lateral":              (0.0, 0.02),
     "vel_rot":                  (0.0, 0.02),
-    "target_distance":          (0.0, 0.1),
-    "target_distance_dot":      (0.0, 0.1),
+    "distance":          (0.0, 0.1),
+    "distance_dot":      (0.0, 0.1),
 }
 distance_offset_noise = {
-    "target_offset_angle":      (0.0, 0.02),
-    "target_offset_angle_dot":  (0.0, 0.02),
-    "target_visual_angle":      (0.0, 0.02),
-    "target_visual_angle_dot":  (0.0, 0.02),
+    "offset_angle":      (0.0, 0.02),
+    "offset_angle_dot":  (0.0, 0.02),
+    "visual_angle":      (0.0, 0.02),
+    "visual_angle_dot":  (0.0, 0.02),
     "vel_frontal":              (0.0, 0.02),
     "vel_lateral":              (0.0, 0.02),
     "vel_rot":                  (0.0, 0.02),
-    "target_distance":          (-0.2, 0.1),
-    "target_distance_dot":      (-0.2, 0.1),
+    "distance":          (-0.2, 0.1),
+    "distance_dot":      (-0.2, 0.1),
 }
 huge_distance_noise = {
-    "target_offset_angle":      (0.0, 0.02),
-    "target_offset_angle_dot":  (0.0, 0.02),
-    "target_visual_angle":      (0.0, 0.02),
-    "target_visual_angle_dot":  (0.0, 0.02),
+    "offset_angle":      (0.0, 0.02),
+    "offset_angle_dot":  (0.0, 0.02),
+    "visual_angle":      (0.0, 0.02),
+    "visual_angle_dot":  (0.0, 0.02),
     "vel_frontal":              (0.0, 0.02),
     "vel_lateral":              (0.0, 0.02),
     "vel_rot":                  (0.0, 0.02),
-    "target_distance":          (0.0, 0.3),
-    "target_distance_dot":      (0.0, 0.3),
+    "distance":          (0.0, 0.3),
+    "distance_dot":      (0.0, 0.3),
 }
 huge_distance_offset_noise = {
-    "target_offset_angle":      (0.0, 0.02),
-    "target_offset_angle_dot":  (0.0, 0.02),
-    "target_visual_angle":      (0.0, 0.02),
-    "target_visual_angle_dot":  (0.0, 0.02),
+    "offset_angle":      (0.0, 0.02),
+    "offset_angle_dot":  (0.0, 0.02),
+    "visual_angle":      (0.0, 0.02),
+    "visual_angle_dot":  (0.0, 0.02),
     "vel_frontal":              (0.0, 0.02),
     "vel_lateral":              (0.0, 0.02),
     "vel_rot":                  (0.0, 0.02),
-    "target_distance":          (0.3, 0.1),
-    "target_distance_dot":      (0.3, 0.1),
+    "distance":          (0.3, 0.1),
+    "distance_dot":      (0.3, 0.1),
 }
 
 # --------------------- observation loss configs ---------------------
 
 # for each observation key, deactivate sensor readings in given ranges of seconds
 tri_loss = {
-    "target_offset_angle": [
+    "offset_angle": [
         (100, 200),
     ],
-    "target_offset_angle_dot": [
+    "offset_angle_dot": [
         (100, 200),
     ],
 }
 div_loss = {
-    "target_visual_angle": [
+    "visual_angle": [
         (100, 200),
     ],
-    "target_visual_angle_dot": [
+    "visual_angle_dot": [
         (100, 200),
     ],
 }
 dist_loss = {
-    "target_distance": [
+    "distance": [
         (100, 200),
     ],
-    "target_distance_dot": [
+    "distance_dot": [
         (100, 200),
     ],
 }
@@ -122,11 +121,11 @@ no_obs_loss = {}
 # --------------------- foveal vision noise configs ---------------------
 
 fv_noise = {
-    "target_offset_angle":      (0.0, 0.5),
-    "target_offset_angle_dot":  (0.0, 0.5),
-    "target_visual_angle":      (0.0, 0.5),
-    "target_visual_angle_dot":  (0.0, 0.5),
-    "target_distance":          (0.0, 0.5),
+    "offset_angle":      (0.0, 0.5),
+    "offset_angle_dot":  (0.0, 0.5),
+    "visual_angle":      (0.0, 0.5),
+    "visual_angle_dot":  (0.0, 0.5),
+    "distance":          (0.0, 0.5),
 }
 
 # ---------------------- collection with keys -----------------------
@@ -169,6 +168,11 @@ class MovingTargetConfig:
     flight_target     = ("flight",     0.5)
     chase_target      = ("chase",      0.5)
 
+class MovingObstacleConfig:
+    stationary_obstacle  = ("stationary",  0.0)
+    chase_obstacle       = ("chase",       0.5)
+    rapid_chase_obstacle = ("chase",       0.8)
+
 class ObservationLossConfig:
     no_obs_loss = no_obs_loss
     tri_loss = tri_loss
@@ -194,6 +198,7 @@ class ExperimentConfig:
     sensor_noise = SensorNoiseConfig
     fv_noise = FovealVisionNoiseConfig
     moving_target = MovingTargetConfig
+    moving_obstacles = MovingObstacleConfig
     observation_loss = ObservationLossConfig
     wind = WindConfig
     control = ControlConfig

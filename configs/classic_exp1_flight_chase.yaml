@@ -13,13 +13,13 @@ same_for_all:
 
 variations:
   - controller:    aicon
-    moving_target: stationary_target
+    moving_target: flight_target
   - controller:    aicon
-    moving_target: sine_target
+    moving_target: chase_target
   - controller:    manual
-    moving_target: stationary_target
+    moving_target: flight_target
   - controller:    manual
-    moving_target: sine_target
+    moving_target: chase_target
 
 plotting_state_config:
   PolarTargetPos:
@@ -28,23 +28,23 @@ plotting_state_config:
     ybounds: [[[5, 30]], [[-1, 10]], [[-1, 20]]]
 
 plotting_style_config:
-  stationary_target_aicon:
-    label:     AICON control | stationary target
+  flight_target_aicon:
+    label:     AICON control | flight target
     color:     blue     # red, green, blue, cyan, magenta, yellow, black, white
     linestyle: solid    # dotted, dashed, dashdot
     linewidth: 2
-  sine_target_aicon:
-    label:     AICON control | moving target
+  chase_target_aicon:
+    label:     AICON control | chase target
     color:     blue
     linestyle: dashed
     linewidth: 2
-  stationary_target_manual:
-    label:     designed control | stationary target
+  flight_target_manual:
+    label:     designed control | flight target
     color:     red
     linestyle: solid
     linewidth: 2
-  sine_target_manual:
-    label:     designed control | moving target
+  chase_target_manual:
+    label:     designed control | chase target
     color:     red
     linestyle: dashed
     linewidth: 2
