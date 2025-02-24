@@ -131,6 +131,8 @@ class GazeFixEnv(BaseEnv):
             action = np.array([float(action[0]-1), float(action[1]-1), float(action[2]-1)])
         self.action = self.limit_action(action) # make sure acceleration / velocity vector is within bounds
         self.update_robot_velocity()
+        self.update_target_movement_direction()
+        self.update_obstacle_movement_direction()
         self.move_robot()
         if self.moving_target[0] != "stationary":
             self.move_target()
@@ -445,6 +447,27 @@ class GazeFixEnv(BaseEnv):
             self.robot.vel_rot = self.action[2] * self.robot.max_vel_rot
             return
 
+    def update_target_movement_direction(self):
+        if self.moving_target[0] in ["stationary", "linear"]:
+            pass
+        elif self.moving_target[0] == "sine":
+            self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
+        elif self.moving_target[0] == "flight":
+            self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
+        elif self.moving_target[0] == "chase":
+            self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) + np.pi
+        else:
+            raise ValueError(f"{self.moving_target[0]} is not a valid moving target config.")
+
+    def update_obstacle_movement_direction(self):
+        if self.moving_obstacles[0] == "stationary":
+            pass
+        elif self.moving_obstacles[0] == "chase":
+            for o in self.obstacles:
+                o.current_movement_direction = np.atan2(o.pos[1]-self.robot.pos[1], o.pos[0]-self.robot.pos[0]) + np.pi
+        else:
+            raise ValueError(f"{self.moving_obstacles[0]} is not a valid moving obstacles config.")
+
     def move_robot(self):
         # move robot
         total_vel = self.rotation_matrix(self.robot.orientation) @ self.robot.vel
@@ -466,23 +489,11 @@ class GazeFixEnv(BaseEnv):
             self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
-        if self.moving_target[0] == "linear":
-            pass
-        elif self.moving_target[0] == "sine":
-            self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
-        elif self.moving_target[0] == "flight":
-            self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
-        elif self.moving_target[0] == "chase":
-            self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) + np.pi
-        else:
-            raise ValueError(f"{self.moving_target[0]} is not a valid moving target config.")
         self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
 
     def move_obstacles(self):
-        if self.moving_obstacles[0] == "chase":
-            for o in self.obstacles:
-                o.current_movement_direction = np.atan2(o.pos[1]-self.robot.pos[1], o.pos[0]-self.robot.pos[0]) + np.pi
-                o.pos += np.array([np.cos(o.current_movement_direction), np.sin(o.current_movement_direction)]) * o.vel * self.timestep
+        for o in self.obstacles:
+            o.pos += np.array([np.cos(o.current_movement_direction), np.sin(o.current_movement_direction)]) * o.vel * self.timestep
 
     def check_collision(self):
         if self.compute_distance(self.target) < self.target.radius + self.robot.size / 2:

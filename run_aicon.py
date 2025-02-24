@@ -10,23 +10,24 @@ if __name__ == "__main__":
     # --------------------- config ---------------------
 
     variation_config = {
-        "smcs":              config.smcs.nosmcs,
-        "distance_sensor":   config.distance_sensor.dist_sensor,
+        "smcs":              config.smcs.both,
+        "distance_sensor":   config.distance_sensor.no_dist_sensor,
         "controller":        config.controller.aicon,
         "moving_target":     config.moving_target.stationary_target,
-        "moving_obstacles":  config.moving_obstacles.rapid_chase_obstacle,
+        "moving_obstacles":  config.moving_obstacles.chase_obstacle,
         "sensor_noise":      config.sensor_noise.small_noise,
         "observation_loss":  config.observation_loss.no_obs_loss,
         "fv_noise":          config.fv_noise.no_fv_noise,
         "desired_distance":  10,
-        "wind":              config.wind.light_wind,
-        "control":           config.control.acc,
+        "start_distance":    10,
+        "wind":              config.wind.no_wind,
+        "control":           config.control.vel,
     }
 
     base_env_config = {
         "vel_control":          False,
         "sensor_angle_deg":     360,
-        "num_obstacles":        0,
+        "num_obstacles":        1,
         "timestep":             0.05,
     }
 

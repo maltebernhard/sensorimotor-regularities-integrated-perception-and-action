@@ -165,11 +165,14 @@ class Divergence_SMC(DroneEnv_SMC):
         )
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
-        rtf_vel = rotate_vector_2d(-state[1], action[:2])
-        if self.moving_object: rtf_vel -= torch.stack([state[2], state[3]*state[0]])
+        distance_dot = rotate_vector_2d(-state[1], action[:2])[0]
+        if self.moving_object: distance_dot -= state[2]
         radius = state[4] if self.moving_object else state[2]
         vis_angle = 2 * torch.asin(radius / state[0]) if -1.0 < radius / state[0] < 1.0 else torch.tensor(torch.pi-1e-3)
         return {
             f'{self.object_name.lower()}_visual_angle': vis_angle,
-            f'{self.object_name.lower()}_visual_angle_dot': 2 / state[0] * torch.tan(vis_angle/2) * rtf_vel[0] if vis_angle < torch.pi-1e-3 else torch.tensor(0.0),
+            f'{self.object_name.lower()}_visual_angle_dot': 2 / state[0] * torch.tan(vis_angle/2) * distance_dot if vis_angle < torch.pi-1e-3 else torch.tensor(0.0),
         }
+    
+        # TODO: implement this innovation space equation
+        # torch.tan(vis_angle/2) / vis_angle_dot = distance / (2 * distance_dot)

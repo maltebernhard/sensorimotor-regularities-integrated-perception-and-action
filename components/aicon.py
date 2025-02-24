@@ -444,6 +444,10 @@ class DroneEnvAICON(AICON):
         target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].mean, self.REs["PolarTargetPos"].cov)
         estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
         estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
+        if self.env.num_obstacles == 1:
+            obs_mean, obs_cov = self.convert_polar_to_cartesian_state(self.REs["PolarObstacle1Pos"].mean, self.REs["PolarObstacle1Pos"].cov)
+            estimator_means["PolarObstaclePos"] = obs_mean
+            estimator_covs["PolarObstaclePos"] = obs_cov
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     def custom_reset(self):
