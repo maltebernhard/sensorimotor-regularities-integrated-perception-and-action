@@ -181,8 +181,8 @@ class ObservationLossConfig:
 
 class WindConfig:
     no_wind     = (0.0, 0.0)
-    light_wind  = (1.0, 1.0)
-    strong_wind = (3.0, 3.0)
+    light_wind  = (0.2, 0.2)
+    strong_wind = (0.5, 0.5)
 
 class ControlConfig:
     acc = "acc"

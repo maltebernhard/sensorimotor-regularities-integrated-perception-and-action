@@ -313,11 +313,11 @@ class GazeFixEnv(BaseEnv):
         return self.robot.vel_rot
 
     def get_vel_frontal(self):
-        wind_robot_frame = self.rotation_matrix(-self.robot.orientation) @ self.wind
+        wind_robot_frame = self.rotation_matrix(-self.robot.orientation) @ (self.wind * self.robot.max_vel) if self.action_mode == 3 else np.zeros(2)
         return self.robot.vel[0] + wind_robot_frame[0]
 
     def get_vel_lateral(self):
-        wind_robot_frame = self.rotation_matrix(-self.robot.orientation) @ self.wind
+        wind_robot_frame = self.rotation_matrix(-self.robot.orientation) @ (self.wind * self.robot.max_vel) if self.action_mode == 3 else np.zeros(2)
         return self.robot.vel[1] + wind_robot_frame[1]
 
     def create_object_state_function(self, state_function, obj):
@@ -435,7 +435,7 @@ class GazeFixEnv(BaseEnv):
     def update_robot_velocity(self):
         # set xy and angular accelerations
         if self.action_mode == 1 or self.action_mode == 2:
-            acc = self.action[:2] * self.robot.max_acc
+            acc = (self.action[:2] + self.wind) * self.robot.max_acc
             acc_rot = self.action[2] * self.robot.max_acc_rot
             self.robot.vel += acc * self.timestep                   # update robot velocity vector
             self.robot.vel_rot += acc_rot * self.timestep           # update rotational velocity
@@ -447,7 +447,10 @@ class GazeFixEnv(BaseEnv):
 
     def move_robot(self):
         # move robot
-        self.robot.pos += (self.rotation_matrix(self.robot.orientation) @ self.robot.vel + self.wind) * self.timestep
+        total_vel = self.rotation_matrix(self.robot.orientation) @ self.robot.vel
+        if self.action_mode == 3:
+            total_vel += self.wind * self.robot.max_vel
+        self.robot.pos += total_vel * self.timestep
         self.robot.orientation += self.robot.vel_rot * self.timestep
         self.robot.vel = self.rotation_matrix(-self.robot.vel_rot * self.timestep) @ self.robot.vel
         # handle orientation overflow to range [-pi, pi]

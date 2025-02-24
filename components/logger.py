@@ -38,6 +38,7 @@ class VariationLogger:
         self.log_local(step_log)
 
     def create_run_dict(self, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
+        # TODO: skip runs which are already logged
         self.data[self.run_seed] = {
                 "step":                 np.array([]),     # time step
                 "time":                 np.array([]),     # time in seconds
@@ -45,7 +46,6 @@ class VariationLogger:
                     'mean':             np.empty((0,) + estimators[estimator_key]["mean"].shape),     # mean of state estimate
                     'cov':              np.empty((0,) + estimators[estimator_key]["cov"].shape),      # covariance of state estimate
                     'uncertainty':      np.empty((0,) + (estimators[estimator_key]["mean"].shape[0],)), # uncertainty of state estimate: sqrt(diag(covariance))
-                    #"motion_noise":     np.array(estimators[estimator_key]["forward_noise"].tolist()),     # static estimator motion noise
                     'estimation_error': np.empty((0,) + estimators[estimator_key]["mean"].shape),     # estimation error: estimation - real state
                     'env_state':        np.empty((0,) + estimators[estimator_key]["mean"].shape),     # task state: real state with subtracted offsets (like desired target distance)
                 } for estimator_key in estimators.keys()},
@@ -70,7 +70,6 @@ class VariationLogger:
                 "rtf_action":           np.empty((0,) + action.shape),     # action rotated to target frame
                 "desired_distance":     env_state["desired_target_distance"],
                 "collision":            np.array([]),     # collision flag
-                # TODO: log run seed and config Analysis to skip runs which are already logged
             }
 
     def create_wandb_run(self):

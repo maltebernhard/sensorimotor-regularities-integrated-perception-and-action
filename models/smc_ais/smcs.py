@@ -81,7 +81,8 @@ class Distance_MM(DroneEnv_SMC):
     def __init__(self, object_name:str="Target", moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
         self.moving_object = moving_object
-        sensory_components = [f"{object_name.lower()}_distance", f"{object_name.lower()}_distance_dot"]
+        sensory_components = [f"{object_name.lower()}_distance"]
+        if self.moving_object: sensory_components.append(f"{object_name.lower()}_distance_dot")
         super().__init__(
             id                 = f"{object_name} Distance",
             state_component    = f"Polar{object_name}Pos",

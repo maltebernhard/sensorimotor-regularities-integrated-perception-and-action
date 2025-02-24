@@ -105,7 +105,7 @@ class SMCAICON(AICON):
         elif self.env_config["action_mode"] == 1:
             #decay = 0.9 ** (self.env_config["timestep"] / 0.05)
             decay = 1.0
-            gradient_action = decay * self.last_action - torch.tensor([2e3, 2e3, 0.0]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+            gradient_action = decay * self.last_action - torch.tensor([2e1, 2e1, 0.0]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):
@@ -119,6 +119,16 @@ class SMCAICON(AICON):
         self.print_vector(state - real_state, "PolarTargetPos Err.")
         #self.print_vector(real_state, "True PolarTargetPos: ")
         print("----------------------------------------------")
+        for i in range(1, self.env.num_obstacles+1):
+            self.print_estimator(f"PolarObstacle{i}Pos", buffer_dict=buffer_dict, print_cov=2)
+            state = buffer_dict[f"PolarObstacle{i}Pos"]['mean'] if buffer_dict is not None else self.REs[f"PolarObstacle{i}Pos"].mean
+            real_state = torch.tensor([env_state[f'obstacle{i}_distance'], env_state[f'obstacle{i}_offset_angle']])
+            if self.env_config["moving_obstacles"][0] != "stationary":
+                real_state = torch.cat([real_state, torch.tensor([env_state[f'obstacle{i}_distance_dot_global'], env_state[f'obstacle{i}_offset_angle_dot_global']])])
+            real_state = torch.cat([real_state, torch.tensor([env_state[f'obstacle{i}_radius']])])
+            self.print_vector(state - real_state, f"PolarObstacle{i}Pos Err.")
+            #self.print_vector(real_state, f"True PolarObstacle{i}Pos: ")
+            print("----------------------------------------------")
         self.print_estimator("RobotVel", buffer_dict=buffer_dict, print_cov=2)
         state = buffer_dict['RobotVel']['mean'] if buffer_dict is not None else self.REs['RobotVel'].mean
         wind_robot_frame = rotate_vector_2d(-self.env.robot.orientation, torch.tensor([self.env.wind[0], self.env.wind[1]]))

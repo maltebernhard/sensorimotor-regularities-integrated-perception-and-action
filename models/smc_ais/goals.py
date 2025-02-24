@@ -35,7 +35,7 @@ class PolarGoToTargetGoal(Goal):
                 loss_obstacle_distance += 1 / torch.max(torch.stack([
                     (estimated_distance - buffer_dict[f'PolarObstacle{i+1}Pos']['mean'][-1]) / 10.0,
                     torch.tensor(1e-6)
-                ])) - 1.0
+                ])) - 1.0 + 1e1 * (10.0 - estimated_distance).pow(2)
                 uctty = buffer_dict[f'PolarObstacle{i+1}Pos']['cov'].diag()[0].sqrt()
                 loss_obstacle_uncertainty += 1e1 * uctty #* (10.0 - estimated_distance)
 
