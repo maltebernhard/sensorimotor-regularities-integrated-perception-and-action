@@ -3,9 +3,9 @@ import torch
 
 from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
-from models.smc_ais.estimators import Polar_Pos_Estimator, Robot_Vel_Estimator, Robot_Vel_Estimator_Acc_Action, Robot_VelWind_Estimator
-from models.smc_ais.goals import PolarGoToTargetGoal
-from models.smc_ais.smcs import Angle_MM, Distance_MM, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC
+from model.estimators import Polar_Pos_Estimator, Robot_Vel_Estimator, Robot_Vel_Estimator_Acc_Action, Robot_VelWind_Estimator
+from model.goals import PolarGoToTargetGoal
+from model.smcs import Angle_MM, Distance_MM, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC
 
 # ========================================================================================================
 

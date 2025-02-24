@@ -2,8 +2,8 @@ from typing import List
 
 import yaml
 from components.analysis import Analysis
+from configs import configs
 from configs.configs import ExperimentConfig as config
-from plot import create_axes, plot_states_and_losses
 import sys
 import os
 
@@ -88,11 +88,16 @@ if __name__ == "__main__":
                 custom_config = yaml.safe_load(config_file)
             analysis = create_analysis_from_custom_config(sys.argv[2].split("/")[-1].split(".")[0], custom_config)
             analysis.run_analysis()
-            plot_states_and_losses(analysis)
+            analysis.plot_states_and_losses()
         elif sys.argv[1] == "demo":
             analysis = create_analysis_from_sys_arg(sys.argv[2])
             variations = analysis.variations
-            axes = create_axes(variations, {key: [variation[key] for variation in variations] for key in config.keys})     
+            variation_values = {key: [variation[key] for variation in variations] for key in config.keys}
+            axes = {
+                "_".join([analysis.get_key_from_value(vars(vars(configs)[key]), variation[key]) for key in config.keys if (key not in variation_values.keys() or len(variation_values[key])>1) and analysis.count_variations(variations, key)>1]): {
+                    subkey: variation[subkey] for subkey in variation.keys()
+                } for variation in analysis.variations if all([variation[key] in variation_values[key] for key in variation_values.keys()])
+            }  
             try:
                 keys = list(axes.keys())
                 print(f"Available Variations:")
@@ -109,7 +114,7 @@ if __name__ == "__main__":
                 print("No valid analysis path.")
                 sys.exit(1)
             analysis.run_analysis()
-            plot_states_and_losses(analysis)
+            analysis.plot_states_and_losses()
         elif sys.argv[1] == "replot":
             config_path = sys.argv[2]
             with open(config_path, "r") as config_file:
@@ -122,7 +127,7 @@ if __name__ == "__main__":
                     found_counter += 1
                     analysis = Analysis.load(os.path.join(records_path, subfolder_name))
                     analysis.custom_config = custom_config
-                    plot_states_and_losses(analysis)
+                    analysis.plot_states_and_losses()
                     analysis.experiment_config["custom_config"] = custom_config
                     analysis.save()
             else:

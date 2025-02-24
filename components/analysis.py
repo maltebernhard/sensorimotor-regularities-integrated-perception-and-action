@@ -1,11 +1,11 @@
 from datetime import datetime
 import os
 import pickle
-import sys
 import time
 from typing import Dict, List, Tuple, Type
 import numpy as np
 import torch
+import multiprocessing as mp
 from tqdm import tqdm
 import yaml
 import matplotlib.pyplot as plt
@@ -13,17 +13,8 @@ import networkx as nx
 
 from components.aicon import AICON
 from components.logger import AICONLogger, VariationLogger
-# from models.old.base.aicon import BaseAICON
-# from models.old.experiment1.aicon import Experiment1AICON
-# from models.old.experiment_foveal_vision.aicon import ExperimentFovealVisionAICON
-# from models.old.divergence.aicon import DivergenceAICON
-# from models.old.global_vels.aicon import GlobalVelAICON
-# from models.old.single_estimator.aicon import SingleEstimatorAICON
-from models.smc_ais.aicon import SMCAICON
-
-# from models.old.even_older.experiment_estimator.aicon import ContingentEstimatorAICON
-# from models.old.even_older.experiment_visibility.aicon import VisibilityAICON
-import multiprocessing as mp
+from configs.configs import ExperimentConfig as config
+from model.aicon import SMCAICON
 
 # ========================================================================================================
 
@@ -258,6 +249,50 @@ class Analysis:
 
     def plot_loss_and_gradient(self, plotting_config:dict, save:bool=True, show:bool=False):
         self.logger.plot_losses_and_gradients(plotting_config, save_path=self.record_dir if save else None, show=show)
+
+    @staticmethod
+    def get_key_from_value(d: dict, value):
+        for k, v in d.items():
+            if v == value:
+                return k
+        print(f"Value {value} not found in dictionary {d}")
+        return None
+
+    @staticmethod
+    def count_variations(variations, invariant_key: str):
+        seen_variations = []
+        for variation in variations:
+            if variation[invariant_key] not in seen_variations:
+                seen_variations.append(variation[invariant_key])
+        return len(seen_variations)
+
+    def plot_states_and_losses(self):
+        plotting_states_config = self.custom_config["plotting_state_config"]
+        plot_styles            = self.custom_config["plotting_style_config"]
+        plot_variation_values = {key: [variation[key] for variation in self.variations] for key in config.keys}
+        axes = {
+            "_".join([self.get_key_from_value(vars(vars(config)[key]), variation[key]) for key in config.keys if (key not in plot_variation_values.keys() or len(plot_variation_values[key])>1) and self.count_variations(self.variations, key)>1]): {
+                subkey: variation[subkey] for subkey in variation.keys()
+            } for variation in self.variations if all([variation[key] in plot_variation_values[key] for key in plot_variation_values.keys()])
+        }
+        plotting_config = {
+            "name":         "main",
+            "states":       plotting_states_config,
+            "goals":        {"PolarGoToTarget": {}},
+            "axes":         axes,
+            "exclude_runs": [],
+            "style":        plot_styles
+        }
+        print(f"Plotting has the following axes:")
+        print([key for key in axes.keys()])
+        self.plot_states(plotting_config)
+        self.plot_state_bars(plotting_config)
+        self.plot_loss_and_gradient(plotting_config)
+        self.plot_goal_losses(plotting_config)
+        for ax_key in axes.keys():
+            self.plot_state_runs(plotting_config, ax_key)
+
+    # ------------------------------------------------------------------------------------------------
 
     def visualize_graph(self, aicon:Type[AICON], save:bool=True, show:bool=False):
         save_path = os.path.join(self.record_dir, 'configs') if save else None
