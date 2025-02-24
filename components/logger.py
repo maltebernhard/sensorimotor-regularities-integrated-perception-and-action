@@ -375,18 +375,6 @@ class AICONLogger:
             for label in plotting_config["axes"].keys():
                 for i in range(len(indices)):
                     for j, data in enumerate([abs_states, abs_errors, ucttys]):
-                        # means = np.mean(data[label], axis=0)
-                        # stddevs = np.std(data[label], axis=0)
-                        # if len(indices) > 1:
-                        #     plot_label = plotting_config['style'][label]['label']
-                        #     axs_abs[j][i].bar(plot_label, means[:, i], yerr=stddevs[:, i], capsize=5, label=plot_label, color=plotting_config['style'][label]['color'])
-                        # else:
-                        #     plot_label = plotting_config['style'][label]['label']
-                        #     axs_abs[j][i].bar(plot_label, means, yerr=stddevs, capsize=5, label=plot_label, color=plotting_config['style'][label]['color'])
-                        # axs_abs[j][i].set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][j]} for {state_id} index {i}")
-                        # axs_abs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
-                        # axs_abs[j][i].legend()
-
                         plot_label = plotting_config['style'][label]['label']
                         if len(indices) > 1:
                             # use the label index as the x-position
@@ -407,10 +395,10 @@ class AICONLogger:
                                 patch_artist=True,
                                 boxprops=dict(facecolor=plotting_config['style'][label]['color'])
                             )
+                    for j in range(3):
                         axs_abs[j][i].set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][j]}")
                         axs_abs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
-                        axs_abs[j][i].grid(True)
-
+                        axs_abs[j][i].grid(True)#, axis='y')
             # save / show
             path = os.path.join(save_path, f"records/abs_box_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig_abs, path, show)
@@ -439,13 +427,30 @@ class AICONLogger:
                                 patch_artist=True,
                                 boxprops=dict(facecolor=plotting_config['style'][label]['color'])
                             )
+                    for j in range(3):
                         axs[j][i].set_title(f"{['Task (Distance) Error', 'Estimation Error', 'Estimation Uncertainty'][j]}")
                         axs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
-                        axs[j][i].grid(True)
+                        axs[j][i].grid(True)#, axis='y')
             # save / show
             path = os.path.join(save_path, f"records/box_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
-            
+
+        ratio_collisions = {}
+        total_runs = len(self.variations[self.current_variation_id]['data']) - len(plotting_config["exclude_runs"])
+        for label, variation in plotting_config["axes"].items():
+            self.set_variation(variation)
+            var_collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+            ratio_collisions[label] = sum(collisions_run.sum() for collisions_run in var_collisions) / total_runs
+        if not all(col == 0 for col in ratio_collisions.values()):
+            fig, ax = plt.subplots(1, 1, figsize=(6, 5))
+            ax.grid(axis='y')
+            for label, ratio in ratio_collisions.items():
+                ax.bar(plotting_config['style'][label]['label'], ratio, color=plotting_config['style'][label]['color'])
+            ax.set_title("Collisions")
+            ax.set_ylabel("Avg. Collisions per Run")
+            ax.set_ylim(0, 1)
+            path = os.path.join(save_path, f"records/collisions_{plotting_config['name']}.png") if save_path is not None else None
+            self.save_fig(fig, path, show)
 
     def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
         # if not "style" in plotting_config.keys():

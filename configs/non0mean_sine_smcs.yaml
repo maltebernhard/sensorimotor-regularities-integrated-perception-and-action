@@ -1,10 +1,10 @@
 same_for_all:
   # smcs: config.smcs.both
   controller:       aicon
-  sensor_noise:     pos_dist_o_noise
+  sensor_noise:     neg_dist_o_noise
   distance_sensor:  dist_sensor
   fv_noise:         no_fv_noise
-  moving_target:    stationary_target
+  moving_target:    sine_target
   moving_obstacles: stationary_obstacle
   observation_loss: no_obs_loss
   desired_distance: 10
@@ -22,7 +22,7 @@ plotting_state_config:
   PolarTargetPos:
     indices: [0]
     labels:  [Distance]
-    ybounds: [[[8, 15]], [[0, 5]], [[0, 5]]]
+    ybounds: [[[10, 20]], [[2, 7]], [[1, 4]]]
 
 plotting_style_config:
   nosmcs:
