@@ -32,7 +32,7 @@ def create_analysis_from_custom_config(name: str, custom_config: dict):
     custom_variations: List[dict] = custom_config["variations"]
     for var in custom_variations:
         var.update(custom_same_for_all)
-    variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key!="desired_distance" else val) for key, val in var.items()} for var in custom_variations]
+    variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key not in ["desired_distance", "start_distance"] else val) for key, val in var.items()} for var in custom_variations]
     return create_analysis(name, runs_per_variation, base_env_config, base_run_config, variations, custom_config)
 
 def create_analysis_from_sys_arg(arg):

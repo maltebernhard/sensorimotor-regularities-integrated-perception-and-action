@@ -8,6 +8,7 @@ same_for_all:
   observation_loss: no_obs_loss
   fv_noise:         no_fv_noise
   desired_distance: 10
+  start_distance:   0
   wind:             light_wind
   control:          acc
 
@@ -40,7 +41,7 @@ plotting_style_config:
     linestyle: solid
     linewidth: 2
   both:
-    label:     Triangulation + Divergence
+    label:     Both
     color:     blue
     linestyle: solid
     linewidth: 2

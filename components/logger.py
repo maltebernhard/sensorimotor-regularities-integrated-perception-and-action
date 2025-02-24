@@ -327,22 +327,133 @@ class AICONLogger:
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
             if len(indices) == 1:
-                fig, axs = plt.subplots(len(indices), 3, figsize=(21, 6))
+                fig, axs = plt.subplots(len(indices), 3, figsize=(15, 5))
+                fig_abs, axs_abs = plt.subplots(len(indices), 3, figsize=(15, 5))
                 axs = [[ax] for ax in axs]
+                axs_abs = [[ax] for ax in axs_abs]
             else:
-                fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
+                fig, axs = plt.subplots(3, len(indices), figsize=(5 * len(indices), 15))
+                fig_abs, axs_abs = plt.subplots(3, len(indices), figsize=(5 * len(indices), 15))
             
-            # TODO: plot bars of accumulated [task error, est. error, est. uncertainty] with stddevs and outliers
+            states = {}
+            abs_states = {}
+            errors = {}
+            abs_errors = {}
+            ucttys = {}
+            
+            for label, variation in plotting_config["axes"].items():
+                self.set_variation(variation)
+                var_states = [run_data["estimators"][state_id]["env_state"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                desired_distance = [run_data["desired_distance"]*np.ones_like(run_data["estimators"][state_id]["env_state"][:,indices]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
-            # TODO: make wind cause an acceleration in env, not a velocity change
+                var_ucttys = [run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                var_errors = [run_data["estimators"][state_id]["estimation_error"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                var_collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+
+                # HACK: pad runs which collided with last val
+                # max_length = max(len(run) for run in var_states)
+                # for run in var_states:
+                #     if len(run) < max_length:
+                #         run = np.pad(run, ((0, max_length - len(run)), (0, 0)), mode='edge')
+                # for run in var_ucttys:
+                #     if len(run) < max_length:
+                #         run = np.pad(run, ((0, max_length - len(run)), (0, 0)), mode='edge')
+                # for run in var_errors:
+                #     if len(run) < max_length:
+                #         run = np.pad(run, ((0, max_length - len(run)), (0, 0)), mode='edge')
+
+                # TODO: plot both average and absolute
+                # TODO: add collision counters
+
+                states[label] = np.array([np.mean(run - dd) for run, dd, col in zip(var_states, desired_distance, var_collisions) if not col[-1]])
+                abs_states[label] = np.array([np.mean(np.abs(run - dd)) for run, dd, col in zip(var_states, desired_distance, var_collisions) if not col[-1]])
+                errors[label] = np.array([np.mean(run) for run, col in zip(var_errors, var_collisions) if not col[-1]])
+                abs_errors[label] = np.array([np.mean(np.abs(run)) for run, col in zip(var_errors, var_collisions) if not col[-1]])
+                ucttys[label] = np.array([np.mean(run) for run, col in zip(var_ucttys, var_collisions) if not col[-1]])
+
+            # plot absolute_bars
+            for label in plotting_config["axes"].keys():
+                for i in range(len(indices)):
+                    for j, data in enumerate([abs_states, abs_errors, ucttys]):
+                        # means = np.mean(data[label], axis=0)
+                        # stddevs = np.std(data[label], axis=0)
+                        # if len(indices) > 1:
+                        #     plot_label = plotting_config['style'][label]['label']
+                        #     axs_abs[j][i].bar(plot_label, means[:, i], yerr=stddevs[:, i], capsize=5, label=plot_label, color=plotting_config['style'][label]['color'])
+                        # else:
+                        #     plot_label = plotting_config['style'][label]['label']
+                        #     axs_abs[j][i].bar(plot_label, means, yerr=stddevs, capsize=5, label=plot_label, color=plotting_config['style'][label]['color'])
+                        # axs_abs[j][i].set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][j]} for {state_id} index {i}")
+                        # axs_abs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
+                        # axs_abs[j][i].legend()
+
+                        plot_label = plotting_config['style'][label]['label']
+                        if len(indices) > 1:
+                            # use the label index as the x-position
+                            label_index = list(plotting_config["axes"].keys()).index(label)
+                            axs_abs[j][i].boxplot(
+                                data[label][:, i],
+                                positions=[label_index + 1],
+                                labels=[plot_label],
+                                patch_artist=True,
+                                boxprops=dict(facecolor=plotting_config['style'][label]['color'])
+                            )
+                        else:
+                            label_index = list(plotting_config["axes"].keys()).index(label)
+                            axs_abs[j][i].boxplot(
+                                data[label],
+                                positions=[label_index + 1],
+                                labels=[plot_label],
+                                patch_artist=True,
+                                boxprops=dict(facecolor=plotting_config['style'][label]['color'])
+                            )
+                        axs_abs[j][i].set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][j]}")
+                        axs_abs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
+                        axs_abs[j][i].grid(True)
+
+            # save / show
+            path = os.path.join(save_path, f"records/abs_box_{plotting_config['name']}.png") if save_path is not None else None
+            self.save_fig(fig_abs, path, show)
+
+            # plot avg_bars
+            for label in plotting_config["axes"].keys():
+                for i in range(len(indices)):
+                    for j, data in enumerate([states, errors, ucttys]):
+                        plot_label = plotting_config['style'][label]['label']
+                        if len(indices) > 1:
+                            # use the label index as the x-position
+                            label_index = list(plotting_config["axes"].keys()).index(label)
+                            axs[j][i].boxplot(
+                                data[label][:, i],
+                                positions=[label_index + 1],
+                                labels=[plot_label],
+                                patch_artist=True,
+                                boxprops=dict(facecolor=plotting_config['style'][label]['color'])
+                            )
+                        else:
+                            label_index = list(plotting_config["axes"].keys()).index(label)
+                            axs[j][i].boxplot(
+                                data[label],
+                                positions=[label_index + 1],
+                                labels=[plot_label],
+                                patch_artist=True,
+                                boxprops=dict(facecolor=plotting_config['style'][label]['color'])
+                            )
+                        axs[j][i].set_title(f"{['Task (Distance) Error', 'Estimation Error', 'Estimation Uncertainty'][j]}")
+                        axs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
+                        axs[j][i].grid(True)
+            # save / show
+            path = os.path.join(save_path, f"records/box_{plotting_config['name']}.png") if save_path is not None else None
+            self.save_fig(fig, path, show)
+            
 
     def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
-        if not "style" in plotting_config.keys():
-            plotting_config=plotting_config.copy()
-            plotting_config["style"] = {}
-            colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'purple', 'brown', 'pink']
-            for i, ax_label in enumerate(plotting_config["axes"].keys()):
-                plotting_config["style"][ax_label] = {'color': colors[i]}
+        # if not "style" in plotting_config.keys():
+        #     plotting_config=plotting_config.copy()
+        #     plotting_config["style"] = {}
+        #     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'purple', 'brown', 'pink']
+        #     for i, ax_label in enumerate(plotting_config["axes"].keys()):
+        #         plotting_config["style"][ax_label] = {'color': colors[i]}
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
             ybounds = config["ybounds"]

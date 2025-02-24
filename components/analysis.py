@@ -63,6 +63,7 @@ class Runner:
             env_config["observation_loss"]   = variation["observation_loss"]
             env_config["fv_noise"]           = variation["fv_noise"]
             env_config["target_distance"]    = variation["desired_distance"]
+            env_config["start_distance"]     = variation["start_distance"]
             env_config["action_mode"]        = 3 if variation["control"] == "vel" else 1
             env_config["wind"]               = variation["wind"]
         return env_config
@@ -245,6 +246,9 @@ class Analysis:
                 a list of state indices and a list of corresponding labels to plot.
         """
         self.logger.plot_states(plotting_config, save_path=self.record_dir if save else None, show=show)
+
+    def plot_state_bars(self, plotting_config, save: bool=True, show:bool=False):
+        self.logger.plot_state_bars(plotting_config, save_path=self.record_dir if save else None, show=show)
 
     def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, runs: list[int]=None, save: bool=True, show: bool=False):
         self.logger.plot_state_runs(plotting_config, config_id, runs, save_path=self.record_dir if save else None, show=show)

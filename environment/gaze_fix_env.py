@@ -78,6 +78,7 @@ class GazeFixEnv(BaseEnv):
 
         self.max_target_distance: float = config["target_distance"]
         self.desired_target_distance: float = config["target_distance"]
+        self.spawn_distance: float = config["start_distance"]
         self.reward_margin: float = config["reward_margin"]
         self.penalty_margin: float = config["penalty_margin"]
         self.wall_collision: bool = config["wall_collision"]
@@ -347,7 +348,6 @@ class GazeFixEnv(BaseEnv):
 
     def generate_target(self):
         #distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
-        initial_spawn_distance = 10
         #angle = np.random.uniform(-np.pi/2, np.pi/2)
         angle = np.random.uniform(-np.pi, np.pi)
         # x = distance * np.cos(angle)
@@ -355,8 +355,8 @@ class GazeFixEnv(BaseEnv):
         radius = 1.0
         #desired_distance = np.random.uniform(5*radius, self.max_target_distance)
         desired_distance = self.desired_target_distance
-        x = self.robot.pos[0] + (initial_spawn_distance + desired_distance) * np.cos(angle)
-        y = self.robot.pos[1] + (initial_spawn_distance + desired_distance) * np.sin(angle)
+        x = self.robot.pos[0] + (self.spawn_distance + desired_distance) * np.cos(angle)
+        y = self.robot.pos[1] + (self.spawn_distance + desired_distance) * np.sin(angle)
         if self.target is None:
             self.target = Target(
                 pos = np.array([x,y]),

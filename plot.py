@@ -48,6 +48,7 @@ def plot_states_and_losses(analysis: Analysis):
         print(f"Plot {plot_name} has the following axes:")
         print([key for key in axes.keys()])
         analysis.plot_states(plotting_config)
+        analysis.plot_state_bars(plotting_config)
         analysis.plot_loss_and_gradient(plotting_config)
         analysis.plot_goal_losses(plotting_config)
         for ax_key in axes.keys():
