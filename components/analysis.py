@@ -40,7 +40,8 @@ class Runner:
         self.num_steps = run_config['num_steps']
         self.base_seed = run_config['seed']
         self.seed = self.base_seed
-        self.initial_action = run_config['initial_action']
+
+        self.initial_action = torch.tensor([0.0,0.0,0.0]) if variation["control"] == "vel" else torch.tensor([0.1,0.0,0.0])
 
         self.render = run_config['render']
         self.video_record_path = None
@@ -74,7 +75,7 @@ class Runner:
         self.aicon.run(
             timesteps      = self.num_steps,
             env_seed       = self.seed,
-            initial_action = torch.tensor(self.initial_action),
+            initial_action = self.initial_action,
             render         = self.render,
             prints         = self.prints,
             step_by_step   = self.step_by_step,
@@ -114,10 +115,9 @@ class Analysis:
         self.base_run_config['step_by_step'] = False
 
         self.experiment_config = experiment_config
-        self.model = experiment_config["model_type"]
         self.num_runs = experiment_config["num_runs"]
-
         self.variations = experiment_config["variations"]
+        self.custom_config = experiment_config["custom_config"]
         
         self.logger = AICONLogger(self.variations)
         if "path" in experiment_config:
@@ -236,7 +236,7 @@ class Analysis:
             runner.video_record_path = video_path
         runner.run()
 
-    def plot_states(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], save: bool=False, show: bool=True):
+    def plot_states(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], save: bool=True, show: bool=False):
         """
         Plots the logged states according to the state dictionary.
         Args:
@@ -246,7 +246,7 @@ class Analysis:
         """
         self.logger.plot_states(plotting_config, save_path=self.record_dir if save else None, show=show)
 
-    def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, runs: list[int]=None, save: bool=False, show: bool=True):
+    def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, runs: list[int]=None, save: bool=True, show: bool=False):
         self.logger.plot_state_runs(plotting_config, config_id, runs, save_path=self.record_dir if save else None, show=show)
 
     def plot_goal_losses(self, plotting_config:dict, plot_subgoals:bool=False, save:bool=True, show:bool=False):

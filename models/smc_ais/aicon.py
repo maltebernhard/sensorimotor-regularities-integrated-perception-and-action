@@ -143,7 +143,6 @@ class SMCAICON(AICON):
             elif type(self.REs["RobotVel"]) in [Robot_VelWind_Estimator, Robot_Vel_Estimator_Acc_Action]:
                 return torch.cat([torch.tensor([self.env_config["timestep"]]), buffer_dict["RobotVel"]["mean"][:3]])
 
-
     def get_static_sensor_noise(self, key):
         # NOTE: you can use this to get real env sensor noise
         #(self.env.observation_noise[obs_key])

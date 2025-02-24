@@ -323,18 +323,19 @@ class AICONLogger:
             if c[-1]:
                 collisions.append((len(c) - 1, data[i][-1]))
         return np.array(means), np.array(stddevs), collisions
+    
+    def plot_state_bars(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+        for state_id, config in plotting_config["states"].items():
+            indices = np.array(config["indices"])
+            if len(indices) == 1:
+                fig, axs = plt.subplots(len(indices), 3, figsize=(21, 6))
+                axs = [[ax] for ax in axs]
+            else:
+                fig, axs = plt.subplots(3, len(indices), figsize=(7 * len(indices), 18))
+            
+            # TODO: plot bars of accumulated [task error, est. error, est. uncertainty] with stddevs and outliers
 
-    @staticmethod
-    def save_fig(fig:plt.Figure, save_path:str=None, show:bool=False):
-        if save_path is not None:
-            os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            fig.tight_layout()
-            time.sleep(0.3)
-            print(f"Saving to {save_path}...")
-            fig.savefig(save_path)
-        if show:
-            fig.show()
-        plt.close('all')
+            # TODO: make wind cause an acceleration in env, not a velocity change
 
     def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
         if not "style" in plotting_config.keys():
@@ -441,7 +442,7 @@ class AICONLogger:
                 axs[2][i].set_ylim(ybounds[2][i])
 
             # save / show
-            path = os.path.join(save_path, f"records/runs_{axs_id}.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/runs/{axs_id}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], plot_subgoals:bool, save_path:str=None, show:bool=False):
@@ -462,7 +463,7 @@ class AICONLogger:
         if num_goals == 1:
             axs = [axs]
         for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
-            ybounds = config["ybounds"]
+            ybounds = config.get("ybounds")
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
                 total_loss = [[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
@@ -485,7 +486,7 @@ class AICONLogger:
             if ybounds is not None:
                 axs[i].set_ylim(ybounds[i])
         # save / show
-        loss_path = os.path.join(save_path, f"records/loss_{plotting_config['name']}.png") if save_path is not None else None
+        loss_path = os.path.join(save_path, f"records/loss/{plotting_config['name']}.png") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)
 
     def plot_losses_and_gradients(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
@@ -514,10 +515,12 @@ class AICONLogger:
                 }
 
         for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
-            ybounds = config["ybounds"]
+            ybounds = config.get("ybounds",None)
             for ax_label, variation in plotting_config["axes"].items():
                 fig_goal, axs = plt.subplots(3, 3, figsize=(14, 12))
                 self.set_variation(variation)
+
+                # HACK: exclude all runs except first, to get gradients that make sense instead of mean/stddev
                 plotting_config['exclude_runs'] = [run for run in list(self.variations[self.current_variation_id]['data'].keys())[1:]]
                 collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 
@@ -536,40 +539,58 @@ class AICONLogger:
                 for j, loss in enumerate([total_loss, task_loss, uctty_loss]):
                     loss_means, loss_stddevs, loss_collisions = self.compute_mean_and_stddev(loss, collisions)
                     self.plot_mean_stddev(axs[0][j], loss_means, loss_stddevs, loss_collisions, ax_label, plotting_config)
-                
+                    axs[0][j].set_ylim(np.min(loss_means[100:]), np.max(loss_means[100:]))
+
                 action_means_frontal, action_stddevs_frontal, action_collisions_frontal = self.compute_mean_and_stddev(action[:,:,0], collisions)
                 action_means_lateral, action_stddevs_lateral, action_collisions_lateral = self.compute_mean_and_stddev(action[:,:,1], collisions)
                 for j in [0,1,2]:
                     self.plot_mean_stddev(axs[1][j], action_means_frontal, action_stddevs_frontal, action_collisions_frontal, f"{ax_label} frontal", plotting_config)
                     self.plot_mean_stddev(axs[1][j], action_means_lateral, action_stddevs_lateral, action_collisions_lateral, f"{ax_label} lateral", plotting_config)
-                
+                    axs[1][j].set_ylim(np.min([np.min(data[100:]) for data in [action_means_frontal, action_means_lateral]]), np.max([np.max(data[100:]) for data in [action_means_frontal, action_means_lateral]]))
+
                 for j, grad in enumerate([total_grad, task_grad, uctty_grad]):
                     grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal = self.compute_mean_and_stddev(grad[:,:,0], collisions)
                     grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral = self.compute_mean_and_stddev(grad[:,:,1], collisions)
                     self.plot_mean_stddev(axs[2][j], grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
                     self.plot_mean_stddev(axs[2][j], grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
-            
+                    axs[2][j].set_ylim(np.min([np.min(data[100:]) for data in [grad_means_frontal, grad_means_lateral]]), np.max([np.max(data[100:]) for data in [grad_means_frontal, grad_means_lateral]]))
+
+                titles = ["loss", "action", "gradient"]
+                y_labels = ["Loss Value", "Action Magnitude", "Gradient Magnitude"]
                 for j, subgoal_label in enumerate(subgoal_labels):
-                    axs[0][j].set_title(f"{subgoal_label} loss", fontsize=16)
-                    axs[0][j].set_ylabel("Loss Value", fontsize=16)
+                    
                     axs[1][j].set_title(f"{subgoal_label} action", fontsize=16)
                     axs[1][j].set_ylabel("Action Magnitude", fontsize=16)
                     axs[2][j].set_title(f"{subgoal_label} gradient", fontsize=16)
                     axs[2][j].set_ylabel("Gradient Magnitude", fontsize=16)
                     for k in [0,1,2]:
+                        axs[k][j].set_title(f"{subgoal_label} {titles[k]}", fontsize=16)
+                        axs[k][j].set_ylabel(y_labels[k], fontsize=16)
                         axs[k][j].set_xlabel("Time Step", fontsize=16)
                         axs[k][j].grid(True)
                         axs[k][j].legend()
                         axs[k][j].set_xlim(0, max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values()))
                     
-                    # if ybounds is not None:
-                    #     axs[i].set_ylim(ybounds[i])
-                    # save / show
-                loss_path = os.path.join(save_path, f"records/loss_{goal_key}_{ax_label}.png") if save_path is not None else None
+                        if ybounds is not None:
+                            axs[k][j].set_ylim(ybounds[k][j])
+                # save / show
+                loss_path = os.path.join(save_path, f"records/loss/{goal_key}_{ax_label}.png") if save_path is not None else None
                 self.save_fig(fig_goal, loss_path, show)
+
+    # ================================== saving ==========================================
 
     def save(self, save_path:str):
         with open(os.path.join(save_path, "records/data.pkl"), 'wb') as f:
             pickle.dump(self.variations, f)
 
-    
+    @staticmethod
+    def save_fig(fig:plt.Figure, save_path:str=None, show:bool=False):
+        if save_path is not None:
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            fig.tight_layout()
+            time.sleep(0.3)
+            print(f"Saving to {save_path}...")
+            fig.savefig(save_path)
+        if show:
+            fig.show()
+        plt.close('all')

@@ -88,8 +88,8 @@ class Robot_VelWind_Estimator(RecursiveEstimator):
         super().__init__("RobotVel", 5)
         self.default_state = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0])
         self.default_cov = torch.eye(5) * torch.tensor([1e-3, 1e-3, 1e-3, 1e1, 1e1])
-        self.default_motion_noise = torch.eye(5) * torch.tensor([1e0, 1e0, 5e-2, 1e-1, 1e-1])
-        self.update_uncertainty: torch.Tensor = torch.eye(self.state_dim) * torch.tensor([1e0, 1e0, 2e-2, 1e-1, 1e-1])
+        self.default_motion_noise = torch.eye(5) * torch.tensor([1e0, 1e0, 5e-2, 5e-1, 5e-1])
+        self.update_uncertainty: torch.Tensor = torch.eye(self.state_dim) * torch.tensor([1e0, 1e0, 2e-2, 5e-1, 5e-1])
 
     def forward_model(self, x_mean: torch.Tensor, cov: torch.Tensor, u: torch.Tensor):
         """
