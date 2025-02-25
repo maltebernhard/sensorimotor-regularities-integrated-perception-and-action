@@ -102,16 +102,13 @@ def run_variation(base_run_config, base_env_config, variation_id, variation, wan
 class Analysis:
     def __init__(self, experiment_config: dict):
         self.base_env_config: dict = experiment_config['base_env_config']
-        
-        self.base_run_config: dict = experiment_config['base_run_config']
-        self.base_run_config['render'] = False
-        self.base_run_config['prints'] = 0
-        self.base_run_config['step_by_step'] = False
 
         self.experiment_config = experiment_config
-        self.num_runs = experiment_config["num_runs"]
         self.variations = experiment_config["variations"]
         self.custom_config = experiment_config["custom_config"]
+        self.num_runs = self.custom_config["num_runs"]
+
+        self.base_run_config: dict = self.create_base_run_config()
         
         self.logger = AICONLogger(self.variations)
         self.record_videos = experiment_config["record_videos"]
@@ -127,6 +124,17 @@ class Analysis:
                     "wandb_project": f"aicon-{self.experiment_config['name']}",
                     "wandb_group": self.experiment_config['wandb_group'],
                 }
+
+    def create_base_run_config(self):
+        return {
+            "seed": 1,
+            "render": False,
+            "prints": 0,
+            "step_by_step": False,
+            "num_steps": self.custom_config["num_steps"]
+        }
+
+    # -------------------------------------------------------------------------
 
     def add_and_run_variations(self, variations: List[dict]):
         self.variations += [variation for variation in variations if not any(all(variation[sub_key]==var[sub_key] for sub_key in var) for var in self.variations)]

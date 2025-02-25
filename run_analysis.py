@@ -15,12 +15,10 @@ def get_config_values(key) -> dict:
 def get_config_keys(key) -> dict:
     return [subkey for subkey in getattr(config, key).__dict__.keys() if subkey[0] != "_"]
 
-def create_analysis(name, num_runs, base_env_config, base_run_config, variations, custom_config):
+def create_analysis(name, base_env_config, variations, custom_config):
     return Analysis({
         "name":            name,
-        "num_runs":        num_runs,
         "base_env_config": base_env_config,
-        "base_run_config": base_run_config,
         "record_videos":   False,
         "variations":      variations,
         "wandb":           True,
@@ -33,13 +31,25 @@ def create_analysis_from_custom_config(name: str, custom_config: dict):
     for var in custom_variations:
         var.update(custom_same_for_all)
     variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key not in ["desired_distance", "start_distance"] else val) for key, val in var.items()} for var in custom_variations]
-    return create_analysis(name, runs_per_variation, base_env_config, base_run_config, variations, custom_config)
+    
+    while "num_runs" not in custom_config.keys():
+        try:
+            custom_config["num_runs"] = int(input("Number of runs: "))
+        except:
+            print("Must be an integer.")
+    while "num_steps" not in custom_config.keys():
+        try:
+            custom_config["num_steps"] = int(input("Number of steps per run: "))
+        except:
+            print("Must be an integer")
+    
+    return create_analysis(name, base_env_config, variations, custom_config)
 
 def create_analysis_from_sys_arg(arg):
     if os.path.isfile(arg):
         try:
             with open(arg, "r") as config_file:
-                custom_config = yaml.safe_load(config_file)
+                custom_config: dict = yaml.safe_load(config_file)
             analysis = create_analysis_from_custom_config(arg.split("/")[-1].split(".")[0], custom_config)
         except:
             print("No valid config path.")
@@ -58,16 +68,10 @@ def create_analysis_from_sys_arg(arg):
 # ==================================================================================
 
 base_env_config = {
-    "vel_control":          True,
     "sensor_angle_deg":     360,
     "num_obstacles":        0,
     "timestep":             0.05,
 }
-base_run_config = {
-    "num_steps":        300,
-    "seed":             1,
-}
-runs_per_variation = 5
 
 # ==================================================================================
 
