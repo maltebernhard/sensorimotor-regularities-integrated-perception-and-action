@@ -30,22 +30,22 @@ plotting_state_config:
 
 plotting_style_config:
   stationary_target_aicon:
-    label:     AICON control | stationary target
+    label:     "AICON control\nstationary target"
     color:     blue     # red, green, blue, cyan, magenta, yellow, black, white
     linestyle: solid    # dotted, dashed, dashdot
     linewidth: 2
   sine_target_aicon:
-    label:     AICON control | moving target
+    label:     "AICON control\nmoving target"
     color:     blue
     linestyle: dashed
     linewidth: 2
   stationary_target_manual:
-    label:     designed control | stationary target
+    label:     "designed control\nstationary target"
     color:     red
     linestyle: solid
     linewidth: 2
   sine_target_manual:
-    label:     designed control | moving target
+    label:     "designed control\nmoving target"
     color:     red
     linestyle: dashed
     linewidth: 2

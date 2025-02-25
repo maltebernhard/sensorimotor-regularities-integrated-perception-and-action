@@ -123,7 +123,7 @@ if __name__ == "__main__":
             records_path = "./records"
             found_counter = 0
             for subfolder_name in os.listdir(records_path):
-                if '_'.join(subfolder_name.split('_')[1:]) == custom_name:
+                if '_'.join(subfolder_name.split('_')[:-1]) == custom_name:
                     found_counter += 1
                     analysis = Analysis.load(os.path.join(records_path, subfolder_name))
                     analysis.custom_config = custom_config

@@ -206,7 +206,6 @@ class Analysis:
         records_path = "./records"
         if not os.path.exists(records_path):
             os.makedirs(records_path)
-
         count_num = 0
         for d in os.listdir(records_path):
             full_path = os.path.join(records_path, d)
@@ -215,7 +214,7 @@ class Analysis:
                 if "_".join(parts[:-1]) == self.experiment_config["name"]:
                     count_num += 1
 
-        record_dir = f"{records_path}/{self.experiment_config['name']}_{count_num:02d}"
+        record_dir = f"{records_path}/{self.experiment_config['name']}_{count_num+1:02d}"
         return record_dir
 
     def run_demo(self, variation: dict, run_seed=None, step_by_step:bool=False, record_video=False):

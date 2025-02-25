@@ -41,7 +41,7 @@ plotting_style_config:
     linestyle: solid
     linewidth: 2
   both:
-    label:     Triangulation + Divergence
+    label:     Both
     color:     blue
     linestyle: solid
     linewidth: 2

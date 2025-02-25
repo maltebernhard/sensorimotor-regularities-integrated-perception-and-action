@@ -30,22 +30,22 @@ plotting_state_config:
 
 plotting_style_config:
   flight_target_aicon:
-    label:     AICON control | flight target
+    label:     "AICON control\nfollow"
     color:     blue     # red, green, blue, cyan, magenta, yellow, black, white
     linestyle: solid    # dotted, dashed, dashdot
     linewidth: 2
   chase_target_aicon:
-    label:     AICON control | chase target
+    label:     "AICON control\nevade"
     color:     blue
     linestyle: dashed
     linewidth: 2
   flight_target_manual:
-    label:     designed control | flight target
+    label:     "designed control\nfollow"
     color:     red
     linestyle: solid
     linewidth: 2
   chase_target_manual:
-    label:     designed control | chase target
+    label:     "designed control\nevade"
     color:     red
     linestyle: dashed
     linewidth: 2
