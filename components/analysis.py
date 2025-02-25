@@ -15,6 +15,8 @@ from components.aicon import AICON
 from components.logger import AICONLogger, VariationLogger
 from configs.configs import ExperimentConfig as config
 from model.aicon import SMCAICON
+import os
+import socket
 
 # ========================================================================================================
 
@@ -112,21 +114,19 @@ class Analysis:
         self.custom_config = experiment_config["custom_config"]
         
         self.logger = AICONLogger(self.variations)
-        if "path" in experiment_config:
-            pass
-        elif "name" in experiment_config:
-            self.record_dir = f"records/{datetime.now().strftime('%Y-%m-%d-%H-%M')}_{experiment_config["name"]}/"
-        else:
-            raise ValueError("No Experiment name or path provided.")
         self.record_videos = experiment_config["record_videos"]
+        
+        self.record_dir = self.create_record_dir()
+        self.timestamp = datetime.now().strftime('%Y-%m-%d-%H-%M')
 
         self.wandb_config = None
-        if self.experiment_config['wandb'] and self.experiment_config.get("wandb_group", None) is None:
-            self.experiment_config['wandb_group'] = f"{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
-            self.wandb_config = {
-                "wandb_project": f"aicon-{self.experiment_config['name']}",
-                "wandb_group": self.experiment_config['wandb_group'],
-            }
+        if self.experiment_config['wandb'] and self.check_internet():
+            if self.experiment_config.get("wandb_group", None) is None:
+                self.experiment_config['wandb_group'] = f"{datetime.now().strftime('%Y_%m_%d_%H_%M')}"
+                self.wandb_config = {
+                    "wandb_project": f"aicon-{self.experiment_config['name']}",
+                    "wandb_group": self.experiment_config['wandb_group'],
+                }
 
     def add_and_run_variations(self, variations: List[dict]):
         self.variations += [variation for variation in variations if not any(all(variation[sub_key]==var[sub_key] for sub_key in var) for var in self.variations)]
@@ -181,7 +181,8 @@ class Analysis:
     def save(self):
         os.makedirs(os.path.join(self.record_dir, 'configs'), exist_ok=True)
         os.makedirs(os.path.join(self.record_dir, 'records'), exist_ok=True)
-        open(os.path.join(self.record_dir, 'notes.txt'), 'w').close()
+        with open(os.path.join(self.record_dir, 'notes.txt'), 'w') as file:
+            file.write(f"timestamp: {self.timestamp}\n")
         #self.visualize_graph(aicon=runner.aicon, save=True, show=False)
         with open(os.path.join(self.record_dir, 'configs/experiment_config.yaml'), 'w') as file:
             yaml.dump(self.experiment_config, file)
@@ -200,6 +201,22 @@ class Analysis:
                 analysis.logger.variations[variation_id] = data
         analysis.record_dir = folder
         return analysis
+
+    def create_record_dir(self):
+        records_path = "./records"
+        if not os.path.exists(records_path):
+            os.makedirs(records_path)
+
+        count_num = 0
+        for d in os.listdir(records_path):
+            full_path = os.path.join(records_path, d)
+            if os.path.isdir(full_path):
+                parts = d.split("_")
+                if "_".join(parts[:-1]) == self.experiment_config["name"]:
+                    count_num += 1
+
+        record_dir = f"{records_path}/{self.experiment_config['name']}_{count_num:02d}"
+        return record_dir
 
     def run_demo(self, variation: dict, run_seed=None, step_by_step:bool=False, record_video=False):
         print("================ DEMO Variation ================")
@@ -265,6 +282,16 @@ class Analysis:
             if variation[invariant_key] not in seen_variations:
                 seen_variations.append(variation[invariant_key])
         return len(seen_variations)
+    
+    @staticmethod
+    def check_internet(host="8.8.8.8", port=53, timeout=3):
+        try:
+            socket.setdefaulttimeout(timeout)
+            socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+            return True
+        except socket.error as ex:
+            print(ex)
+            return False
 
     def plot_states_and_losses(self):
         plotting_states_config = self.custom_config["plotting_state_config"]

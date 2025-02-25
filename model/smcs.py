@@ -82,7 +82,9 @@ class Distance_MM(DroneEnv_SMC):
         self.object_name = object_name
         self.moving_object = moving_object
         sensory_components = [f"{object_name.lower()}_distance"]
-        if self.moving_object: sensory_components.append(f"{object_name.lower()}_distance_dot")
+        
+        # TODO: consider whether or not to add distance dot sensor
+        # if self.moving_object: sensory_components.append(f"{object_name.lower()}_distance_dot")
         super().__init__(
             id                 = f"{object_name} Distance",
             state_component    = f"Polar{object_name}Pos",
@@ -96,8 +98,8 @@ class Distance_MM(DroneEnv_SMC):
         ret = {
             f"{self.object_name.lower()}_distance": state[0]
         }
-        if self.moving_object:
-            ret[f"{self.object_name.lower()}_distance_dot"] = state[2] - rotate_vector_2d(-state[1], action[:2])[0]
+        # if self.moving_object:
+        #     ret[f"{self.object_name.lower()}_distance_dot"] = state[2] - rotate_vector_2d(-state[1], action[:2])[0]
         return ret
 
 # --------------------------------------------------------------------------------------------------------
