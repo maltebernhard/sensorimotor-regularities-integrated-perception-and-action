@@ -6,19 +6,19 @@ from run_analysis import create_analysis_from_custom_config
 
 analysis_configs: list[str] = [
     # -------- AICON vs. control --------
-    "classic_exp1.yaml",
-    "classic_exp1_targetflightnchase.yaml",
+    #"classic_exp1.yaml",
+    #"classic_exp1_targetflightnchase.yaml",
 
     # ---------- Disturbances ----------
     # Dist Sensor Failure
-    "classic_exp2_sine.yaml",
+    #"classic_exp2_sine.yaml",
     # Dist Noise
     "non0mean_stationary_smcs.yaml",
     "non0mean_sine_smcs.yaml",
     # Action Disturbance
-    "acc_wind_stationary_smc-comparison.yaml",
-    "acc_wind_sine_smc-comparison.yaml",
-    "acc_wind_stationary_distsensor_smc-comparison.yaml",
+    #"acc_wind_stationary_smc-comparison.yaml",
+    #"acc_wind_sine_smc-comparison.yaml",
+    #"acc_wind_stationary_distsensor_smc-comparison.yaml",
 ]
 
 num_runs:  int = 10
