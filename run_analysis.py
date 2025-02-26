@@ -132,7 +132,7 @@ if __name__ == "__main__":
                     analysis = Analysis.load(os.path.join(records_path, subfolder_name))
                     analysis.custom_config = custom_config
                     analysis.plot_states_and_losses()
-                    analysis.experiment_config["custom_config"] = custom_config
+                    analysis.experiment_config["custom_config"].update(custom_config)
                     analysis.save()
             else:
                 print(f"Replotted {found_counter} analyses.")

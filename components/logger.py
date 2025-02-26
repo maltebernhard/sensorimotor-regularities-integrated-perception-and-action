@@ -372,65 +372,50 @@ class AICONLogger:
                 ucttys[label] = np.array([np.mean(run) for run, col in zip(var_ucttys, var_collisions) if not col[-1]])
 
             # plot absolute_bars
-            for label in plotting_config["axes"].keys():
-                for i in range(len(indices)):
-                    for j, data in enumerate([abs_states, abs_errors, ucttys]):
+            for i in range(len(indices)):
+                for j, data in enumerate([abs_states, abs_errors, ucttys]):
+                    for label in plotting_config["axes"].keys():
+                
                         plot_label = plotting_config['style'][label]['label']
-                        if len(indices) > 1:
-                            # use the label index as the x-position
-                            label_index = list(plotting_config["axes"].keys()).index(label)
-                            axs_abs[j][i].boxplot(
-                                data[label][:, i],
-                                positions=[label_index + 1],
-                                labels=[plot_label],
-                                patch_artist=True,
-                                boxprops=dict(facecolor=plotting_config['style'][label]['color'])
-                            )
-                        else:
-                            label_index = list(plotting_config["axes"].keys()).index(label)
-                            axs_abs[j][i].boxplot(
-                                data[label],
-                                positions=[label_index + 1],
-                                labels=[plot_label],
-                                patch_artist=True,
-                                boxprops=dict(facecolor=plotting_config['style'][label]['color'])
-                            )
-                    for j in range(3):
-                        axs_abs[j][i].set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][j]}")
-                        axs_abs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
-                        axs_abs[j][i].grid(True)#, axis='y')
+                        # use the label index as the x-position
+                        label_index = list(plotting_config["axes"].keys()).index(label)
+                        axs_abs[j][i].boxplot(
+                            data[label],
+                            positions=[label_index + 1],
+                            labels=[plot_label],
+                            patch_artist=True,
+                            boxprops=dict(facecolor=plotting_config['style'][label]['color'])
+                        )
+                    max_val = max(data[label].max() for label in plotting_config["axes"].keys())
+                    axs_abs[j][i].set_ylim(-0.1, max_val * 1.1)
+                    axs_abs[j][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
+                    axs_abs[j][i].set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][j]}")
+                    axs_abs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
+                    axs_abs[j][i].grid(True)#, axis='y')
+            
             # save / show
             path = os.path.join(save_path, f"records/abs_box_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig_abs, path, show)
 
             # plot avg_bars
-            for label in plotting_config["axes"].keys():
-                for i in range(len(indices)):
-                    for j, data in enumerate([states, errors, ucttys]):
+            for i in range(len(indices)):
+                for j, data in enumerate([states, errors, ucttys]):
+                    for label in plotting_config["axes"].keys():
                         plot_label = plotting_config['style'][label]['label']
-                        if len(indices) > 1:
-                            # use the label index as the x-position
-                            label_index = list(plotting_config["axes"].keys()).index(label)
-                            axs[j][i].boxplot(
-                                data[label][:, i],
-                                positions=[label_index + 1],
-                                labels=[plot_label],
-                                patch_artist=True,
-                                boxprops=dict(facecolor=plotting_config['style'][label]['color'])
-                            )
-                        else:
-                            label_index = list(plotting_config["axes"].keys()).index(label)
-                            axs[j][i].boxplot(
-                                data[label],
-                                positions=[label_index + 1],
-                                labels=[plot_label],
-                                patch_artist=True,
-                                boxprops=dict(facecolor=plotting_config['style'][label]['color'])
-                            )
-                    for j in range(3):
-                        axs[j][i].set_title(f"{['Task (Distance) Error', 'Estimation Error', 'Estimation Uncertainty'][j]}")
-                        axs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
-                        axs[j][i].grid(True)#, axis='y')
+                        label_index = list(plotting_config["axes"].keys()).index(label)
+                        axs[j][i].boxplot(
+                            data[label],
+                            positions=[label_index + 1],
+                            labels=[plot_label],
+                            patch_artist=True,
+                            boxprops=dict(facecolor=plotting_config['style'][label]['color'])
+                        )
+                    max_val = max(data[label].max() for label in plotting_config["axes"].keys())
+                    axs_abs[j][i].set_ylim(-0.1, max_val * 1.1)
+                    axs_abs[j][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
+                    axs[j][i].set_title(f"{['Task (Distance) Error', 'Estimation Error', 'Estimation Uncertainty'][j]}")
+                    axs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
+                    axs[j][i].grid(True)#, axis='y')
             # save / show
             path = os.path.join(save_path, f"records/box_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
