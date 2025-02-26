@@ -428,12 +428,12 @@ class AICONLogger:
             ratio_collisions[label] = sum(collisions_run.sum() for collisions_run in var_collisions) / total_runs
         if not all(col == 0 for col in ratio_collisions.values()):
             fig, ax = plt.subplots(1, 1, figsize=(6, 5))
-            ax.grid(axis='y')
+            ax.grid(axis='x')
             for label, ratio in ratio_collisions.items():
-                ax.bar(plotting_config['style'][label]['label'], ratio, color=plotting_config['style'][label]['color'])
+                ax.barh(plotting_config['style'][label]['label'], ratio, color=plotting_config['style'][label]['color'])
             ax.set_title("Collisions")
-            ax.set_ylabel("Avg. Collisions per Run")
-            ax.set_ylim(0, 1)
+            ax.set_xlabel("Avg. Collisions per Run")
+            ax.set_xlim(0, 1)
             path = os.path.join(save_path, f"records/collisions_{plotting_config['name']}.png") if save_path is not None else None
             self.save_fig(fig, path, show)
 
