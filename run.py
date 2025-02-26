@@ -21,7 +21,7 @@ analysis_configs: list[str] = [
     #"acc_wind_stationary_distsensor_smc-comparison.yaml",
 ]
 
-num_runs:  int = 10
+num_runs:  int = 20
 num_steps: int = 500
 
 if __name__ == "__main__":

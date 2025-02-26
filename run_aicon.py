@@ -10,9 +10,9 @@ if __name__ == "__main__":
     # --------------------- config ---------------------
 
     variation_config = {
-        "smcs":              config.smcs.both,
+        "smcs":              config.smcs.tri,
         "distance_sensor":   config.distance_sensor.no_dist_sensor,
-        "controller":        config.controller.aicon,
+        "controller":        config.controller.task,
         "moving_target":     config.moving_target.stationary_target,
         "moving_obstacles":  config.moving_obstacles.chase_obstacle,
         "sensor_noise":      config.sensor_noise.small_noise,
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     base_env_config = {
         "vel_control":          False,
         "sensor_angle_deg":     360,
-        "num_obstacles":        1,
+        "num_obstacles":        0,
         "timestep":             0.05,
     }
 

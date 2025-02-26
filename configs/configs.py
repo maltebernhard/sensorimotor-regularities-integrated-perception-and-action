@@ -139,6 +139,7 @@ class SMCConfig:
 class ControllerConfig:
     aicon  = "aicon"
     manual = "manual"
+    task   = "task"
 
 class DistanceSensorConfig:
     dist_sensor    = "distsensor"
