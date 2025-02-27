@@ -5,7 +5,7 @@ from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
 from model.estimators import Polar_Pos_Estimator, Robot_Vel_Estimator, Robot_Vel_Estimator_Acc_Action, Robot_VelWind_Estimator
 from model.goals import PolarGoToTargetGoal
-from model.smcs import Angle_MM, Distance_MM, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC
+from model.smcs import Angle_MM, Distance_MM, DistanceDot_MM, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC
 
 # ========================================================================================================
 
@@ -45,6 +45,8 @@ class SMCAICON(AICON):
         meas_models["AngleMM"] = (Angle_MM("Target", fv_noise, sensor_angle), ["PolarTargetPos"])
         if self.distance_sensor == "distsensor":
             meas_models["DistanceMM"] = (Distance_MM("Target", target_config, fv_noise, sensor_angle), ["PolarTargetPos"])
+        elif self.distance_sensor == "distdotsensor":
+            meas_models["DistanceMM"] = (DistanceDot_MM("Target", target_config, fv_noise, sensor_angle), ["PolarTargetPos"])
         if "Divergence" in self.smcs:
             # TODO: reflect whether or not we should update vel estimator with smc - maybe only with wind?
             meas_models["DivergenceSMC"] = (Divergence_SMC("Target", target_config, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
@@ -57,6 +59,8 @@ class SMCAICON(AICON):
             meas_models[f"AngleMM{obs+1}"] = (Angle_MM(f"Obstacle{obs+1}", fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
             if self.distance_sensor == "distsensor":
                 meas_models[f"DistanceMM{obs+1}"] = (Distance_MM(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
+            elif self.distance_sensor == "distdotsensor":
+                meas_models[f"DistanceMM{obs+1}"] = (DistanceDot_MM(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
             if "Divergence" in self.smcs:
                 meas_models[f"DivergenceSMC{obs+1}"] = (Divergence_SMC(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), ["RobotVel", f"PolarObstacle{obs+1}Pos"])
             if "Triangulation" in self.smcs:

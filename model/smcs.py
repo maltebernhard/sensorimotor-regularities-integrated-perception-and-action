@@ -101,6 +101,30 @@ class Distance_MM(DroneEnv_SMC):
         # if self.moving_object:
         #     ret[f"{self.object_name.lower()}_distance_dot"] = state[2] - rotate_vector_2d(-state[1], action[:2])[0]
         return ret
+    
+# --------------------------------------------------------------------------------------------------------
+    
+class DistanceDot_MM(DroneEnv_SMC):
+    def __init__(self, object_name:str="Target", moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
+        self.object_name = object_name
+        self.moving_object = moving_object
+        sensory_components = [f"{object_name.lower()}_distance", f"{object_name.lower()}_distance_dot"]
+        super().__init__(
+            id                 = f"{object_name} Distance",
+            state_component    = f"Polar{object_name}Pos",
+            action_component   = "RobotVel",
+            sensory_components = sensory_components,
+            sensor_angle       = sensor_angle,
+            fv_noise           = fv_noise
+        )
+
+    def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
+        distance_dot = - rotate_vector_2d(-state[1], action[:2])[0]
+        if self.moving_object: distance_dot += state[2]
+        return {
+            f"{self.object_name.lower()}_distance": state[0],
+            f"{self.object_name.lower()}_distance_dot": distance_dot
+        }
 
 # --------------------------------------------------------------------------------------------------------
 

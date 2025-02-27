@@ -3,7 +3,7 @@ same_for_all:
   distance_sensor:  dist_sensor
   controller:       aicon
   target_config:    chase_target
-  obstacles: no_obstacles
+  obstacles:        no_obstacles
   sensor_noise:     huge_dist_o_noise
   observation_loss: no_obs_loss
   fv_noise:         no_fv_noise

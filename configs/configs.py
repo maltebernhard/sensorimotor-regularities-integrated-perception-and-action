@@ -142,8 +142,9 @@ class ControllerConfig:
     task   = "task"
 
 class DistanceSensorConfig:
-    dist_sensor    = "distsensor"
-    no_dist_sensor = "nodistsensor"
+    dist_sensor     = "distsensor"
+    dist_dot_sensor = "distdotsensor"
+    no_dist_sensor  = "nodistsensor"
 
 class SensorNoiseConfig:
     small_noise       = general_small_noise
