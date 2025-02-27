@@ -173,7 +173,7 @@ class ObstacleConfig:
     """
     list of tuples: (obstacle_motion, obstacle_vel (relative to max robot vel), obstacle_radius)
     """
-    no_obstacle          = []
+    no_obstacles         = []
     stationary_obstacle  = [("stationary",  0.0, 3.0)]
     chase_obstacle       = [("chase",       0.5, 3.0)]
     rapid_chase_obstacle = [("chase",       0.8, 3.0)]
