@@ -31,22 +31,22 @@ plotting_state_config:
 
 plotting_style_config:
   stationary_aicon:
-    label:     "AICON control\nstationary target"
+    label:     \makebox[1.5cm][l]{AICON} Target Stationary 
     color:     blue     # red, green, blue, cyan, magenta, yellow, black, white
     linestyle: solid    # dotted, dashed, dashdot
     linewidth: 2
   sine_aicon:
-    label:     "AICON control\nmoving target"
+    label:     \makebox[1.5cm][l]{AICON} Target Moves
     color:     blue
     linestyle: dashed
     linewidth: 2
   stationary_manual:
-    label:     "designed control\nstationary target"
+    label:     \makebox[1.5cm][l]{PRC} Target Stationary
     color:     red
     linestyle: solid
     linewidth: 2
   sine_manual:
-    label:     "designed control\nmoving target"
+    label:     \makebox[1.5cm][l]{PRC} Target Moves
     color:     red
     linestyle: dashed
     linewidth: 2

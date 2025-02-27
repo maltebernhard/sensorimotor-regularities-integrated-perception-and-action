@@ -8,6 +8,25 @@ import os
 
 import wandb
 
+# Set up matplotlib to use LaTeX fonts
+plt.rcParams.update(
+    {
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.serif": ["Computer Modern Roman"],
+        "figure.figsize": (7, 5),
+        "savefig.dpi": 300,
+        "axes.titlesize": 13,
+        "axes.labelsize": 13,
+        "font.size": 12,
+        "legend.fontsize": 11,
+        "xtick.labelsize": 11,
+        "ytick.labelsize": 11,
+        "savefig.format": "pdf",
+        "savefig.bbox": "tight",
+    }
+)
+
 from components.helpers import rotate_vector_2d
 os.environ["WANDB_SILENT"] = "true"
 
@@ -397,7 +416,7 @@ class AICONLogger:
                     axs_abs[j][i].grid(True)#, axis='y')
             
             # save / show
-            path = os.path.join(save_path, f"records/abs_box_{plotting_config['name']}.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/abs_box_{plotting_config['name']}") if save_path is not None else None
             self.save_fig(fig_abs, path, show)
 
             # plot avg_bars
@@ -421,7 +440,7 @@ class AICONLogger:
                     axs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
                     axs[j][i].grid(True)#, axis='y')
             # save / show
-            path = os.path.join(save_path, f"records/box_{plotting_config['name']}.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/box_{plotting_config['name']}") if save_path is not None else None
             self.save_fig(fig, path, show)
 
         ratio_collisions = {}
@@ -438,7 +457,7 @@ class AICONLogger:
             ax.set_title("Collisions")
             ax.set_xlabel("Avg. Collisions per Run")
             ax.set_xlim(0, 1)
-            path = os.path.join(save_path, f"records/collisions_{plotting_config['name']}.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/collisions_{plotting_config['name']}") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
@@ -495,7 +514,7 @@ class AICONLogger:
                     self.plot_mean_stddev(axs[1][i], error_means[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], error_stddevs[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], error_collisions, label, plotting_config)
                     self.plot_mean_stddev(axs[2][i], uctty_means[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], uctty_stddevs[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], uctty_collisions, label, plotting_config)    
             
-            titles   = ["Task State", "Estimation Error", "Estimation Uncertainty"]
+            titles   = ["Task Error", "Estimation Error", "Estimation Uncertainty"]
             y_labels = ["Distance to Target", "Distance Estimation Error", "Distance Estimation Uncertainty (stddev)"]
             max_steps = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
             for j in range(3):
@@ -509,7 +528,7 @@ class AICONLogger:
                     axs[j][i].set_ylim(ybounds[j][i])
             
             # save / show
-            path = os.path.join(save_path, f"records/state_{plotting_config['name']}.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/state_{plotting_config['name']}") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_state_runs(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], axs_id: str, runs: list[int], save_path:str=None, show:bool=False):
@@ -546,7 +565,7 @@ class AICONLogger:
                 axs[2][i].set_xlim(xbounds[0], min(xbounds[1], len_data))
 
             # save / show
-            path = os.path.join(save_path, f"records/runs/{axs_id}.png") if save_path is not None else None
+            path = os.path.join(save_path, f"records/runs/{axs_id}") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], plot_subgoals:bool, save_path:str=None, show:bool=False):
@@ -594,7 +613,7 @@ class AICONLogger:
             if ybounds is not None:
                 axs[i].set_ylim(ybounds[i])
         # save / show
-        loss_path = os.path.join(save_path, f"records/loss/{plotting_config['name']}.png") if save_path is not None else None
+        loss_path = os.path.join(save_path, f"records/loss/{plotting_config['name']}") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)
 
     def plot_losses_and_gradients(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
@@ -677,7 +696,7 @@ class AICONLogger:
                         if ybounds is not None:
                             axs[k][j].set_ylim(ybounds[k][j])
                 # save / show
-                loss_path = os.path.join(save_path, f"records/loss/{goal_key}_{ax_label}.png") if save_path is not None else None
+                loss_path = os.path.join(save_path, f"records/loss/{goal_key}_{ax_label}") if save_path is not None else None
                 self.save_fig(fig_goal, loss_path, show)
 
     # ================================== saving ==========================================
@@ -693,7 +712,7 @@ class AICONLogger:
             fig.tight_layout()
             time.sleep(0.3)
             print(f"Saving to {save_path}...")
-            fig.savefig(save_path)
+            fig.savefig(save_path+'.pdf', format='pdf')
         if show:
             fig.show()
         plt.close('all')
