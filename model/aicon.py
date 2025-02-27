@@ -71,22 +71,19 @@ class SMCAICON(AICON):
         active_interconnections = {}
         return active_interconnections
 
-    def define_goals(self):
-        goals = {
-            "PolarGoToTarget": PolarGoToTargetGoal(),
-        }
-        return goals
+    def define_goal(self):
+        return PolarGoToTargetGoal()
 
     def eval_interconnections(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         return buffer_dict
 
-    def compute_action_gradients(self):
+    def compute_action_gradient(self):
         if self.control == "aicon":
-            return super().compute_action_gradients()
+            return super().compute_action_gradient()
         elif self.control in ["task", "manual"]:
             # goal control
             task_grad = torch.zeros(3)
-            task_vel_radial = 2e-1 * (self.REs["PolarTargetPos"].mean[0] - self.goals["PolarGoToTarget"].desired_distance)
+            task_vel_radial = 2e-1 * (self.REs["PolarTargetPos"].mean[0] - self.goal.desired_distance)
             task_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].mean[1], torch.tensor([task_vel_radial, 0.0])).squeeze()
 
             # smc control
@@ -97,23 +94,23 @@ class SMCAICON(AICON):
                 unc_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].mean[1], torch.tensor([unc_vel_radial, unc_vel_tangential])).squeeze()
                 unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].cov[0][0] * self.REs["PolarTargetPos"].mean[1].sign() if len(self.env.fv_noise) > 0 else 0.0
             
-            return {"PolarGoToTarget": {
+            return {
                 "target_distance":             task_grad,
                 "target_distance_uncertainty": unc_grad,
                 "total":                       task_grad + unc_grad
-            }}
+            }
         else:
             raise ValueError("Invalid control type")
 
-    def compute_action_from_gradient(self, gradients):
+    def compute_action_from_gradient(self, gradient):
         # TODO: improve timestep scaling of action generation
         if self.env_config["action_mode"] == 3:
             decay = 0.9 ** (self.env_config["timestep"] / 0.05)
-            gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 3e1]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+            gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 3e1]) * self.env_config["timestep"] * gradient
         elif self.env_config["action_mode"] == 1:
             #decay = 0.9 ** (self.env_config["timestep"] / 0.05)
             decay = 1.0
-            gradient_action = decay * self.last_action - torch.tensor([2e1, 2e1, 0.0]) * self.env_config["timestep"] * gradients["PolarGoToTarget"]
+            gradient_action = decay * self.last_action - torch.tensor([2e1, 2e1, 0.0]) * self.env_config["timestep"] * gradient
         return gradient_action
     
     def print_estimators(self, buffer_dict=None):

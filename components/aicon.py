@@ -26,7 +26,7 @@ class AICON(ABC):
         self.obs: Dict[str, Observation] = self.set_observations()
         self.set_static_sensor_noises()
         self.connect_states()
-        self.goals: Dict[str, Goal] = self.define_goals()
+        self.goal: Goal = self.define_goal()
         self.last_action: torch.Tensor = torch.tensor([0.0, 0.0, 0.0])
         self.prints = 0
         self.current_step = 0
@@ -45,7 +45,7 @@ class AICON(ABC):
         assert self.REs is not None, "Estimators not set"
         assert self.MMs is not None, "Measurement Models not set"
         assert self.AIs is not None, "Active Interconnections not set"
-        assert self.goals is not None, "Goals not set"
+        assert self.goal is not None, "Goal not set"
         self.reset(seed=env_seed, video_path=video_path)
         if initial_action is not None:
             self.last_action = initial_action
@@ -79,7 +79,7 @@ class AICON(ABC):
                     estimators = {key: val for key, val in buffer_dict.items() if key in self.REs.keys()},
                     env_state = env_state,
                     observation = {key: {"measurement": self.last_observation[0][key], "noise": self.last_observation[1][key]} for key in self.last_observation[0].keys()},
-                    goal_loss = {key: goal.loss_function_from_buffer(buffer_dict) for key, goal in self.goals.items()},
+                    goal_loss = self.goal.loss_function_from_buffer(buffer_dict),
                     action = action,
                     gradients = gradients,
                 )
@@ -229,25 +229,23 @@ class AICON(ABC):
         return jacobian, step_eval
 
     def compute_action(self):
-        gradients = self.compute_action_gradients()
-        return gradients, self.compute_action_from_gradient({key: gradient["total"] for key, gradient in gradients.items()})
+        gradient = self.compute_action_gradient()
+        return gradient, self.compute_action_from_gradient(gradient["total"])
 
-    def compute_action_gradients(self):
-        gradients: Dict[str, Dict[str,torch.Tensor]] = {}
-        for goal_key, goal in self.goals.items():
-            gradients[goal_key] = self.compute_goal_action_gradient(goal)
-        for goal_key, gradient in gradients.items():
-            gradients[goal_key]["total"] = torch.zeros_like(list(gradient.values())[0])
-            for gradkey, grad in gradient.items():
-                if gradkey != "total":
-                    gradients[goal_key]["total"] += grad
-            if self.prints>0 and self.current_step % self.prints == 0:
-                print(f"------------ {goal_key} Gradients ------------")
-                for gradkey, grad in gradient.items():
-                    if not torch.allclose(grad, torch.zeros_like(grad)):
-                        print(f"{gradkey}: {[f'{-x:.3f}' for x in grad.tolist()]}")
-                print("------------------------------------------------------")
-        return gradients
+    def compute_action_gradient(self):
+        gradient_dict: Dict[str,torch.Tensor] = {}
+        gradient_dict = self.compute_goal_action_gradient(self.goal)
+        gradient_dict["total"] = torch.zeros_like(list(gradient_dict.values())[0])
+        for gradkey, grad in gradient_dict.items():
+            if gradkey != "total":
+                gradient_dict["total"] += grad
+        if self.prints>0 and self.current_step % self.prints == 0:
+            print(f"------------ Gradients ------------")
+            for gradkey, grad in gradient_dict.items():
+                if not torch.allclose(grad, torch.zeros_like(grad)):
+                    print(f"{gradkey}: {[f'{-x:.3f}' for x in grad.tolist()]}")
+            print("------------------------------------------------------")
+        return gradient_dict
 
     def get_steepest_gradient(self, gradients: Dict[str, torch.Tensor]):
         steepest_gradient = gradients.values()[0]
@@ -347,7 +345,7 @@ class AICON(ABC):
         raise NotImplementedError
     
     @abstractmethod
-    def define_goals(self) -> Dict[str, Goal]:
+    def define_goal(self) -> Goal:
         """
         MUST be implemented by user. Returns the goals
         """
@@ -380,11 +378,11 @@ class AICON(ABC):
         """
         pass
 
-    def compute_action_from_gradient(self, gradients):
+    def compute_action_from_gradient(self, gradient):
         """
         CAN be implemented by user. Computes the action based on the gradients
         """
-        return self.last_action - 1.0 * self.get_steepest_gradient(gradients)
+        return self.last_action - 1.0 * gradient
 
     def print_estimators(self):
         """
@@ -455,6 +453,6 @@ class DroneEnvAICON(AICON):
         return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
 
     def custom_reset(self):
-        self.goals["PolarGoToTarget"].desired_distance = self.env.target.distance
-        self.goals["PolarGoToTarget"].num_obstacles = self.env.num_obstacles
+        self.goal.desired_distance = self.env.target.distance
+        self.goal.num_obstacles = self.env.num_obstacles
     

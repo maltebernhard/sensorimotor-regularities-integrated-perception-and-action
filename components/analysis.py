@@ -310,7 +310,6 @@ class Analysis:
         plotting_config = {
             "name":         "main",
             "states":       plotting_states_config,
-            "goals":        {"PolarGoToTarget": {}},
             "axes":         axes,
             "exclude_runs": [],
             "style":        plot_styles

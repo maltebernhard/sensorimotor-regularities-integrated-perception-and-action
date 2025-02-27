@@ -56,7 +56,7 @@ class VariationLogger:
             self.log_wandb(step_log)
         self.log_local(step_log)
 
-    def create_run_dict(self, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradients: Dict[str,Dict[str,torch.Tensor]]):
+    def create_run_dict(self, estimators: Dict[str,Dict[str,torch.Tensor]], env_state: Dict[str,float], observation: Dict[str,Dict[str,float]], goal_loss: Dict[str,Dict[str,torch.Tensor]], action: torch.Tensor, gradient: Dict[str,torch.Tensor]):
         # TODO: skip runs which are already logged
         self.data[self.run_seed] = {
                 "step":                 np.array([]),     # time step
@@ -73,18 +73,15 @@ class VariationLogger:
                     "noise_mean":       np.array([]),     # mean of noise
                     "noise_stddev":     np.array([]),     # stddev of noise
                 } for obs_key in observation.keys()},
-                "goal_loss": {goal_key: {
+                "goal_loss": {
                     subgoal_key:        np.array([])     # goal loss function value
-                    for subgoal_key in goal_loss[goal_key].keys()}
-                for goal_key in goal_loss.keys()},
-                "gradient": {goal_key: {
-                    subgoal_key:        np.empty((0,) + gradients[goal_key][subgoal_key].shape)     # gradient of goal loss function
-                    for subgoal_key in gradients[goal_key].keys()}
-                for goal_key in gradients.keys()},
-                "rtf_gradient": {goal_key: {
-                    subgoal_key:        np.empty((0,) + gradients[goal_key][subgoal_key].shape)     # gradient of goal loss function
-                    for subgoal_key in gradients[goal_key].keys()}
-                for goal_key in gradients.keys()},
+                for subgoal_key in goal_loss.keys()},
+                "gradient": {
+                    subgoal_key:        np.empty((0,) + gradient[subgoal_key].shape)     # gradient of goal loss function
+                for subgoal_key in gradient.keys()},
+                "rtf_gradient": {
+                    subgoal_key:        np.empty((0,) + gradient[subgoal_key].shape)     # gradient of goal loss function
+                for subgoal_key in gradient.keys()},
                 "action":               np.empty((0,) + action.shape),     # action
                 "rtf_action":           np.empty((0,) + action.shape),     # action rotated to target frame
                 "desired_distance":     env_state["desired_target_distance"],
@@ -158,9 +155,9 @@ class VariationLogger:
                     "noise_stddev":     observation[obs_key]["noise"][1],
                 } for obs_key in observation.keys()
             },
-            "goal_loss":                {goal_key: {subgoal_key: goal_loss[goal_key][subgoal_key].cpu().numpy() for subgoal_key in goal_loss[goal_key].keys()} for goal_key in goal_loss.keys()},
-            "gradient":                 {goal_key: {subgoal_key: gradients[goal_key][subgoal_key].cpu().numpy() for subgoal_key in gradients[goal_key].keys()} for goal_key in gradients.keys()},
-            "rtf_gradient":             {goal_key: {subgoal_key: np.append(rotate_vector_2d(-estimators["PolarTargetPos"]['mean'][1],gradients[goal_key][subgoal_key].cpu().numpy()[:2]),gradients[goal_key][subgoal_key].cpu().numpy()[2]) for subgoal_key in gradients[goal_key].keys()} for goal_key in gradients.keys()},
+            "goal_loss":                {subgoal_key: goal_loss[subgoal_key].cpu().numpy() for subgoal_key in goal_loss.keys()},
+            "gradient":                 {subgoal_key: gradients[subgoal_key].cpu().numpy() for subgoal_key in gradients.keys()},
+            "rtf_gradient":             {subgoal_key: np.append(rotate_vector_2d(-estimators["PolarTargetPos"]['mean'][1],gradients[subgoal_key].cpu().numpy()[:2]),gradients[subgoal_key].cpu().numpy()[2]) for subgoal_key in gradients.keys()},
             "action":                   action.cpu().numpy(),
             "rtf_action":               np.append(rotate_vector_2d(-estimators["PolarTargetPos"]['mean'][1],action.cpu().numpy()[:2]),action.cpu().numpy()[2]),
         }
@@ -199,13 +196,11 @@ class VariationLogger:
         for obs_key in step_log["observation"].keys():
             for sub_key in step_log["observation"][obs_key].keys():
                 self.data[self.run_seed]["observation"][obs_key][sub_key] = np.append(self.data[self.run_seed]["observation"][obs_key][sub_key], [step_log["observation"][obs_key][sub_key]], axis=0)
-        for goal_key in step_log["goal_loss"].keys():
-            for subgoal_key in step_log["goal_loss"][goal_key].keys():
-                self.data[self.run_seed]["goal_loss"][goal_key][subgoal_key] = np.append(self.data[self.run_seed]["goal_loss"][goal_key][subgoal_key], [step_log["goal_loss"][goal_key][subgoal_key]], axis=0)
-        for goal_key in step_log["gradient"].keys():
-            for subgoal_key in step_log["gradient"][goal_key].keys():
-                self.data[self.run_seed]["gradient"][goal_key][subgoal_key] = np.append(self.data[self.run_seed]["gradient"][goal_key][subgoal_key], [step_log["gradient"][goal_key][subgoal_key]], axis=0)
-                self.data[self.run_seed]["rtf_gradient"][goal_key][subgoal_key] = np.append(self.data[self.run_seed]["rtf_gradient"][goal_key][subgoal_key], [step_log["rtf_gradient"][goal_key][subgoal_key]], axis=0)
+        for subgoal_key in step_log["goal_loss"].keys():
+            self.data[self.run_seed]["goal_loss"][subgoal_key] = np.append(self.data[self.run_seed]["goal_loss"][subgoal_key], [step_log["goal_loss"][subgoal_key]], axis=0)
+        for subgoal_key in step_log["gradient"].keys():
+            self.data[self.run_seed]["gradient"][subgoal_key] = np.append(self.data[self.run_seed]["gradient"][subgoal_key], [step_log["gradient"][subgoal_key]], axis=0)
+            self.data[self.run_seed]["rtf_gradient"][subgoal_key] = np.append(self.data[self.run_seed]["rtf_gradient"][subgoal_key], [step_log["rtf_gradient"][subgoal_key]], axis=0)
         self.data[self.run_seed]["action"] = np.append(self.data[self.run_seed]["action"], [step_log["action"]], axis=0)
         self.data[self.run_seed]["rtf_action"] = np.append(self.data[self.run_seed]["rtf_action"], [step_log["rtf_action"]], axis=0)
 
@@ -569,49 +564,35 @@ class AICONLogger:
             self.save_fig(fig, path, show)
 
     def plot_goal_losses(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], plot_subgoals:bool, save_path:str=None, show:bool=False):
-        if not "style" in plotting_config.keys():
-            plotting_config["style"] = {}
-            colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'purple', 'brown', 'pink']
-            for i, ax_label in enumerate(plotting_config["axes"].keys()):
-                for label in [f"{ax_label} total loss"] + [f"{ax_label} {subgoal_key} loss" for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"]]:
-                    plotting_config["style"][label] = {'color': colors[i]}
-        else:
-            for label, style in list(plotting_config["style"].items()):
-                plotting_config["style"][f"{label} total loss"] = style
-                for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"]:
-                    plotting_config["style"][f"{label} {subgoal_key} loss"] = style
-        num_goals = len(plotting_config["goals"])
+        for label, style in list(plotting_config["style"].items()):
+            plotting_config["style"][f"{label} total loss"] = style
+            for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"]:
+                plotting_config["style"][f"{label} {subgoal_key} loss"] = style
         # Plot goal losses
-        fig_goal, axs = plt.subplots(1, num_goals, figsize=(12, 10*num_goals))
-        if num_goals == 1:
-            axs = [axs]
+        fig_goal, ax = plt.subplots(1, 1, figsize=(12, 10))
         
         xbounds = plotting_config["states"]["PolarTargetPos"]["xbounds"]
         len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
         
-        for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
-            ybounds = config.get("ybounds")
-            for label, variation in plotting_config["axes"].items():
-                self.set_variation(variation)
-                total_loss = [[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"][goal_key].keys():
-                    goal_losses = [run_data["goal_loss"][goal_key][subgoal_key] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                    for j in range(len(total_loss)):
-                        total_loss[j] += goal_losses[j]
-                    if plot_subgoals:
-                        goal_loss_means, goal_loss_stddevs, goal_loss_collisions = self.compute_mean_and_stddev(goal_losses, collisions)
-                        self.plot_mean_stddev(axs[i], goal_loss_means, goal_loss_stddevs, goal_loss_collisions, f"{label} {subgoal_key} loss", "Loss Mean and Stddev", plotting_config)
-                total_loss_means, total_loss_stddevs, total_loss_collisions = self.compute_mean_and_stddev(total_loss, collisions)
-                self.plot_mean_stddev(axs[i], total_loss_means, total_loss_stddevs, total_loss_collisions, f"{label} total loss", plotting_config)
-            axs[i].set_title(f"{goal_key} Goal Loss", fontsize=16)
-            axs[i].set_ylabel("Loss Value", fontsize=16)
-            axs[i].set_xlabel("Time Step", fontsize=16)
-            axs[i].grid(True)
-            axs[i].legend()
-            axs[i].set_xlim(xbounds[0], min(xbounds[1], len_data))
-            if ybounds is not None:
-                axs[i].set_ylim(ybounds[i])
+        for label, variation in plotting_config["axes"].items():
+            self.set_variation(variation)
+            total_loss = [[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+            collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+            for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"].keys():
+                goal_losses = [run_data["goal_loss"][subgoal_key] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                for j in range(len(total_loss)):
+                    total_loss[j] += goal_losses[j]
+                if plot_subgoals:
+                    goal_loss_means, goal_loss_stddevs, goal_loss_collisions = self.compute_mean_and_stddev(goal_losses, collisions)
+                    self.plot_mean_stddev(ax, goal_loss_means, goal_loss_stddevs, goal_loss_collisions, f"{label} {subgoal_key} loss", "Loss Mean and Stddev", plotting_config)
+            total_loss_means, total_loss_stddevs, total_loss_collisions = self.compute_mean_and_stddev(total_loss, collisions)
+            self.plot_mean_stddev(ax, total_loss_means, total_loss_stddevs, total_loss_collisions, f"{label} total loss", plotting_config)
+        ax.set_title("Goal Loss", fontsize=16)
+        ax.set_ylabel("Loss Value", fontsize=16)
+        ax.set_xlabel("Time Step", fontsize=16)
+        ax.grid(True)
+        ax.legend()
+        ax.set_xlim(xbounds[0], min(xbounds[1], len_data))
         # save / show
         loss_path = os.path.join(save_path, f"records/loss/{plotting_config['name']}") if save_path is not None else None
         self.save_fig(fig_goal, loss_path, show)
@@ -636,68 +617,66 @@ class AICONLogger:
         xbounds = plotting_config["states"]["PolarTargetPos"]["xbounds"]
         len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
 
-        for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
-            ybounds = config.get("ybounds",None)
-            for ax_label, variation in plotting_config["axes"].items():
-                fig_goal, axs = plt.subplots(3, 3, figsize=(14, 12))
-                self.set_variation(variation)
+        y_lim_start = min(int(len_data/2),100)
 
-                # HACK: exclude all runs except first, to get gradients that make sense instead of mean/stddev
-                plotting_config['exclude_runs'] = [run for run in list(self.variations[self.current_variation_id]['data'].keys())[1:]]
-                collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+        for ax_label, variation in plotting_config["axes"].items():
+            fig_goal, axs = plt.subplots(3, 3, figsize=(14, 12))
+            self.set_variation(variation)
+
+            # HACK: exclude all runs except first, to get gradients that make sense instead of mean/stddev
+            plotting_config['exclude_runs'] = [run for run in list(self.variations[self.current_variation_id]['data'].keys())[1:]]
+            collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+            
+            total_loss = [[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+            task_loss = [run_data["goal_loss"]["target_distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+            uctty_loss = [run_data["goal_loss"]["target_distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+            for j in range(len(total_loss)):
+                total_loss[j] = task_loss[j] + uctty_loss[j]
+
+            action = np.array([run_data["rtf_action"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+
+            task_grad =  np.array([run_data["rtf_gradient"]["target_distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+            uctty_grad = np.array([run_data["rtf_gradient"]["target_distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+            total_grad = np.array([run_data["rtf_gradient"]["total"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+            
+            for j, loss in enumerate([total_loss, task_loss, uctty_loss]):
+                loss_means, loss_stddevs, loss_collisions = self.compute_mean_and_stddev(loss, collisions)
+                self.plot_mean_stddev(axs[0][j], loss_means, loss_stddevs, loss_collisions, ax_label, plotting_config)
+                axs[0][j].set_ylim(np.min(loss_means[y_lim_start:]), np.max(loss_means[y_lim_start:]))
+
+            action_means_frontal, action_stddevs_frontal, action_collisions_frontal = self.compute_mean_and_stddev(action[:,:,0], collisions)
+            action_means_lateral, action_stddevs_lateral, action_collisions_lateral = self.compute_mean_and_stddev(action[:,:,1], collisions)
+            for j in [0,1,2]:
+                self.plot_mean_stddev(axs[1][j], action_means_frontal, action_stddevs_frontal, action_collisions_frontal, f"{ax_label} frontal", plotting_config)
+                self.plot_mean_stddev(axs[1][j], action_means_lateral, action_stddevs_lateral, action_collisions_lateral, f"{ax_label} lateral", plotting_config)
+                axs[1][j].set_ylim(np.min([np.min(data[y_lim_start:]) for data in [action_means_frontal, action_means_lateral]]), np.max([np.max(data[y_lim_start:]) for data in [action_means_frontal, action_means_lateral]]))
+
+            for j, grad in enumerate([total_grad, task_grad, uctty_grad]):
+                grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal = self.compute_mean_and_stddev(grad[:,:,0], collisions)
+                grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral = self.compute_mean_and_stddev(grad[:,:,1], collisions)
+                self.plot_mean_stddev(axs[2][j], grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
+                self.plot_mean_stddev(axs[2][j], grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
+                axs[2][j].set_ylim(np.min([np.min(data[y_lim_start:]) for data in [grad_means_frontal, grad_means_lateral]]), np.max([np.max(data[y_lim_start:]) for data in [grad_means_frontal, grad_means_lateral]]))
+
+            titles = ["loss", "action", "gradient"]
+            y_labels = ["Loss Value", "Action Magnitude", "Gradient Magnitude"]
+            for j, subgoal_label in enumerate(subgoal_labels):
                 
-                total_loss = [[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                task_loss = [run_data["goal_loss"][goal_key]["target_distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                uctty_loss = [run_data["goal_loss"][goal_key]["target_distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                for j in range(len(total_loss)):
-                    total_loss[j] = task_loss[j] + uctty_loss[j]
+                axs[1][j].set_title(f"{subgoal_label} action", fontsize=16)
+                axs[1][j].set_ylabel("Action Magnitude", fontsize=16)
+                axs[2][j].set_title(f"{subgoal_label} gradient", fontsize=16)
+                axs[2][j].set_ylabel("Gradient Magnitude", fontsize=16)
+                for k in [0,1,2]:
+                    axs[k][j].set_title(f"{subgoal_label} {titles[k]}", fontsize=16)
+                    axs[k][j].set_ylabel(y_labels[k], fontsize=16)
+                    axs[k][j].set_xlabel("Time Step", fontsize=16)
+                    axs[k][j].grid(True)
+                    axs[k][j].legend()
+                    axs[k][j].set_xlim(0, min(xbounds[1], len_data))
 
-                action = np.array([run_data["rtf_action"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-
-                task_grad =  np.array([run_data["rtf_gradient"][goal_key]["target_distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-                uctty_grad = np.array([run_data["rtf_gradient"][goal_key]["target_distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-                total_grad = np.array([run_data["rtf_gradient"][goal_key]["total"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-                
-                for j, loss in enumerate([total_loss, task_loss, uctty_loss]):
-                    loss_means, loss_stddevs, loss_collisions = self.compute_mean_and_stddev(loss, collisions)
-                    self.plot_mean_stddev(axs[0][j], loss_means, loss_stddevs, loss_collisions, ax_label, plotting_config)
-                    axs[0][j].set_ylim(np.min(loss_means[100:]), np.max(loss_means[100:]))
-
-                action_means_frontal, action_stddevs_frontal, action_collisions_frontal = self.compute_mean_and_stddev(action[:,:,0], collisions)
-                action_means_lateral, action_stddevs_lateral, action_collisions_lateral = self.compute_mean_and_stddev(action[:,:,1], collisions)
-                for j in [0,1,2]:
-                    self.plot_mean_stddev(axs[1][j], action_means_frontal, action_stddevs_frontal, action_collisions_frontal, f"{ax_label} frontal", plotting_config)
-                    self.plot_mean_stddev(axs[1][j], action_means_lateral, action_stddevs_lateral, action_collisions_lateral, f"{ax_label} lateral", plotting_config)
-                    axs[1][j].set_ylim(np.min([np.min(data[100:]) for data in [action_means_frontal, action_means_lateral]]), np.max([np.max(data[100:]) for data in [action_means_frontal, action_means_lateral]]))
-
-                for j, grad in enumerate([total_grad, task_grad, uctty_grad]):
-                    grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal = self.compute_mean_and_stddev(grad[:,:,0], collisions)
-                    grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral = self.compute_mean_and_stddev(grad[:,:,1], collisions)
-                    self.plot_mean_stddev(axs[2][j], grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
-                    self.plot_mean_stddev(axs[2][j], grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
-                    axs[2][j].set_ylim(np.min([np.min(data[100:]) for data in [grad_means_frontal, grad_means_lateral]]), np.max([np.max(data[100:]) for data in [grad_means_frontal, grad_means_lateral]]))
-
-                titles = ["loss", "action", "gradient"]
-                y_labels = ["Loss Value", "Action Magnitude", "Gradient Magnitude"]
-                for j, subgoal_label in enumerate(subgoal_labels):
-                    
-                    axs[1][j].set_title(f"{subgoal_label} action", fontsize=16)
-                    axs[1][j].set_ylabel("Action Magnitude", fontsize=16)
-                    axs[2][j].set_title(f"{subgoal_label} gradient", fontsize=16)
-                    axs[2][j].set_ylabel("Gradient Magnitude", fontsize=16)
-                    for k in [0,1,2]:
-                        axs[k][j].set_title(f"{subgoal_label} {titles[k]}", fontsize=16)
-                        axs[k][j].set_ylabel(y_labels[k], fontsize=16)
-                        axs[k][j].set_xlabel("Time Step", fontsize=16)
-                        axs[k][j].grid(True)
-                        axs[k][j].legend()
-                        axs[k][j].set_xlim(0, min(xbounds[1], len_data))
-                    
-                        if ybounds is not None:
-                            axs[k][j].set_ylim(ybounds[k][j])
-                # save / show
-                loss_path = os.path.join(save_path, f"records/loss/{goal_key}_{ax_label}") if save_path is not None else None
-                self.save_fig(fig_goal, loss_path, show)
+            # save / show
+            loss_path = os.path.join(save_path, f"records/loss/goal_gradients_{ax_label}") if save_path is not None else None
+            self.save_fig(fig_goal, loss_path, show)
 
     # ================================== saving ==========================================
 
