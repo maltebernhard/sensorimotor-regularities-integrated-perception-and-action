@@ -69,7 +69,6 @@ def create_analysis_from_sys_arg(arg):
 
 base_env_config = {
     "sensor_angle_deg":     360,
-    "num_obstacles":        0,
     "timestep":             0.05,
 }
 

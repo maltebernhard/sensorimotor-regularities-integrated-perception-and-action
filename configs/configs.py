@@ -159,20 +159,24 @@ class FovealVisionNoiseConfig:
     fv_noise    = fv_noise
     no_fv_noise = {}
 
-class MovingTargetConfig:
+class TargetConfig:
     """
-    first tuple value defines movement direction pattern, second defines fraction of robot max vel
+    tuple: (target_motion, target_vel (relative to max robot vel), target_radius)
     """
-    stationary_target = ("stationary", 0.0)
-    linear_target     = ("linear",     0.5)
-    sine_target       = ("sine",       0.5)
-    flight_target     = ("flight",     0.5)
-    chase_target      = ("chase",      0.5)
+    stationary_target = ("stationary", 0.0, 1.0)
+    linear_target     = ("linear",     0.5, 1.0)
+    sine_target       = ("sine",       0.5, 1.0)
+    flight_target     = ("flight",     0.5, 1.0)
+    chase_target      = ("chase",      0.5, 1.0)
 
-class MovingObstacleConfig:
-    stationary_obstacle  = ("stationary",  0.0)
-    chase_obstacle       = ("chase",       0.5)
-    rapid_chase_obstacle = ("chase",       0.8)
+class ObstacleConfig:
+    """
+    list of tuples: (obstacle_motion, obstacle_vel (relative to max robot vel), obstacle_radius)
+    """
+    no_obstacle          = []
+    stationary_obstacle  = [("stationary",  0.0, 3.0)]
+    chase_obstacle       = [("chase",       0.5, 3.0)]
+    rapid_chase_obstacle = [("chase",       0.8, 3.0)]
 
 class ObservationLossConfig:
     no_obs_loss = no_obs_loss
@@ -192,14 +196,14 @@ class ControlConfig:
 # ---------------------- collection with keys --------------------------------
 
 class ExperimentConfig:
-    keys = ["smcs", "control", "distance_sensor", "sensor_noise", "fv_noise", "moving_target", "observation_loss", "controller"]
+    keys = ["smcs", "control", "distance_sensor", "sensor_noise", "fv_noise", "target_config", "observation_loss", "controller"]
     smcs             = SMCConfig
     controller       = ControllerConfig
     distance_sensor  = DistanceSensorConfig
     sensor_noise     = SensorNoiseConfig
     fv_noise         = FovealVisionNoiseConfig
-    moving_target    = MovingTargetConfig
-    moving_obstacles = MovingObstacleConfig
+    target_config    = TargetConfig
+    obstacles        = ObstacleConfig
     observation_loss = ObservationLossConfig
     wind             = WindConfig
     control          = ControlConfig

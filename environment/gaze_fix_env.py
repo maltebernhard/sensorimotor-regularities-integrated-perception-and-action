@@ -48,16 +48,20 @@ class Robot:
         self.vel_rot: float = 0.0
 
 class EnvObject:
-    def __init__(self, pos=np.zeros(2), vel=0.0, base_movement_direction=0.0, radius=1.0):
+    def __init__(self, pos=np.zeros(2), config:tuple=("stationary", 0.0, 1.0), max_vel=0.0):
         self.pos = pos
-        self.base_movement_direction = base_movement_direction
-        self.current_movement_direction = base_movement_direction
-        self.vel = vel
-        self.radius = radius
+        self.motion_config = config[0]
+        self.set_base_movement_direction()
+        self.vel = config[1] * max_vel
+        self.radius = config[2]
+
+    def set_base_movement_direction(self):
+        self.base_movement_direction = np.random.uniform(-np.pi, np.pi)
+        self.current_movement_direction = self.base_movement_direction
 
 class Target(EnvObject):
-    def __init__(self, pos=np.zeros(2), vel=0.0, base_movement_direction=0.0, radius=1.0, distance=0.0):
-        super().__init__(pos=pos, vel=vel, base_movement_direction=base_movement_direction, radius=radius)
+    def __init__(self, pos=np.zeros(2), config:tuple=("stationary", 0.0, 1.0), max_vel=0.0, distance=0.0):
+        super().__init__(pos, config, max_vel)
         self.distance = distance
 
 # =====================================================================================================
@@ -76,21 +80,21 @@ class GazeFixEnv(BaseEnv):
         self.action_mode: int = config["action_mode"]
         self.action = np.array([0.0, 0.0, 0.0])
 
-        self.max_target_distance: float = config["target_distance"]
+        self.max_target_distance:     float = config["target_distance"]
         self.desired_target_distance: float = config["target_distance"]
-        self.spawn_distance: float = config["start_distance"]
-        self.reward_margin: float = config["reward_margin"]
-        self.penalty_margin: float = config["penalty_margin"]
-        self.wall_collision: bool = config["wall_collision"]
-        self.num_obstacles: int = config["num_obstacles"]
-        self.use_obstacles: bool = config["use_obstacles"]
-        # moving_target variations:
+        self.spawn_distance:          float = config["start_distance"]
+        self.reward_margin:           float = config["reward_margin"]
+        self.penalty_margin:          float = config["penalty_margin"]
+        self.wall_collision:          bool  = config["wall_collision"]
+        self.num_obstacles:           int   = len(config["obstacles"])
+        self.use_obstacles:           bool  = config["use_obstacles"]
+        # target_config variations:
         # "stationary"  - target is stationary
         # "linear" - target moves linearly
         # "sine"   - target moves in a sine wave
         # "flight" - target moves in a flight pattern
-        self.moving_target: str = config["moving_target"]
-        self.moving_obstacles: bool = config["moving_obstacles"]
+        self.target_config: str = config["target_config"]
+        self.obstacle_config: list[tuple] = config["obstacles"]
         self.observation_noise: Dict[str,Tuple[float,float]] = config["observation_noise"]
         self.observation_loss: Dict[str,List[Tuple[float,float]]] = config["observation_loss"]
         self.fv_noise: Dict[str,Tuple[float,float]] = config["fv_noise"]
@@ -134,10 +138,8 @@ class GazeFixEnv(BaseEnv):
         self.update_target_movement_direction()
         self.update_obstacle_movement_direction()
         self.move_robot()
-        if self.moving_target[0] != "stationary":
-            self.move_target()
-        if self.moving_obstacles[0] != "stationary":
-            self.move_obstacles()
+        self.move_target()
+        self.move_obstacles()
         self.last_state, rewards, done, trun, info = self._get_state(), self.get_rewards(), self.get_terminated(), False, self.get_info()
         self.last_observation, noise = self.get_observation_from_state(self.last_state.copy())
 
@@ -354,7 +356,6 @@ class GazeFixEnv(BaseEnv):
         angle = np.random.uniform(-np.pi, np.pi)
         # x = distance * np.cos(angle)
         # y = distance * np.sin(angle)
-        radius = 1.0
         #desired_distance = np.random.uniform(5*radius, self.max_target_distance)
         desired_distance = self.desired_target_distance
         x = self.robot.pos[0] + (self.spawn_distance + desired_distance) * np.cos(angle)
@@ -362,17 +363,13 @@ class GazeFixEnv(BaseEnv):
         if self.target is None:
             self.target = Target(
                 pos = np.array([x,y]),
-                vel = self.moving_target[1] * self.robot.max_vel,
-                base_movement_direction = np.random.uniform(-np.pi, np.pi),
-                radius = radius,
+                config = self.target_config,
+                max_vel = self.robot.max_vel,
                 distance = desired_distance
             )
         else:
             self.target.pos = np.array([x,y])
-            self.target.base_movement_direction = np.random.uniform(-np.pi, np.pi)
-            self.target.current_movement_direction = self.target.base_movement_direction
-            self.target.radius = radius
-            self.target.distance = desired_distance
+            self.target.set_base_movement_direction()
 
     def generate_obstacles(self):
         target_distance = np.linalg.norm(self.target.pos)
@@ -381,10 +378,8 @@ class GazeFixEnv(BaseEnv):
         if self.obstacles is None:
             self.obstacles = []
         obst_index = 0
-        for _ in range(self.num_obstacles):
+        for config in self.obstacle_config:
             while True:
-                radius = 3.0
-
                 # TODO: adapt obstacle generation according to desired experiment
                 #pos = np.random.normal(loc=midpoint, scale=std_dev, size=2)
                 distance = np.random.uniform(self.world_size / 4, self.world_size / 2)
@@ -392,19 +387,16 @@ class GazeFixEnv(BaseEnv):
                 pos = (distance * np.cos(angle), distance * np.sin(angle))
 
                 # Ensure the obstacle doesn't spawn too close to robot
-                if np.linalg.norm(pos-self.robot.pos) > radius + 5 * self.robot.size:
+                if np.linalg.norm(pos-self.robot.pos) > config[2] + 5 * self.robot.size:
                     if len(self.obstacles) == obst_index:
                         self.obstacles.append(EnvObject(
                             pos = pos,
-                            vel = self.moving_obstacles[1] * self.robot.max_vel,
-                            base_movement_direction = np.random.uniform(-np.pi, np.pi),
-                            radius = radius
+                            config = config,
+                            max_vel = self.robot.max_vel,
                         ))
                     else:
                         self.obstacles[obst_index].pos = pos
-                        self.obstacles[obst_index].base_movement_direction = np.random.uniform(-np.pi, np.pi)
-                        self.obstacles[obst_index].current_movement_direction = self.obstacles[obst_index].base_movement_direction
-                        self.obstacles[obst_index].radius = radius
+                        self.obstacles[obst_index].set_base_movement_direction()
                     obst_index += 1
                     break
 
@@ -448,25 +440,25 @@ class GazeFixEnv(BaseEnv):
             return
 
     def update_target_movement_direction(self):
-        if self.moving_target[0] in ["stationary", "linear"]:
+        if self.target.motion_config in ["stationary", "linear"]:
             pass
-        elif self.moving_target[0] == "sine":
+        elif self.target.motion_config == "sine":
             self.target.current_movement_direction = self.target.base_movement_direction + np.pi/3 * np.sin(self.time/4)
-        elif self.moving_target[0] == "flight":
+        elif self.target.motion_config == "flight":
             self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0])
-        elif self.moving_target[0] == "chase":
+        elif self.target.motion_config == "chase":
             self.target.current_movement_direction = np.atan2(self.target.pos[1]-self.robot.pos[1], self.target.pos[0]-self.robot.pos[0]) + np.pi
         else:
-            raise ValueError(f"{self.moving_target[0]} is not a valid moving target config.")
+            raise ValueError(f"{self.target.motion_config} is not a valid moving target config.")
 
     def update_obstacle_movement_direction(self):
-        if self.moving_obstacles[0] == "stationary":
-            pass
-        elif self.moving_obstacles[0] == "chase":
-            for o in self.obstacles:
+        for o in self.obstacles:
+            if o.motion_config == "stationary":
+                pass
+            elif o.motion_config == "chase":
                 o.current_movement_direction = np.atan2(o.pos[1]-self.robot.pos[1], o.pos[0]-self.robot.pos[0]) + np.pi
-        else:
-            raise ValueError(f"{self.moving_obstacles[0]} is not a valid moving obstacles config.")
+            else:
+                raise ValueError(f"{o.motion_config} is not a valid moving obstacles config.")
 
     def move_robot(self):
         # move robot
@@ -489,11 +481,13 @@ class GazeFixEnv(BaseEnv):
             self.robot.vel_rot = self.robot.vel_rot/abs(self.robot.vel_rot) * self.robot.max_vel_rot
 
     def move_target(self):
-        self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
+        if self.target.motion_config != "stationary":
+            self.target.pos += np.array([np.cos(self.target.current_movement_direction), np.sin(self.target.current_movement_direction)]) * self.target.vel * self.timestep
 
     def move_obstacles(self):
         for o in self.obstacles:
-            o.pos += np.array([np.cos(o.current_movement_direction), np.sin(o.current_movement_direction)]) * o.vel * self.timestep
+            if o.motion_config != "stationary":
+                o.pos += np.array([np.cos(o.current_movement_direction), np.sin(o.current_movement_direction)]) * o.vel * self.timestep
 
     def check_collision(self):
         if self.compute_distance(self.target) < self.target.radius + self.robot.size / 2:
@@ -629,7 +623,7 @@ class GazeFixEnv(BaseEnv):
         return offset_angle_dot
 
     def compute_offset_angle_dot_object_component(self, obj: EnvObject):
-        if (type(obj) == Target and self.moving_target[0] != "stationary") or (type(obj) == EnvObject and self.moving_obstacles[0] != "stationary"):
+        if obj.motion_config != "stationary":
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.sin(obj.current_movement_direction - offset_angle - self.robot.orientation) / self.compute_distance(obj)
         else:
@@ -645,7 +639,7 @@ class GazeFixEnv(BaseEnv):
         return object_distance_dot
 
     def compute_distance_dot_object_component(self, obj: EnvObject):
-        if (type(obj) == Target and self.moving_target[0] != "stationary") or (type(obj) == EnvObject and self.moving_obstacles[0] != "stationary"):
+        if obj.motion_config != "stationary":
             offset_angle = self.compute_offset_angle(obj)
             return obj.vel * np.cos(obj.current_movement_direction - offset_angle - self.robot.orientation)
         else:
@@ -689,7 +683,7 @@ class GazeFixEnv(BaseEnv):
         if self.action_mode in [1,2]:
             # draw an arrow for the robot's velocity
             self.draw_arrow(self.robot.pos, self.robot.orientation+math.atan2(self.robot.vel[1],self.robot.vel[0]), self.robot.size*10*(np.linalg.norm(self.robot.vel)/self.robot.max_vel), self.robot.size*1.5, BLUE)
-        if self.moving_target[0] != "stationary":
+        if self.target.motion_config != "stationary":
             # draw an arrow for the target's movement
             self.draw_arrow(self.target.pos, self.target.current_movement_direction, self.robot.size*10*self.target.vel/self.robot.max_vel, self.robot.size*1.5, DARK_GREEN)
 

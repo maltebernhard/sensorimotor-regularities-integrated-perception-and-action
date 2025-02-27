@@ -17,7 +17,7 @@ class SMCAICON(AICON):
         super().__init__(env_config)
 
     def define_estimators(self):
-        moving_target = self.env_config["moving_target"][0] != "stationary"
+        target_config = self.env_config["target_config"][0] != "stationary"
         if self.env_config["action_mode"] == 1:
             robot_vel_estimator = Robot_Vel_Estimator_Acc_Action(self.env.robot.max_vel, self.env.robot.max_vel_rot)
         elif self.env_config["action_mode"] == 3:
@@ -26,10 +26,11 @@ class SMCAICON(AICON):
             raise ValueError("Invalid action mode")
         estimators = {
             "RobotVel":         robot_vel_estimator,
-            "PolarTargetPos":   Polar_Pos_Estimator("Target", moving_target),
+            "PolarTargetPos":   Polar_Pos_Estimator("Target", target_config),
         }
-        moving_obs = self.env_config["moving_obstacles"][0] != "stationary"
+        
         for obs in range(self.env.num_obstacles):
+            moving_obs = self.env_config["obstacles"][obs][0] != "stationary"
             estimators[f"PolarObstacle{obs+1}Pos"] = Polar_Pos_Estimator(f"Obstacle{obs+1}", moving_obs)
         return estimators
 
@@ -40,19 +41,19 @@ class SMCAICON(AICON):
         # TODO: take care: Vel meas model is gone, we only improve vel uncertainty through meas models now
         #meas_models["VelMM"]   = (Robot_Vel_MM(), ["RobotVel"])
         # ------------------- target -------------------
-        moving_target = self.env_config["moving_target"][0] != "stationary"
+        target_config = self.env_config["target_config"][0] != "stationary"
         meas_models["AngleMM"] = (Angle_MM("Target", fv_noise, sensor_angle), ["PolarTargetPos"])
         if self.distance_sensor == "distsensor":
-            meas_models["DistanceMM"] = (Distance_MM("Target", moving_target, fv_noise, sensor_angle), ["PolarTargetPos"])
+            meas_models["DistanceMM"] = (Distance_MM("Target", target_config, fv_noise, sensor_angle), ["PolarTargetPos"])
         if "Divergence" in self.smcs:
             # TODO: reflect whether or not we should update vel estimator with smc - maybe only with wind?
-            meas_models["DivergenceSMC"] = (Divergence_SMC("Target", moving_target, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
+            meas_models["DivergenceSMC"] = (Divergence_SMC("Target", target_config, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
         if "Triangulation" in self.smcs:
             # TODO: same here
-            meas_models["TriangulationSMC"] = (Triangulation_SMC("Target", moving_target, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
+            meas_models["TriangulationSMC"] = (Triangulation_SMC("Target", target_config, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
         # ------------------- obstacles -------------------
-        moving_obs = self.env_config["moving_obstacles"][0] != "stationary"
         for obs in range(self.env.num_obstacles):
+            moving_obs = self.env_config["obstacles"][obs][0] != "stationary"
             meas_models[f"AngleMM{obs+1}"] = (Angle_MM(f"Obstacle{obs+1}", fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
             if self.distance_sensor == "distsensor":
                 meas_models[f"DistanceMM{obs+1}"] = (Distance_MM(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
@@ -116,7 +117,7 @@ class SMCAICON(AICON):
         self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
         state = buffer_dict['PolarTargetPos']['mean'] if buffer_dict is not None else self.REs['PolarTargetPos'].mean
         real_state = torch.tensor([env_state['target_distance'], env_state['target_offset_angle']])
-        if self.env_config["moving_target"][0] != "stationary":
+        if self.env_config["target_config"][0] != "stationary":
             real_state = torch.cat([real_state, torch.tensor([env_state['target_distance_dot_global'], env_state['target_offset_angle_dot_global']])])
         real_state = torch.cat([real_state, torch.tensor([env_state['target_radius']])])
         self.print_vector(state - real_state, "PolarTargetPos Err.")
@@ -126,7 +127,7 @@ class SMCAICON(AICON):
             self.print_estimator(f"PolarObstacle{i}Pos", buffer_dict=buffer_dict, print_cov=2)
             state = buffer_dict[f"PolarObstacle{i}Pos"]['mean'] if buffer_dict is not None else self.REs[f"PolarObstacle{i}Pos"].mean
             real_state = torch.tensor([env_state[f'obstacle{i}_distance'], env_state[f'obstacle{i}_offset_angle']])
-            if self.env_config["moving_obstacles"][0] != "stationary":
+            if self.env_config["obstacles"][i-1][0] != "stationary":
                 real_state = torch.cat([real_state, torch.tensor([env_state[f'obstacle{i}_distance_dot_global'], env_state[f'obstacle{i}_offset_angle_dot_global']])])
             real_state = torch.cat([real_state, torch.tensor([env_state[f'obstacle{i}_radius']])])
             self.print_vector(state - real_state, f"PolarObstacle{i}Pos Err.")

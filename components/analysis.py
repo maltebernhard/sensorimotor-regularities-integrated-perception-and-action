@@ -47,12 +47,11 @@ class Runner:
     def generate_env_config(self, base_env_config, variation):
         with open("environment/env_config.yaml") as file:
             env_config = yaml.load(file, Loader=yaml.FullLoader)
-            env_config["num_obstacles"]      = base_env_config["num_obstacles"]
             env_config["robot_sensor_angle"] = base_env_config["sensor_angle_deg"] / 180 * np.pi
             env_config["timestep"]           = base_env_config["timestep"]
             env_config["observation_noise"]  = variation["sensor_noise"]
-            env_config["moving_target"]      = variation["moving_target"]
-            env_config["moving_obstacles"]   = variation["moving_obstacles"]
+            env_config["target_config"]      = variation["target_config"]
+            env_config["obstacles"]          = variation["obstacles"]
             env_config["observation_loss"]   = variation["observation_loss"]
             env_config["fv_noise"]           = variation["fv_noise"]
             env_config["target_distance"]    = variation["desired_distance"]

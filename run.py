@@ -1,40 +1,46 @@
-import time
-import yaml
-from run_analysis import create_analysis_from_custom_config
+from components.analysis import Runner
+from configs.configs import ExperimentConfig as config
 
-# ============================================================
+# ========================================================================================================
 
-analysis_configs: list[str] = [
-    # -------- AICON vs. control --------
-    #"classic_exp1.yaml",
-    #"classic_exp1_targetflightnchase.yaml",
+# --------------------- config ---------------------
 
-    # ---------- Disturbances ----------
-    # Dist Sensor Failure
-    #"classic_exp2_sine.yaml",
-    # Dist Noise
-    "non0mean_stationary_smcs.yaml",
-    "non0mean_sine_smcs.yaml",
-    # Action Disturbance
-    #"acc_wind_stationary_smc-comparison.yaml",
-    #"acc_wind_sine_smc-comparison.yaml",
-    #"acc_wind_stationary_distsensor_smc-comparison.yaml",
-]
+variation_config = {
+    "smcs":              config.smcs.both,
+    "distance_sensor":   config.distance_sensor.no_dist_sensor,
+    "controller":        config.controller.aicon,
+    "target_config":     config.target_config.sine_target,
+    "obstacles":         config.obstacles.rapid_chase_obstacle,
+    "sensor_noise":      config.sensor_noise.small_noise,
+    "observation_loss":  config.observation_loss.no_obs_loss,
+    "fv_noise":          config.fv_noise.no_fv_noise,
+    "desired_distance":  10,
+    "start_distance":    10,
+    "wind":              config.wind.no_wind,
+    "control":           config.control.vel,
+}
 
-num_runs:  int = 20
-num_steps: int = 500
+base_env_config = {
+    "sensor_angle_deg":     360,
+    "timestep":             0.05,
+}
+
+run_config = {
+    "num_steps":        500,
+    "initial_action":   [0.1, 0.0, 0.0],
+    "seed":             10,
+    "render":           True,
+    "prints":           1,
+    "step_by_step":     True,
+}
+
+# --------------------- run ---------------------
 
 if __name__ == "__main__":
-    for filename in analysis_configs:
-        with open("./configs/" + filename, "r") as config_file:
-            custom_config = yaml.safe_load(config_file)
-
-        custom_config.update({
-            "num_runs": num_runs,
-            "num_steps": num_steps,
-        })
-
-        analysis = create_analysis_from_custom_config(filename.split("/")[-1].split(".")[0], custom_config)
-        time.sleep(1)
-        analysis.run_analysis()
-        analysis.plot_states_and_losses()
+    runner = Runner(
+        run_config=run_config,
+        base_env_config=base_env_config,
+        variation=variation_config,
+        variation_id=1
+    )
+    runner.run()

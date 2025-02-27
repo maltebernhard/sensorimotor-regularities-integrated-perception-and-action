@@ -4,8 +4,8 @@ same_for_all:
   sensor_noise:     neg_dist_o_noise
   distance_sensor:  dist_sensor
   fv_noise:         no_fv_noise
-  moving_target:    stationary_target
-  moving_obstacles: stationary_obstacle
+  target_config:    stationary_target
+  obstacles: no_obstacles
   observation_loss: no_obs_loss
   desired_distance: 10
   start_distance:   10
