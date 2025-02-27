@@ -139,7 +139,7 @@ class Polar_Pos_Estimator(RecursiveEstimator):
             self.default_motion_noise = torch.eye(5) * torch.tensor([5e-1, 3e-2, 5e-1, 1e-1, 5e-3])
             self.update_uncertainty = torch.eye(5) * torch.tensor([1e-1, 1e-2, 1e-2, 1e-2, 1e-2])
         else:
-            self.default_state = torch.tensor([15.0, 0.0, 0.1])
+            self.default_state = torch.tensor([20.0, 0.0, 0.1])
             self.default_cov = torch.eye(3) * torch.tensor([1e2, 1e1, 1e1])
             self.default_motion_noise = torch.eye(3) * torch.tensor([1e-1, 3e-2, 3e-2])
             self.update_uncertainty = torch.eye(3) * torch.tensor([1e-1, 1e-2, 1e-2])

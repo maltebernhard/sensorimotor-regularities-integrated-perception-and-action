@@ -105,7 +105,7 @@ class GazeFixEnv(BaseEnv):
         self.screen_size = SCREEN_SIZE
         self.scale = SCREEN_SIZE / self.world_size
 
-        self.robot = Robot(np.array([-self.world_size/4, 0.0], dtype=np.float64), config["robot_sensor_angle"], config["robot_max_vel"], config["robot_max_vel_rot"], config["robot_max_acc"], config["robot_max_acc_rot"])
+        self.robot = Robot(np.array([0.0, 0.0], dtype=np.float64), config["robot_sensor_angle"], config["robot_max_vel"], config["robot_max_vel_rot"], config["robot_max_acc"], config["robot_max_acc_rot"])
         self.target = None
         self.generate_target()
         self.obstacles: List[EnvObject] = None
@@ -122,7 +122,7 @@ class GazeFixEnv(BaseEnv):
         # rendering window
         self.viewer = None
         metadata = {'render_modes': ['human'], 'render_fps': 1/self.timestep}
-        self.render_relative_to_robot = 3
+        self.render_relative_to_robot = 3 # 1: fixed background, 2: fixed robot (incl. orientation), 3: fixed robot (excl. orientation)
         self.reward_render_mode = 1
         self.record_video = False
         self.video_path = ""
@@ -698,7 +698,16 @@ class GazeFixEnv(BaseEnv):
             self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
         pygame.display.flip()
         # NOTE: use this to save individual pictures of the env
-        #pygame.image.save(self.viewer , f"env_pics/{self.current_step}.jpg")
+        if self.render_relative_to_robot == 1:
+            if self.current_step <= 30:
+                if "counter" not in self.__dict__:
+                    self.counter = 0
+                else:
+                    self.counter += 1
+                pygame.image.save(self.viewer , f"{self.counter}.jpg")
+            if self.current_step == 31:
+                raise Exception("Printed Images. Set environment render mode to 3 for normal testing.")
+
         self.rt_clock.tick(1/self.timestep*real_time_factor)
 
     def draw_gaussian(self, world_frame_mean, robot_frame_cov, color):
@@ -707,8 +716,10 @@ class GazeFixEnv(BaseEnv):
         eigvecs = np.real(eigvecs)
         if self.render_relative_to_robot == 2:
             angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2
-        else:
+        elif self.render_relative_to_robot == 3:
             angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2 - self.robot.orientation
+        elif self.render_relative_to_robot == 1:
+            angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2 - self.robot.orientation + np.pi/2
         width, height = 2*np.sqrt(eigvals)
         width = max(0.1, width)
         height = max(0.1, height)
@@ -736,7 +747,7 @@ class GazeFixEnv(BaseEnv):
         # draw target
         pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.radius*self.scale)
         # draw vision axis
-        pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)))
+        pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)), int(SCREEN_SIZE/1000))
         # draw Agent
         pygame.draw.circle(self.viewer, BLUE, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.robot.size*self.scale)
         pygame.draw.polygon(self.viewer, BLUE, [self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/2, self.robot.size/1.25)), self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/2, self.robot.size/1.25)), self.pxl_coordinates(self.polar_point(self.robot.orientation, self.robot.size*2.0))])
@@ -767,9 +778,9 @@ class GazeFixEnv(BaseEnv):
         end_point = self.polar_point(angle, length, pos)
         tip_point_1 = self.polar_point(self.normalize_angle(angle+3*np.pi/4), side_length, end_point)
         tip_point_2 = self.polar_point(self.normalize_angle(angle-3*np.pi/4), side_length, end_point)
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(pos), self.pxl_coordinates(end_point), width=int(SCREEN_SIZE/1000))
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_1), width=int(SCREEN_SIZE/1000))
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_2), width=int(SCREEN_SIZE/1000))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(pos), self.pxl_coordinates(end_point), width=int(SCREEN_SIZE/500))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_1), width=int(SCREEN_SIZE/500))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_2), width=int(SCREEN_SIZE/500))
 
     def transparent_circle(self, pos, radius, color):
         target_rect = pygame.Rect(self.pxl_coordinates(pos), (0, 0)).inflate((radius*2*self.scale, radius*2*self.scale))
@@ -818,15 +829,22 @@ class GazeFixEnv(BaseEnv):
         self.viewer.blit(font.render("Target", True, BLACK), (self.pxl_coordinates(self.target.pos)) + np.array([10,-20]))
 
     def draw_grid(self):
-        lines = []
+        thick_lines = []
+        thin_lines = []
         for x in range(int(self.robot.pos[0]-self.world_size/2), int(self.robot.pos[0]+self.world_size/2+1)):
             if x % 10 == 0:
-                lines.append(((float(x),self.robot.pos[1]+self.world_size), (float(x),self.robot.pos[1]-self.world_size)))
+                thick_lines.append(((float(x),self.robot.pos[1]+self.world_size), (float(x),self.robot.pos[1]-self.world_size)))
+            elif x % 2 == 0:
+                thin_lines.append(((float(x),self.robot.pos[1]+self.world_size), (float(x),self.robot.pos[1]-self.world_size)))
         for y in range(int(self.robot.pos[1]-self.world_size/2), int(self.robot.pos[1]+self.world_size/2+1)):
             if y % 10 == 0:
-                lines.append(((self.robot.pos[0]+self.world_size,float(y)), (self.robot.pos[0]-self.world_size,float(y))))
-        for line in lines:
-            pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(SCREEN_SIZE/1000))
+                thick_lines.append(((self.robot.pos[0]+self.world_size,float(y)), (self.robot.pos[0]-self.world_size,float(y))))
+            elif y % 2 == 0:
+                thin_lines.append(((self.robot.pos[0]+self.world_size,float(y)), (self.robot.pos[0]-self.world_size,float(y))))
+        for line in thick_lines:
+            pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(SCREEN_SIZE/800))
+        for line in thin_lines:
+            pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(SCREEN_SIZE/1600))
 
     def pxl_coordinates(self, xy):
         if self.render_relative_to_robot == 1:

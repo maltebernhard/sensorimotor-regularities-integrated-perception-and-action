@@ -334,7 +334,9 @@ class AICONLogger:
             else:
                 fig, axs = plt.subplots(3, len(indices), figsize=(5 * len(indices), 15))
                 fig_abs, axs_abs = plt.subplots(3, len(indices), figsize=(5 * len(indices), 15))
-            
+            xbounds = config["xbounds"]
+            len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
+
             states = {}
             abs_states = {}
             errors = {}
@@ -343,11 +345,12 @@ class AICONLogger:
             
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
-                var_states = [run_data["estimators"][state_id]["env_state"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                desired_distance = [run_data["desired_distance"]*np.ones_like(run_data["estimators"][state_id]["env_state"][:,indices]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
-                var_ucttys = [run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                var_errors = [run_data["estimators"][state_id]["estimation_error"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                var_states = [run_data["estimators"][state_id]["env_state"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                desired_distance = [run_data["desired_distance"]*np.ones_like(run_data["estimators"][state_id]["env_state"][xbounds[0]:min(xbounds[1]+1,len_data),indices]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+
+                var_ucttys = [run_data["estimators"][state_id]["uncertainty"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                var_errors = [run_data["estimators"][state_id]["estimation_error"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 var_collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
                 # HACK: pad runs which collided with last val
@@ -439,14 +442,9 @@ class AICONLogger:
             self.save_fig(fig, path, show)
 
     def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
-        # if not "style" in plotting_config.keys():
-        #     plotting_config=plotting_config.copy()
-        #     plotting_config["style"] = {}
-        #     colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'purple', 'brown', 'pink']
-        #     for i, ax_label in enumerate(plotting_config["axes"].keys()):
-        #         plotting_config["style"][ax_label] = {'color': colors[i]}
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
+            xbounds = config["xbounds"]
             ybounds = config["ybounds"]
             if len(indices) == 1:
                 fig, axs = plt.subplots(len(indices), 3, figsize=(21, 6))
@@ -493,9 +491,9 @@ class AICONLogger:
                 error_means, error_stddevs, error_collisions = self.compute_mean_and_stddev(errors, collisions)
                 uctty_means, uctty_stddevs, uctty_collisions = self.compute_mean_and_stddev(ucttys, collisions)
                 for i in range(len(indices)):
-                    self.plot_mean_stddev(axs[0][i], state_means[:, i], state_stddevs[:, i], state_collisions, label, plotting_config)
-                    self.plot_mean_stddev(axs[1][i], error_means[:, i], error_stddevs[:, i], error_collisions, label, plotting_config)
-                    self.plot_mean_stddev(axs[2][i], uctty_means[:, i], uctty_stddevs[:, i], uctty_collisions, label, plotting_config)    
+                    self.plot_mean_stddev(axs[0][i], state_means[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], state_stddevs[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], state_collisions, label, plotting_config)
+                    self.plot_mean_stddev(axs[1][i], error_means[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], error_stddevs[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], error_collisions, label, plotting_config)
+                    self.plot_mean_stddev(axs[2][i], uctty_means[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], uctty_stddevs[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], uctty_collisions, label, plotting_config)    
             
             titles   = ["Task State", "Estimation Error", "Estimation Uncertainty"]
             y_labels = ["Distance to Target", "Distance Estimation Error", "Distance Estimation Uncertainty (stddev)"]
@@ -506,7 +504,7 @@ class AICONLogger:
                 axs[j][i].set_xlabel("Time Step", fontsize=16)
                 axs[j][i].grid(True)
                 axs[j][i].legend()
-                axs[j][i].set_xlim(0, max_steps)
+                axs[j][i].set_xlim(xbounds[0], min(xbounds[1], max_steps))
                 if ybounds is not None:
                     axs[j][i].set_ylim(ybounds[j][i])
             
@@ -518,7 +516,9 @@ class AICONLogger:
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
             labels = config["labels"]
+            xbounds = config["xbounds"]
             ybounds = config["ybounds"]
+            len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
             if len(indices) == 1:
                 fig, axs = plt.subplots(len(indices), 3, figsize=(21, 6))
                 axs = [[ax] for ax in axs]
@@ -539,8 +539,11 @@ class AICONLogger:
                 self.plot_runs(axs[1][i], errors, runs, titles[1], y_labels[1], collisions, i)
                 self.plot_runs(axs[2][i], ucttys, runs, titles[2], y_labels[2], collisions, i)
                 axs[0][i].set_ylim(ybounds[0][i])
+                axs[0][i].set_xlim(xbounds[0], min(xbounds[1], len_data))
                 axs[1][i].set_ylim(ybounds[1][i])
+                axs[1][i].set_xlim(xbounds[0], min(xbounds[1], len_data))
                 axs[2][i].set_ylim(ybounds[2][i])
+                axs[2][i].set_xlim(xbounds[0], min(xbounds[1], len_data))
 
             # save / show
             path = os.path.join(save_path, f"records/runs/{axs_id}.png") if save_path is not None else None
@@ -563,6 +566,10 @@ class AICONLogger:
         fig_goal, axs = plt.subplots(1, num_goals, figsize=(12, 10*num_goals))
         if num_goals == 1:
             axs = [axs]
+        
+        xbounds = plotting_config["states"]["PolarTargetPos"]["xbounds"]
+        len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
+        
         for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
             ybounds = config.get("ybounds")
             for label, variation in plotting_config["axes"].items():
@@ -583,7 +590,7 @@ class AICONLogger:
             axs[i].set_xlabel("Time Step", fontsize=16)
             axs[i].grid(True)
             axs[i].legend()
-            axs[i].set_xlim(0, max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values()))
+            axs[i].set_xlim(xbounds[0], min(xbounds[1], len_data))
             if ybounds is not None:
                 axs[i].set_ylim(ybounds[i])
         # save / show
@@ -593,27 +600,22 @@ class AICONLogger:
     def plot_losses_and_gradients(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
         subgoal_labels = ["total", "target_distance", "target_distance_uncertainty"]
         
-        colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'orange', 'purple', 'brown', 'pink']
-        if not "style" in plotting_config.keys():
-            plotting_config["style"] = {}
-            for i, ax_label in enumerate(plotting_config["axes"].keys()):
-                for subgoal_label in subgoal_labels:
-                    plotting_config["style"][f"{ax_label} {subgoal_label} loss"] = {'color': colors[i]}
-                    plotting_config["style"][f"{ax_label} {subgoal_label} loss"] = {'color': colors[i]}
-        else:
-            for i, (ax_label, style) in enumerate(list(plotting_config["style"].items())):
-                plotting_config["style"][f"{ax_label} frontal"] = {
-                    'label':     'frontal',
-                    'linestyle': 'dashed',
-                    'color':     'c',
-                    'linewidth': 1
-                }
-                plotting_config["style"][f"{ax_label} lateral"] = {
-                    'label':     'lateral',
-                    'linestyle': 'solid',
-                    'color':     'm',
-                    'linewidth': 1
-                }
+        for i, (ax_label, style) in enumerate(list(plotting_config["style"].items())):
+            plotting_config["style"][f"{ax_label} frontal"] = {
+                'label':     'frontal',
+                'linestyle': 'dashed',
+                'color':     'c',
+                'linewidth': 1
+            }
+            plotting_config["style"][f"{ax_label} lateral"] = {
+                'label':     'lateral',
+                'linestyle': 'solid',
+                'color':     'm',
+                'linewidth': 1
+            }
+        
+        xbounds = plotting_config["states"]["PolarTargetPos"]["xbounds"]
+        len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
 
         for i, (goal_key, config) in enumerate(plotting_config["goals"].items()):
             ybounds = config.get("ybounds",None)
@@ -670,7 +672,7 @@ class AICONLogger:
                         axs[k][j].set_xlabel("Time Step", fontsize=16)
                         axs[k][j].grid(True)
                         axs[k][j].legend()
-                        axs[k][j].set_xlim(0, max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values()))
+                        axs[k][j].set_xlim(0, min(xbounds[1], len_data))
                     
                         if ybounds is not None:
                             axs[k][j].set_ylim(ybounds[k][j])

@@ -22,6 +22,7 @@ plotting_state_config:
   PolarTargetPos:
     indices: [0]
     labels:  [Distance]
+    xbounds: [0, 200]
     ybounds: [[[-1, 40]], [[-1, 40]], [[-1, 40]]]
 
 plotting_style_config:
