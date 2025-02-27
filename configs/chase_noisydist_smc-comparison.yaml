@@ -2,7 +2,7 @@ same_for_all:
   #smcs:            both
   distance_sensor:  dist_sensor
   controller:       aicon
-  target_config:    chase_target
+  target_config:    chase
   obstacles:        no_obstacles
   sensor_noise:     huge_dist_o_noise
   observation_loss: no_obs_loss

@@ -49,6 +49,10 @@ class AICON(ABC):
         self.reset(seed=env_seed, video_path=video_path)
         if initial_action is not None:
             self.last_action = initial_action
+        if render:
+            self.render()
+        if step_by_step:
+            input("Press Enter to continue...")
         self.update_observations()
         buffer_dict = self.get_buffer_dict()
         self.prints = prints

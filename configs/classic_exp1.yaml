@@ -2,7 +2,7 @@ same_for_all:
   smcs:             both
   distance_sensor:  no_dist_sensor
   #controller:      aicon
-  #target_config:   stationary_target
+  #target_config:   stationary
   obstacles:        no_obstacles
   sensor_noise:     small_noise
   observation_loss: no_obs_loss
@@ -14,13 +14,13 @@ same_for_all:
 
 variations:
   - controller:    aicon
-    target_config: stationary_target
+    target_config: stationary
   - controller:    aicon
-    target_config: sine_target
+    target_config: sine
   - controller:    manual
-    target_config: stationary_target
+    target_config: stationary
   - controller:    manual
-    target_config: sine_target
+    target_config: sine
 
 plotting_state_config:
   PolarTargetPos:
@@ -29,22 +29,22 @@ plotting_state_config:
     ybounds: [[[5, 30]], [[-1, 10]], [[-1, 20]]]
 
 plotting_style_config:
-  stationary_target_aicon:
+  stationary_aicon:
     label:     "AICON control\nstationary target"
     color:     blue     # red, green, blue, cyan, magenta, yellow, black, white
     linestyle: solid    # dotted, dashed, dashdot
     linewidth: 2
-  sine_target_aicon:
+  sine_aicon:
     label:     "AICON control\nmoving target"
     color:     blue
     linestyle: dashed
     linewidth: 2
-  stationary_target_manual:
+  stationary_manual:
     label:     "designed control\nstationary target"
     color:     red
     linestyle: solid
     linewidth: 2
-  sine_target_manual:
+  sine_manual:
     label:     "designed control\nmoving target"
     color:     red
     linestyle: dashed

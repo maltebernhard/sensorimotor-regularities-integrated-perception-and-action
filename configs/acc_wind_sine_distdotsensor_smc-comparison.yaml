@@ -2,7 +2,7 @@ same_for_all:
   #smcs:            both
   distance_sensor:  dist_dot_sensor
   controller:       aicon
-  target_config:    sine_target
+  target_config:    sine
   obstacles:        no_obstacles
   sensor_noise:     small_noise
   observation_loss: no_obs_loss

@@ -164,11 +164,11 @@ class TargetConfig:
     """
     tuple: (target_motion, target_vel (relative to max robot vel), target_radius)
     """
-    stationary_target = ("stationary", 0.0, 1.0)
-    linear_target     = ("linear",     0.5, 1.0)
-    sine_target       = ("sine",       0.5, 1.0)
-    flight_target     = ("flight",     0.5, 1.0)
-    chase_target      = ("chase",      0.5, 1.0)
+    stationary = ("stationary", 0.0, 1.0)
+    linear     = ("linear",     0.5, 1.0)
+    sine       = ("sine",       0.5, 1.0)
+    flight     = ("flight",     0.5, 1.0)
+    chase      = ("chase",      0.5, 1.0)
 
 class ObstacleConfig:
     """

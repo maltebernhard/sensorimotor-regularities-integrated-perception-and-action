@@ -4,7 +4,7 @@ same_for_all:
   sensor_noise:     neg_dist_o_noise
   distance_sensor:  dist_sensor
   fv_noise:         no_fv_noise
-  target_config:    sine_target
+  target_config:    sine
   obstacles:        no_obstacles
   observation_loss: no_obs_loss
   desired_distance: 10
