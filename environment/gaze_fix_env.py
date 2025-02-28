@@ -6,6 +6,8 @@ import pygame
 import vidmaker
 import math
 from environment.base_env import BaseEnv, Observation
+import svgwrite
+import cairosvg
 
 # =====================================================================================================
 
@@ -103,7 +105,7 @@ class GazeFixEnv(BaseEnv):
         # env dimensions
         self.world_size = config["world_size"]
         self.screen_size = SCREEN_SIZE
-        self.scale = SCREEN_SIZE / self.world_size
+        self.scale = self.screen_size / self.world_size
 
         self.robot = Robot(np.array([0.0, 0.0], dtype=np.float64), config["robot_sensor_angle"], config["robot_max_vel"], config["robot_max_vel_rot"], config["robot_max_acc"], config["robot_max_acc_rot"])
         self.target = None
@@ -127,6 +129,11 @@ class GazeFixEnv(BaseEnv):
         self.record_video = False
         self.video_path = ""
         self.video = None
+        # NOTE: make true to save frames as svg
+        self.render_svg = True
+        if self.render_svg:
+            self.render_relative_to_robot = 1
+            self.screen_size = 5000
 
     def step(self, action):
         self.current_step += 1
@@ -668,6 +675,7 @@ class GazeFixEnv(BaseEnv):
     def render(self, real_time_factor = 1.0, robot_frame_means: Dict[str, np.ndarray] = None, robot_frame_covs: Dict[str, np.ndarray] = None):
         if self.viewer is None:
             pygame.init()
+            self.svg_exporter = SVGExporter(self.screen_size, self.screen_size) if self.render_svg else None
             # Clock to control frame rate
             self.rt_clock = pygame.time.Clock()
             # set window
@@ -675,6 +683,7 @@ class GazeFixEnv(BaseEnv):
             pygame.display.set_caption("Gaze Fixation")
             if self.record_video:
                 self.video = vidmaker.Video(self.video_path, fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
+        if self.svg_exporter is not None: self.svg_exporter.create_new_drawing()  # start a fresh SVG for each render call
         self.draw_env()
         if abs(self.action[0]) > 0.0 or abs(self.action[1]) > 0.0:
             # draw an arrow for the robot's action
@@ -692,7 +701,8 @@ class GazeFixEnv(BaseEnv):
             for i, key in enumerate(robot_frame_means.keys()):
                 mean = self.rotation_matrix(self.robot.orientation) @ robot_frame_means[key][:2] + self.robot.pos
                 self.draw_gaussian(mean, robot_frame_covs[key][:2,:2], COLORS[i])
-                pygame.draw.circle(self.viewer, COLORS[i], self.pxl_coordinates(mean), int(SCREEN_SIZE/150))
+                pygame.draw.circle(self.viewer, COLORS[i], self.pxl_coordinates(mean), int(self.screen_size/150))
+                if self.svg_exporter is not None: self.svg_exporter.draw_circle(COLORS[i],self.pxl_coordinates(mean),int(self.screen_size/150))
         #self.display_info()
         if self.record_video:
             self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
@@ -704,10 +714,10 @@ class GazeFixEnv(BaseEnv):
                     self.counter = 0
                 else:
                     self.counter += 1
-                pygame.image.save(self.viewer , f"{self.counter}.jpg")
+                #pygame.image.save(self.viewer , f"{self.counter}.jpg")
+                if self.svg_exporter is not None: self.svg_exporter.export()  # export the SVG to file
             if self.current_step == 31:
                 raise Exception("Printed Images. Set environment render mode to 3 for normal testing.")
-
         self.rt_clock.tick(1/self.timestep*real_time_factor)
 
     def draw_gaussian(self, world_frame_mean, robot_frame_cov, color):
@@ -719,35 +729,37 @@ class GazeFixEnv(BaseEnv):
         elif self.render_relative_to_robot == 3:
             angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2 - self.robot.orientation
         elif self.render_relative_to_robot == 1:
-            angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2 - self.robot.orientation + np.pi/2
+            angle = - np.arctan2(eigvecs[1,0], eigvecs[0,0]) + np.pi/2 - self.robot.orientation
         width, height = 2*np.sqrt(eigvals)
         width = max(0.1, width)
         height = max(0.1, height)
         ellipse_surface = pygame.Surface((width*self.scale, height*self.scale), pygame.SRCALPHA)
         pygame.draw.ellipse(ellipse_surface, (*color, 128), ellipse_surface.get_rect())
+        if self.svg_exporter is not None: self.svg_exporter.draw_ellipse(color,center=self.pxl_coordinates(world_frame_mean),width=width*self.scale,height=height*self.scale,angle=np.degrees(angle),alpha=128/255)
         rotated_ellipse = pygame.transform.rotate(ellipse_surface, -np.degrees(angle))
         ellipse_rect = rotated_ellipse.get_rect(center=self.pxl_coordinates(world_frame_mean))
         self.viewer.blit(rotated_ellipse, ellipse_rect)
 
     def draw_env(self, reward_render_mode = 1):
-        # Fill the screen
         if reward_render_mode == 1:
             self.viewer.fill(GREY)
+            if self.svg_exporter is not None: self.svg_exporter.draw_rect(GREY, (0, 0), (self.screen_size, self.screen_size))
             self.draw_fov()
         else:
             color_map = self.get_reward_color_map()
             pygame.surfarray.blit_array(self.viewer, color_map)
+            # For a direct pixel-based map, we skip detailed svg for color_map
 
         self.draw_grid()
         if reward_render_mode == 1 and self.reward_margin < 20.0:
             # draw target reward margin
             self.transparent_circle(self.target.pos, self.target.distance+self.reward_margin, GREEN)
         # draw target distance
-        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=int(SCREEN_SIZE/500))
+        pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.distance*self.scale, width=int(self.screen_size/500))
         # draw target
         pygame.draw.circle(self.viewer, DARK_GREEN, self.pxl_coordinates((self.target.pos[0],self.target.pos[1])), self.target.radius*self.scale)
         # draw vision axis
-        pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)), int(SCREEN_SIZE/1000))
+        pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)), int(self.screen_size/1000))
         # draw Agent
         pygame.draw.circle(self.viewer, BLUE, self.pxl_coordinates((self.robot.pos[0],self.robot.pos[1])), self.robot.size*self.scale)
         pygame.draw.polygon(self.viewer, BLUE, [self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/2, self.robot.size/1.25)), self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/2, self.robot.size/1.25)), self.pxl_coordinates(self.polar_point(self.robot.orientation, self.robot.size*2.0))])
@@ -757,6 +769,31 @@ class GazeFixEnv(BaseEnv):
                 pygame.draw.circle(self.viewer, BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
                 if reward_render_mode == 1 and self.penalty_margin < 20.0:
                     self.transparent_circle(o.pos, o.radius+self.penalty_margin, RED)
+
+        if self.svg_exporter is not None:
+            self.svg_exporter.draw_circle(DARK_GREEN,
+                                        self.pxl_coordinates((self.target.pos[0], self.target.pos[1])),
+                                        self.target.distance*self.scale,
+                                        stroke=True,
+                                        stroke_width=int(self.screen_size/500),
+                                        fill_opacity=0)
+            self.svg_exporter.draw_circle(DARK_GREEN,
+                                        self.pxl_coordinates((self.target.pos[0], self.target.pos[1])),
+                                        self.target.radius*self.scale)
+            self.svg_exporter.draw_line(BLACK,
+                                        self.pxl_coordinates((self.robot.pos[0], self.robot.pos[1])),
+                                        self.pxl_coordinates(self.polar_point(self.robot.orientation,self.world_size*3)),
+                                        width=int(self.screen_size/1000))
+            self.svg_exporter.draw_circle(BLUE,
+                                        self.pxl_coordinates((self.robot.pos[0], self.robot.pos[1])),
+                                        self.robot.size*self.scale)
+            self.svg_exporter.draw_polygon(BLUE,
+                [self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/2, self.robot.size/1.25)),
+                self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/2, self.robot.size/1.25)),
+                self.pxl_coordinates(self.polar_point(self.robot.orientation, self.robot.size*2.0))])
+            if self.use_obstacles:
+                for o in self.obstacles:
+                    self.svg_exporter.draw_circle(BLACK, self.pxl_coordinates((o.pos[0],o.pos[1])), o.radius*self.scale)
 
     def draw_action_field(self, action_field, savepath=None):
         if self.viewer is None:
@@ -778,9 +815,22 @@ class GazeFixEnv(BaseEnv):
         end_point = self.polar_point(angle, length, pos)
         tip_point_1 = self.polar_point(self.normalize_angle(angle+3*np.pi/4), side_length, end_point)
         tip_point_2 = self.polar_point(self.normalize_angle(angle-3*np.pi/4), side_length, end_point)
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(pos), self.pxl_coordinates(end_point), width=int(SCREEN_SIZE/500))
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_1), width=int(SCREEN_SIZE/500))
-        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_2), width=int(SCREEN_SIZE/500))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(pos), self.pxl_coordinates(end_point), width=int(self.screen_size/500))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_1), width=int(self.screen_size/500))
+        pygame.draw.line(self.viewer, color, self.pxl_coordinates(end_point), self.pxl_coordinates(tip_point_2), width=int(self.screen_size/500))
+        if self.svg_exporter is not None:
+            self.svg_exporter.draw_line(color,
+                                        self.pxl_coordinates(pos),
+                                        self.pxl_coordinates(end_point),
+                                        width=int(self.screen_size/500))
+            self.svg_exporter.draw_line(color,
+                                        self.pxl_coordinates(end_point),
+                                        self.pxl_coordinates(tip_point_1),
+                                        width=int(self.screen_size/500))
+            self.svg_exporter.draw_line(color,
+                                        self.pxl_coordinates(end_point),
+                                        self.pxl_coordinates(tip_point_2),
+                                        width=int(self.screen_size/500))
 
     def transparent_circle(self, pos, radius, color):
         target_rect = pygame.Rect(self.pxl_coordinates(pos), (0, 0)).inflate((radius*2*self.scale, radius*2*self.scale))
@@ -796,16 +846,20 @@ class GazeFixEnv(BaseEnv):
             left_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation+np.pi/4, self.world_size))
             right_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation-np.pi/4, self.world_size))
             pygame.draw.polygon(self.viewer, WHITE, [robot_point, left_angle, left_corner, right_corner, right_angle])
+            if self.svg_exporter is not None: self.svg_exporter.draw_polygon(WHITE, [robot_point, left_angle, left_corner, right_corner, right_angle])
         elif abs(self.robot.sensor_angle - 2*np.pi) < 0.01:
             self.viewer.fill(WHITE)
+            if self.svg_exporter is not None: self.svg_exporter.draw_rect(WHITE, (0, 0), (self.screen_size, self.screen_size))
         else:
             self.viewer.fill(WHITE)
+            if self.svg_exporter is not None: self.svg_exporter.draw_rect(WHITE, (0, 0), (self.screen_size, self.screen_size))
             robot_point = self.pxl_coordinates(self.robot.pos)
             left_angle = self.pxl_coordinates(self.polar_point(self.robot.orientation+self.robot.sensor_angle/2, self.world_size*3))
             right_angle = self.pxl_coordinates(self.polar_point(self.robot.orientation-self.robot.sensor_angle/2, self.world_size*3))
             left_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation+3*np.pi/4, self.world_size))
             right_corner = self.pxl_coordinates(self.polar_point(self.robot.orientation-3*np.pi/4, self.world_size))
             pygame.draw.polygon(self.viewer, GREY, [robot_point, left_angle, left_corner, right_corner, right_angle])
+            if self.svg_exporter is not None: self.svg_exporter.draw_polygon(GREY, [robot_point, left_angle, left_corner, right_corner, right_angle])
 
     def polar_point(self, angle, distance, start_pos = None):
         if start_pos is None:
@@ -815,12 +869,12 @@ class GazeFixEnv(BaseEnv):
     def display_info(self):
         font = pygame.font.Font(None, 24)
         legend = [
-            (f'Step:', f'{self.current_step}'),                                # clock
-            (f'Time:', f'{self.time:.2f}'),                                 # time
-            # (f'Step reward:', f'{np.sum(self.get_rewards()):.4f}'),         # step reward
-            # (f'Total reward:', f'{self.total_reward:.4f}'),                 # episode reward
-            (f'Target Distance:', f'{self.compute_distance(self.target):.2f}'),   # target distance
-            (f'Desired Distance:', f'{self.target.distance:.2f}'),          # desired target distance
+            (f'Step:', f'{self.current_step}'),                                 # clock
+            (f'Time:', f'{self.time:.2f}'),                                     # time
+            # (f'Step reward:', f'{np.sum(self.get_rewards()):.4f}'),           # step reward
+            # (f'Total reward:', f'{self.total_reward:.4f}'),                   # episode reward
+            (f'Target Distance:', f'{self.compute_distance(self.target):.2f}'), # target distance
+            (f'Desired Distance:', f'{self.target.distance:.2f}'),              # desired target distance
         ]
         for i, (text, value) in enumerate(legend):
             self.viewer.blit(font.render(text, True, BLACK), (10, 5+25*i))
@@ -842,14 +896,25 @@ class GazeFixEnv(BaseEnv):
             elif y % 2 == 0:
                 thin_lines.append(((self.robot.pos[0]+self.world_size,float(y)), (self.robot.pos[0]-self.world_size,float(y))))
         for line in thick_lines:
-            pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(SCREEN_SIZE/800))
+            pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(self.screen_size/800))
+            if self.svg_exporter is not None: self.svg_exporter.draw_line(BLACK,
+                                                                            self.pxl_coordinates(line[0]),
+                                                                            self.pxl_coordinates(line[1]),
+                                                                            width=int(self.screen_size/800))
         for line in thin_lines:
-            pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(SCREEN_SIZE/1600))
+            pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(self.screen_size/1600))
+            if self.svg_exporter is not None: self.svg_exporter.draw_line(BLACK,
+                                                                            self.pxl_coordinates(line[0]),
+                                                                            self.pxl_coordinates(line[1]),
+                                                                            width=int(self.screen_size/1600))
 
     def pxl_coordinates(self, xy):
         if self.render_relative_to_robot == 1:
-            x_pxl = int(self.screen_size/2 + xy[0] * self.scale)
-            y_pxl = int(self.screen_size/2 - xy[1] * self.scale)
+            x = int(self.screen_size/2 + xy[0] * self.scale)
+            y = int(self.screen_size/2 - xy[1] * self.scale)
+            xy_a = self.rotation_matrix(-np.pi/2) @ np.array([x-self.screen_size/2,y-self.screen_size/2])
+            x_pxl = int(xy_a[0] + self.screen_size/2)
+            y_pxl = int(xy_a[1] + self.screen_size/2) 
         elif self.render_relative_to_robot == 2:
             x_pxl = int(self.screen_size/2 + (self.rotation_matrix(-self.robot.orientation + np.pi/2) @ (xy-self.robot.pos))[0] * self.scale)
             y_pxl = int(self.screen_size/2 - (self.rotation_matrix(-self.robot.orientation + np.pi/2) @ (xy-self.robot.pos))[1] * self.scale)
@@ -889,5 +954,56 @@ class GazeFixEnv(BaseEnv):
         color_map[positive_mask, 2] -= (255 * np.minimum(position_rewards[positive_mask], 1.0)).astype(np.uint8)
         color_map[negative_mask, 1] -= (255 * np.minimum(np.abs(position_rewards[negative_mask]), max_negative_reward) / max_negative_reward).astype(np.uint8)
         color_map[negative_mask, 2] -= (255 * np.minimum(np.abs(position_rewards[negative_mask]), max_negative_reward) / max_negative_reward).astype(np.uint8)
-
         return color_map
+
+# --------------------------- SVG Exporter Class ---------------------------
+
+class SVGExporter:
+    def __init__(self, width, height):
+        self.width = width
+        self.height = height
+        self.export_counter = 0
+        self.dwg = svgwrite.Drawing(size=(self.width, self.height))
+        # Create local folder ./env_svgs/ if it doesn't exist
+        self.output_folder = "./env_svgs/"
+        if not os.path.exists(self.output_folder):
+            os.makedirs(self.output_folder)
+
+    def create_new_drawing(self):
+        self.dwg = svgwrite.Drawing(size=(self.width, self.height))
+
+    def export(self):
+        svg_file = f"./env_svgs/frame_{self.export_counter}.svg"
+        #png_file = f"./env_svgs/frame_{self.export_counter}.png"
+        self.dwg.saveas(svg_file)
+        #cairosvg.svg2png(url=svg_file, write_to=png_file)
+        self.export_counter += 1
+
+    def draw_circle(self, color, center, radius, stroke=False, stroke_width=1, fill_opacity=1.0):
+        fill_color = "rgb({},{},{})".format(*color)
+        circle = self.dwg.circle(center=center, r=radius, fill=fill_color, fill_opacity=fill_opacity)
+        if stroke:
+            circle.stroke(fill_color, width=stroke_width)
+        self.dwg.add(circle)
+
+    def draw_line(self, color, start, end, width=1):
+        stroke_color = "rgb({},{},{})".format(*color)
+        line = self.dwg.line(start=start, end=end, stroke=stroke_color, stroke_width=width)
+        self.dwg.add(line)
+
+    def draw_polygon(self, color, points):
+        fill_color = "rgb({},{},{})".format(*color)
+        poly = self.dwg.polygon(points=points, fill=fill_color)
+        self.dwg.add(poly)
+
+    def draw_rect(self, color, top_left, size):
+        fill_color = "rgb({},{},{})".format(*color)
+        rect = self.dwg.rect(insert=top_left, size=size, fill=fill_color)
+        self.dwg.add(rect)
+
+    def draw_ellipse(self, color, center, width, height, angle=0.0, alpha=1.0):
+        fill_color = "rgb({},{},{})".format(*color)
+        ellipse = self.dwg.ellipse(center=center, r=(width/2, height/2), fill=fill_color, fill_opacity=alpha)
+        if angle != 0.0:
+            ellipse.rotate(angle, center=center)
+        self.dwg.add(ellipse)
