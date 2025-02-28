@@ -102,11 +102,6 @@ class GazeFixEnv(BaseEnv):
         self.fv_noise: Dict[str,Tuple[float,float]] = config["fv_noise"]
         self.wind = np.array(config["wind"])
 
-        # env dimensions
-        self.world_size = config["world_size"]
-        self.screen_size = SCREEN_SIZE
-        self.scale = self.screen_size / self.world_size
-
         self.robot = Robot(np.array([0.0, 0.0], dtype=np.float64), config["robot_sensor_angle"], config["robot_max_vel"], config["robot_max_vel_rot"], config["robot_max_acc"], config["robot_max_acc_rot"])
         self.target = None
         self.generate_target()
@@ -122,6 +117,7 @@ class GazeFixEnv(BaseEnv):
         self.collision: bool = False
 
         # rendering window
+        self.screen_size = SCREEN_SIZE
         self.viewer = None
         metadata = {'render_modes': ['human'], 'render_fps': 1/self.timestep}
         self.render_relative_to_robot = 3 # 1: fixed background, 2: fixed robot (incl. orientation), 3: fixed robot (excl. orientation)
@@ -130,10 +126,13 @@ class GazeFixEnv(BaseEnv):
         self.video_path = ""
         self.video = None
         # NOTE: make true to save frames as svg
-        self.render_svg = True
+        self.render_svg = False
         if self.render_svg:
             self.render_relative_to_robot = 1
             self.screen_size = 5000
+        # env dimensions
+        self.world_size = config["world_size"]
+        self.scale = self.screen_size / self.world_size
 
     def step(self, action):
         self.current_step += 1
@@ -897,16 +896,10 @@ class GazeFixEnv(BaseEnv):
                 thin_lines.append(((self.robot.pos[0]+self.world_size,float(y)), (self.robot.pos[0]-self.world_size,float(y))))
         for line in thick_lines:
             pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(self.screen_size/800))
-            if self.svg_exporter is not None: self.svg_exporter.draw_line(BLACK,
-                                                                            self.pxl_coordinates(line[0]),
-                                                                            self.pxl_coordinates(line[1]),
-                                                                            width=int(self.screen_size/800))
+            # if self.svg_exporter is not None: self.svg_exporter.draw_line(BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(self.screen_size/800))
         for line in thin_lines:
             pygame.draw.line(self.viewer, BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(self.screen_size/1600))
-            if self.svg_exporter is not None: self.svg_exporter.draw_line(BLACK,
-                                                                            self.pxl_coordinates(line[0]),
-                                                                            self.pxl_coordinates(line[1]),
-                                                                            width=int(self.screen_size/1600))
+            # if self.svg_exporter is not None: self.svg_exporter.draw_line(BLACK, self.pxl_coordinates(line[0]), self.pxl_coordinates(line[1]), width=int(self.screen_size/1600))
 
     def pxl_coordinates(self, xy):
         if self.render_relative_to_robot == 1:
