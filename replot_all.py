@@ -3,7 +3,7 @@ import subprocess
 analysis_configs: list[str] = [
     # -------- AICON vs. control --------
     "classic_exp1.yaml",
-    "classic_exp1_targetflightnchase.yaml",
+    #"classic_exp1_targetflightnchase.yaml",
 
     # ---------- Disturbances ----------
     # Dist Sensor Failure

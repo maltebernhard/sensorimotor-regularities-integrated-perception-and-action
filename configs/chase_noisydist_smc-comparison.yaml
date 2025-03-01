@@ -28,21 +28,25 @@ plotting_state_config:
 plotting_style_config:
   nosmcs:
     label:     No SMCs
-    color:     red      # red, green, blue, cyan, magenta, yellow, black, white
+    boxcolor:  lightcoral
+    color:     red
     linestyle: solid    # dotted, dashed, dashdot
     linewidth: 2
   tri:
-    label:     Triangulation
-    color:     orange
+    label:     T
+    boxcolor:  peachpuff
+    color:     darkorange
     linestyle: solid
     linewidth: 2
   div:
-    label:     Divergence
+    label:     D
+    boxcolor:  lightgreen
     color:     green
     linestyle: solid
     linewidth: 2
   both:
-    label:     Triangulation + Divergence
+    label:     T+D
+    boxcolor:  lightblue
     color:     blue
     linestyle: solid
     linewidth: 2

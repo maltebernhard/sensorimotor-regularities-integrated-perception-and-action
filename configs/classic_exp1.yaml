@@ -17,9 +17,9 @@ variations:
     target_config: stationary
   - controller:    aicon
     target_config: sine
-  - controller:    manual
+  - controller:    trc
     target_config: stationary
-  - controller:    manual
+  - controller:    trc
     target_config: sine
 
 plotting_state_config:
@@ -27,26 +27,34 @@ plotting_state_config:
     indices: [0]
     labels:  [Distance]
     xbounds: [0, 200]
-    ybounds: [[[5, 30]], [[-1, 10]], [[-1, 20]]]
+    ybounds: [[[8, 26]], [[-1, 8]], [[-1, 8]]]
 
 plotting_style_config:
   stationary_aicon:
-    label:     \makebox[1.5cm][l]{AICON} Target Stationary 
-    color:     blue     # red, green, blue, cyan, magenta, yellow, black, white
+    label:     \makebox[1.5cm][l]{AICON} T stationary
+    boxlabel:  "AICON\nT stationary"
+    boxcolor:  lightblue
+    color:     blue
     linestyle: solid    # dotted, dashed, dashdot
     linewidth: 2
   sine_aicon:
-    label:     \makebox[1.5cm][l]{AICON} Target Moves
+    label:     \makebox[1.5cm][l]{AICON} T moves
+    boxlabel:  "AICON\nT moves"
+    boxcolor:  lightblue
     color:     blue
     linestyle: dashed
     linewidth: 2
-  stationary_manual:
-    label:     \makebox[1.5cm][l]{PRC} Target Stationary
+  stationary_trc:
+    label:     \makebox[1.5cm][l]{TRC} T stationary
+    boxlabel:  "TRC\nT stationary"
+    boxcolor:  lightcoral
     color:     red
     linestyle: solid
     linewidth: 2
-  sine_manual:
-    label:     \makebox[1.5cm][l]{PRC} Target Moves
+  sine_trc:
+    label:     \makebox[1.5cm][l]{TRC} T moves
+    boxlabel:  "TRC\nT moves"
+    boxcolor:  lightcoral
     color:     red
     linestyle: dashed
     linewidth: 2

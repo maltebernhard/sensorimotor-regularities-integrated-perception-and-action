@@ -1,4 +1,3 @@
-
 same_for_all:
   #smcs:            both
   distance_sensor:  dist_sensor
@@ -23,27 +22,31 @@ plotting_state_config:
   PolarTargetPos:
     indices: [0]
     labels:  [Distance]
-    xbounds: [0, 200]
-    ybounds: [[[0, 20]], [[-10, 5]], [[-1, 20]]]
+    xbounds: [0, 300]
+    ybounds: [[[0, 30]], [[-5, 10]], [[0, 15]]]
 
 plotting_style_config:
   nosmcs:
-    label:     No SMCS
-    color:     black      # red, green, blue, cyan, magenta, yellow, black, white
-    linestyle: solid      # dotted, dashed, dashdot
+    label:     No SMCs
+    boxcolor:  lightcoral
+    color:     red
+    linestyle: solid    # dotted, dashed, dashdot
     linewidth: 2
   tri:
-    label:     Triangulation
-    color:     blue
+    label:     T
+    boxcolor:  peachpuff
+    color:     darkorange
     linestyle: solid
     linewidth: 2
   div:
-    label:     Divergence
+    label:     D
+    boxcolor:  lightgreen
     color:     green
     linestyle: solid
     linewidth: 2
   both:
-    label:     Both
-    color:     red
+    label:     T+D
+    boxcolor:  lightblue
+    color:     blue
     linestyle: solid
     linewidth: 2

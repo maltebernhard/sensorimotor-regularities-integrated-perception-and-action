@@ -135,11 +135,10 @@ class Analysis:
 
     # -------------------------------------------------------------------------
 
-    def add_and_run_variations(self, variations: List[dict]):
+    def add_variations(self, variations: List[dict]):
         self.variations += [variation for variation in variations if not any(all(variation[sub_key]==var[sub_key] for sub_key in var) for var in self.variations)]
         self.logger.add_variations(variations)
         self.experiment_config["variations"] = self.variations
-        self.run_analysis(variations)
 
     def run_analysis(self, variations: List[dict] = None):
         if variations is None:
@@ -261,7 +260,7 @@ class Analysis:
         self.logger.plot_states(plotting_config, save_path=self.record_dir if save else None, show=show)
 
     def plot_state_bars(self, plotting_config, save: bool=True, show:bool=False):
-        self.logger.plot_state_bars(plotting_config, save_path=self.record_dir if save else None, show=show)
+        self.logger.plot_state_boxplots(plotting_config, save_path=self.record_dir if save else None, show=show)
 
     def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, runs: list[int]=None, save: bool=True, show: bool=False):
         self.logger.plot_state_runs(plotting_config, config_id, runs, save_path=self.record_dir if save else None, show=show)

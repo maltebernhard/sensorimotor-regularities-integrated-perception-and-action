@@ -1,0 +1,117 @@
+same_for_all:
+  smcs:             both
+  distance_sensor:  no_dist_sensor
+  obstacles:        no_obstacles
+  sensor_noise:     small_noise
+  observation_loss: no_obs_loss
+  fv_noise:         no_fv_noise
+  desired_distance: 10
+  start_distance:   10
+  wind:             no_wind
+  control:          vel
+
+variations:
+  # From classic_exp1_extended.yaml
+  - controller:    aicon
+    target_config: stationary
+  - controller:    aicon
+    target_config: linear
+  - controller:    aicon
+    target_config: sine
+  - controller:    trc
+    target_config: stationary
+  - controller:    trc
+    target_config: linear
+  - controller:    trc
+    target_config: sine
+  # From classic_exp1_targetflightnchase.yaml
+  - controller:    aicon
+    target_config: flight
+  - controller:    aicon
+    target_config: chase
+  - controller:    trc
+    target_config: flight
+  - controller:    trc
+    target_config: chase
+
+plotting_state_config:
+  PolarTargetPos:
+    indices: [0]
+    labels:  [Distance]
+    xbounds: [0, 200]
+    ybounds: [[[5, 30]], [[-1, 10]], [[-1, 20]]]
+
+plotting_style_config:
+  # From classic_exp1_extended.yaml
+  stationary_aicon:
+    label:     \makebox[1.5cm][l]{AICON} T stationary
+    boxlabel:  "AICON\nT stat."
+    boxcolor:  lightblue
+    color:     blue
+    linestyle: solid
+    linewidth: 2
+  sine_aicon:
+    label:     \makebox[1.5cm][l]{AICON} T sine
+    boxlabel:  "AICON\nT sine"
+    boxcolor:  lightblue
+    color:     blue
+    linestyle: dashed
+    linewidth: 2
+  linear_aicon:
+    label:     \makebox[1.5cm][l]{AICON} T linear
+    boxlabel:  "AICON\nT linear"
+    boxcolor:  lightgreen
+    color:     green
+    linestyle: dashdot
+    linewidth: 2
+  flight_aicon:
+    label:     \makebox[1.5cm][l]{AICON} T flees from R
+    boxlabel:  "AICON\nT flees from R"
+    boxcolor:  lightblue
+    color:     blue
+    linestyle: dotted
+    linewidth: 2
+  chase_aicon:
+    label:     \makebox[1.5cm][l]{AICON} T chases R
+    boxlabel:  "AICON\nT chases R"
+    boxcolor:  lightblue
+    color:     blue
+    linestyle: dashed
+    linewidth: 2
+
+
+  stationary_trc:
+    label:     \makebox[1.5cm][l]{TRC} T stationary
+    boxlabel:  "TRC\nT stat."
+    boxcolor:  lightcoral
+    color:     red
+    linestyle: solid
+    linewidth: 2
+  sine_trc:
+    label:     \makebox[1.5cm][l]{TRC} T sine
+    boxlabel:  "TRC\nT sine"
+    boxcolor:  lightcoral
+    color:     red
+    linestyle: dashed
+    linewidth: 2
+  linear_trc:
+    label:     \makebox[1.5cm][l]{TRC} T linear
+    boxlabel:  "TRC\nT linear"
+    boxcolor:  lightgreen
+    color:     green
+    linestyle: dashdot
+    linewidth: 2
+  flight_trc:
+    label:     \makebox[1.5cm][l]{TRC} T flees from R
+    boxlabel:  "TRC\nT flees from R"
+    boxcolor:  lightcoral
+    color:     red
+    linestyle: dotted
+    linewidth: 2
+  chase_trc:
+    label:     \makebox[1.5cm][l]{TRC} T chases R
+    boxlabel:  "TRC\nT chases R"
+    boxcolor:  lightcoral
+    color:     red
+    linestyle: dashed
+    linewidth: 2

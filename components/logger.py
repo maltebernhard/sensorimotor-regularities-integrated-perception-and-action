@@ -243,6 +243,12 @@ class AICONLogger:
     def add_variations(self, variations):
         for variation in variations:
             self.set_variation(variation)
+    
+    def add_data(self, data:dict):
+        for variation in data.values():
+            config = variation["config"]
+            self.set_variation(config)
+            self.variations[self.current_variation_id]["data"].update(variation["data"])
 
     # =============================================== helpers ======================================================
 
@@ -277,7 +283,8 @@ class AICONLogger:
 
     @staticmethod
     def plot_mean_stddev(subplot: plt.Axes, means: np.ndarray, stddevs: np.ndarray, collisions:List[Tuple[float,float]], label:str, plotting_dict:Dict[str,str]):
-        style_dict = plotting_dict['style'][label]
+        style_dict = {key: plotting_dict['style'][label][key] for key in ['label', 'color', 'linestyle', 'linewidth']}
+            
         subplot.plot(
             means,
             **style_dict
@@ -337,7 +344,7 @@ class AICONLogger:
                 collisions.append((len(c) - 1, data[i][-1]))
         return np.array(means), np.array(stddevs), collisions
     
-    def plot_state_bars(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+    def plot_state_boxplots(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
             if len(indices) == 1:
@@ -379,8 +386,7 @@ class AICONLogger:
                 #     if len(run) < max_length:
                 #         run = np.pad(run, ((0, max_length - len(run)), (0, 0)), mode='edge')
 
-                # TODO: plot both average and absolute
-                # TODO: add collision counters
+                # instead, we remove runs with collisions entirely from box calculations
 
                 states[label] = np.array([np.mean(run - dd) for run, dd, col in zip(var_states, desired_distance, var_collisions) if not col[-1]])
                 abs_states[label] = np.array([np.mean(np.abs(run - dd)) for run, dd, col in zip(var_states, desired_distance, var_collisions) if not col[-1]])
@@ -388,12 +394,73 @@ class AICONLogger:
                 abs_errors[label] = np.array([np.mean(np.abs(run)) for run, col in zip(var_errors, var_collisions) if not col[-1]])
                 ucttys[label] = np.array([np.mean(run) for run, col in zip(var_ucttys, var_collisions) if not col[-1]])
 
+            # NOTE: used only to accumulate different target motions into one plot
+            if 'extended' in save_path:
+                alt_abs_states = {
+                    "stationary_aicon": abs_states["stationary_aicon"],
+                    "stationary_trc": abs_states["stationary_trc"],
+                    "motion_aicon": np.concatenate([abs_states[label] for label in abs_states if "aicon" in label and "stationary" not in label]),
+                    "motion_trc": np.concatenate([abs_states[label] for label in abs_states if "trc" in label and "stationary" not in label]),
+                }
+                alt_abs_errors = {
+                    "stationary_aicon": abs_errors["stationary_aicon"],
+                    "stationary_trc": abs_errors["stationary_trc"],
+                    "motion_aicon": np.concatenate([abs_errors[label] for label in abs_errors if "aicon" in label and "stationary" not in label]),
+                    "motion_trc": np.concatenate([abs_errors[label] for label in abs_errors if "trc" in label and "stationary" not in label]),
+                }
+                alt_ucttys = {
+                    "stationary_aicon": ucttys["stationary_aicon"],
+                    "stationary_trc": ucttys["stationary_trc"],
+                    "motion_aicon": np.concatenate([ucttys[label] for label in ucttys if "aicon" in label and "stationary" not in label]),
+                    "motion_trc": np.concatenate([ucttys[label] for label in ucttys if "trc" in label and "stationary" not in label]),
+                }
+                alt_fig, alt_axs = plt.subplots(1, 3, figsize=(21, 6))
+                for i, data in enumerate([alt_abs_states, alt_abs_errors, alt_ucttys]):
+                    alt_ax = alt_axs[i]
+                    label_index = -1
+                    for alt_label in ["stationary_aicon", "motion_aicon", "stationary_trc", "motion_trc"]:
+                        label = ("sine_aicon" if "aicon" in alt_label else "sine_trc") if "motion" in alt_label else alt_label
+                        label_key = 'boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label'
+                        plot_label: str = plotting_config['style'][label][label_key]
+                        if "sine" in plot_label:
+                            plot_label = plot_label.replace("sine", "moves")
+                        if "stat." in plot_label:
+                            plot_label = plot_label.replace("stat.", "stationary")
+                        # use the label index as the x-position
+                        label_index += 1
+                        alt_ax.boxplot(
+                            data[alt_label],
+                            positions=[label_index + 1],
+                            labels=[plot_label],
+                            patch_artist=True,
+                            boxprops=dict(
+                                facecolor=plotting_config['style'][label]['boxcolor'],
+                            ),
+                            medianprops=dict(
+                                linewidth=2.0,
+                                color=plotting_config['style'][label]['color'],
+                            ),
+                            showfliers=False,
+                            widths=0.5  # Adjust the width of the box
+                        )
+                    alt_ax.tick_params(axis='x', labelsize=16)
+                    max_val = max(data[alt_label].max() for alt_label in alt_abs_states.keys())
+                    alt_ax.set_ylim(0.0, max_val * 1.1)
+                    #alt_ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
+                    alt_ax.set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][i]}", fontsize=20)
+                    alt_ax.set_ylabel('Distance', fontsize=20)
+                    alt_ax.grid(True)#, axis='y')
+                alt_fig.tight_layout()
+                path = os.path.join(save_path, f"records/alt_abs_box_{plotting_config['name']}") if save_path is not None else None
+                self.save_fig(alt_fig, path, show)
+
+
             # plot absolute_bars
             for i in range(len(indices)):
                 for j, data in enumerate([abs_states, abs_errors, ucttys]):
                     for label in plotting_config["axes"].keys():
-                
-                        plot_label = plotting_config['style'][label]['label']
+                        label_key = 'boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label'
+                        plot_label = plotting_config['style'][label][label_key]
                         # use the label index as the x-position
                         label_index = list(plotting_config["axes"].keys()).index(label)
                         axs_abs[j][i].boxplot(
@@ -401,10 +468,18 @@ class AICONLogger:
                             positions=[label_index + 1],
                             labels=[plot_label],
                             patch_artist=True,
-                            boxprops=dict(facecolor=plotting_config['style'][label]['color'])
+                            boxprops=dict(
+                                facecolor=plotting_config['style'][label]['boxcolor'],
+                            ),
+                            medianprops=dict(
+                                linewidth=2.0,
+                                color=plotting_config['style'][label]['color'],
+                            ),
+                            showfliers=False,
+                            widths=0.5  # Adjust the width of the box
                         )
                     max_val = max(data[label].max() for label in plotting_config["axes"].keys())
-                    axs_abs[j][i].set_ylim(-0.1, max_val * 1.1)
+                    axs_abs[j][i].set_ylim(0.0, max_val * 1.1)
                     axs_abs[j][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
                     axs_abs[j][i].set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][j]}")
                     axs_abs[j][i].set_ylabel(['Distance', 'Distance', 'Distance'][j])
@@ -418,14 +493,24 @@ class AICONLogger:
             for i in range(len(indices)):
                 for j, data in enumerate([states, errors, ucttys]):
                     for label in plotting_config["axes"].keys():
-                        plot_label = plotting_config['style'][label]['label']
+                        label_key = 'boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label'
+                        plot_label = plotting_config['style'][label][label_key]
                         label_index = list(plotting_config["axes"].keys()).index(label)
                         axs[j][i].boxplot(
                             data[label],
-                            positions=[label_index + 1],
+                            positions=[label_index+1],
                             labels=[plot_label],
                             patch_artist=True,
-                            boxprops=dict(facecolor=plotting_config['style'][label]['color'])
+                            boxprops=dict(
+                                facecolor=plotting_config['style'][label]['boxcolor'],
+                            ),
+                            medianprops=dict(
+                                linewidth=2.0,
+                                color=plotting_config['style'][label]['color'],
+
+                            ),
+                            showfliers=False,
+                            widths=0.5  # Adjust the width of the box
                         )
                     max_val = max(data[label].max() for label in plotting_config["axes"].keys())
                     min_val = min(data[label].min() for label in plotting_config["axes"].keys())
@@ -481,11 +566,11 @@ class AICONLogger:
             for i in range(len(indices)):
                 # HACK: plot desired distance
                 # TODO: think about how to handle this if there are different desired distances
-                axs[0][i].axhline(y=list(plotting_config['axes'].values())[0]['desired_distance'], color='black', linestyle='--', linewidth=1, label='desired distance to target')
+                axs[0][i].axhline(y=list(plotting_config['axes'].values())[0]['desired_distance'], color='black', linestyle='dotted', linewidth=2, label='desired distance to target: $d^\\ast=10$')
                 
-                axs[0][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
-                axs[1][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
-                axs[2][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
+                axs[0][i].axhline(y=0, color='black', linestyle='solid', linewidth=2)
+                axs[1][i].axhline(y=0, color='black', linestyle='solid', linewidth=2)
+                axs[2][i].axhline(y=0, color='black', linestyle='solid', linewidth=2)
                 if len(sensor_failures) > 0:
                     axs[0][i].axvspan(100, 200, color='grey', alpha=0.2, label=f'sensor failure for {sensor_failures}')
                     axs[1][i].axvspan(100, 200, color='grey', alpha=0.2, label=f'sensor failure for {sensor_failures}')
@@ -493,10 +578,14 @@ class AICONLogger:
 
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
-                states = [run_data["estimators"][state_id]["env_state"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                ucttys = [run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                errors = [run_data["estimators"][state_id]["estimation_error"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-                collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                # states = [run_data["estimators"][state_id]["env_state"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                # ucttys = [run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                # errors = [run_data["estimators"][state_id]["estimation_error"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                states = [run_data["estimators"][state_id]["env_state"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"] and not run_data["collision"][-1]]
+                ucttys = [run_data["estimators"][state_id]["uncertainty"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"] and not run_data["collision"][-1]]
+                errors = [run_data["estimators"][state_id]["estimation_error"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"] and not run_data["collision"][-1]]
+                #collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
+                collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"] and not run_data["collision"][-1]]
 
                 state_means, state_stddevs, state_collisions = self.compute_mean_and_stddev(states, collisions)
                 # HACK: overwrite distances to target at collision step, cause they slightly vary due to how much "inside" the agent is in the target at the step
@@ -569,7 +658,7 @@ class AICONLogger:
             for subgoal_key in self.variations[self.current_variation_id]['data'][1]["goal_loss"]:
                 plotting_config["style"][f"{label} {subgoal_key} loss"] = style
         # Plot goal losses
-        fig_goal, ax = plt.subplots(1, 1, figsize=(12, 10))
+        fig_goal, ax = plt.subplots(1, 1, figsize=(7, 6))
         
         xbounds = plotting_config["states"]["PolarTargetPos"]["xbounds"]
         len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
@@ -598,33 +687,37 @@ class AICONLogger:
         self.save_fig(fig_goal, loss_path, show)
 
     def plot_losses_and_gradients(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
-        subgoal_labels = ["total", "target_distance", "target_distance_uncertainty"]
+        subgoal_labels = ["Total", "Task", "Uncertainty"]
         
         for i, (ax_label, style) in enumerate(list(plotting_config["style"].items())):
             plotting_config["style"][f"{ax_label} frontal"] = {
                 'label':     'frontal',
-                'linestyle': 'dashed',
+                'linestyle': 'solid',
                 'color':     'c',
-                'linewidth': 1
+                'linewidth': 2
             }
             plotting_config["style"][f"{ax_label} lateral"] = {
                 'label':     'lateral',
                 'linestyle': 'solid',
                 'color':     'm',
-                'linewidth': 1
+                'linewidth': 2
             }
         
         xbounds = plotting_config["states"]["PolarTargetPos"]["xbounds"]
         len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
 
-        y_lim_start = min(int(len_data/2),100)
+        y_lim_start = min(int(len_data/2), 25)
+        y_lim_end = min(len_data, xbounds[1])
 
+        # TODO: use this to only plot variations from style config
+        # for ax_label, variation in [(lab, var) for lab, var in plotting_config["axes"].items() if lab in plotting_config["style"]]:
         for ax_label, variation in plotting_config["axes"].items():
-            fig_goal, axs = plt.subplots(3, 3, figsize=(14, 12))
+            fig_goal, axs = plt.subplots(3, 3, figsize=(21, 18))
             self.set_variation(variation)
 
             # HACK: exclude all runs except first, to get gradients that make sense instead of mean/stddev
             plotting_config['exclude_runs'] = [run for run in list(self.variations[self.current_variation_id]['data'].keys())[1:]]
+
             collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
             
             total_loss = [[0.0]*len(run_data["step"]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
@@ -639,36 +732,66 @@ class AICONLogger:
             uctty_grad = np.array([run_data["rtf_gradient"]["target_distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
             total_grad = np.array([run_data["rtf_gradient"]["total"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
             
+            # # TODO: utilize to get correlations of gradients and context variables
+            # uctty = np.array([run_data["estimators"]["PolarTargetPos"]["uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+            # if uctty.shape[2] == 5:
+            #     datapoints = np.array([uctty_grad[0, :, 0], uctty[0, :, 2]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"Correlation between frontal gradient and frontal target vel uncertainty:")
+            #     print(correlation[0,1])
+            #     datapoints = np.array([uctty_grad[0, :, 1], uctty[0, :, 3]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"Correlation between lateral gradient and lateral target vel uncertainty:")
+            #     print(correlation[0,1])
+
             for j, loss in enumerate([total_loss, task_loss, uctty_loss]):
                 loss_means, loss_stddevs, loss_collisions = self.compute_mean_and_stddev(loss, collisions)
                 self.plot_mean_stddev(axs[0][j], loss_means, loss_stddevs, loss_collisions, ax_label, plotting_config)
-                axs[0][j].set_ylim(np.min(loss_means[y_lim_start:]), np.max(loss_means[y_lim_start:]))
+                min_y = np.min(loss_means[y_lim_start:y_lim_end])
+                max_y = np.max(loss_means[y_lim_start:y_lim_end])
+                axs[0][j].set_ylim(min_y + 0.1*(min_y-max_y), max_y + 0.1*(max_y-min_y))
 
             action_means_frontal, action_stddevs_frontal, action_collisions_frontal = self.compute_mean_and_stddev(action[:,:,0], collisions)
             action_means_lateral, action_stddevs_lateral, action_collisions_lateral = self.compute_mean_and_stddev(action[:,:,1], collisions)
+            action_means_frontal = np.clip(action_means_frontal, -1, 1)
+            action_means_lateral = np.clip(action_means_lateral, -1, 1)
             for j in [0,1,2]:
                 self.plot_mean_stddev(axs[1][j], action_means_frontal, action_stddevs_frontal, action_collisions_frontal, f"{ax_label} frontal", plotting_config)
                 self.plot_mean_stddev(axs[1][j], action_means_lateral, action_stddevs_lateral, action_collisions_lateral, f"{ax_label} lateral", plotting_config)
-                axs[1][j].set_ylim(np.min([np.min(data[y_lim_start:]) for data in [action_means_frontal, action_means_lateral]]), np.max([np.max(data[y_lim_start:]) for data in [action_means_frontal, action_means_lateral]]))
+                min_y = np.min([np.min(data[y_lim_start:y_lim_end]) for data in [action_means_frontal, action_means_lateral]])
+                max_y = np.max([np.max(data[y_lim_start:y_lim_end]) for data in [action_means_frontal, action_means_lateral]])
+                axs[1][j].set_ylim(min_y + 0.1*(min_y-max_y), max_y + 0.1*(max_y-min_y))
 
             for j, grad in enumerate([total_grad, task_grad, uctty_grad]):
                 grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal = self.compute_mean_and_stddev(grad[:,:,0], collisions)
                 grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral = self.compute_mean_and_stddev(grad[:,:,1], collisions)
                 self.plot_mean_stddev(axs[2][j], grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
                 self.plot_mean_stddev(axs[2][j], grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
-                axs[2][j].set_ylim(np.min([np.min(data[y_lim_start:]) for data in [grad_means_frontal, grad_means_lateral]]), np.max([np.max(data[y_lim_start:]) for data in [grad_means_frontal, grad_means_lateral]]))
+                min_y = np.min([np.min(data[y_lim_start:y_lim_end]) for data in [grad_means_frontal, grad_means_lateral]])
+                max_y = np.max([np.max(data[y_lim_start:y_lim_end]) for data in [grad_means_frontal, grad_means_lateral]])
+                axs[2][j].set_ylim(min_y + 0.1*(min_y-max_y), max_y + 0.1*(max_y-min_y))
+                if j == 2:
+                    extrafig, ax = plt.subplots(1, 1, figsize=(7, 6))
+                    ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
+                    self.plot_mean_stddev(ax, grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
+                    self.plot_mean_stddev(ax, grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
+                    ax.set_title(f"Uncertainty Gradient", fontsize=16)
+                    ax.set_ylabel("Gradient Magnitude", fontsize=16)
+                    ax.set_xlabel("Time Step", fontsize=16)
+                    ax.grid(True)
+                    ax.legend()
+                    ax.set_xlim(0, min(xbounds[1], len_data))
+                    ax.set_ylim(min_y + 0.1*(min_y-max_y), max_y + 0.1*(max_y-min_y))
+                    extrafig.tight_layout()
 
-            titles = ["loss", "action", "gradient"]
-            y_labels = ["Loss Value", "Action Magnitude", "Gradient Magnitude"]
             for j, subgoal_label in enumerate(subgoal_labels):
-                
-                axs[1][j].set_title(f"{subgoal_label} action", fontsize=16)
-                axs[1][j].set_ylabel("Action Magnitude", fontsize=16)
-                axs[2][j].set_title(f"{subgoal_label} gradient", fontsize=16)
+                axs[0][j].set_title(f"{subgoal_label} Loss", fontsize=16)
+                axs[0][j].set_ylabel("Loss Value", fontsize=16)
+                axs[1][j].set_title(f"Action", fontsize=16)
+                axs[1][j].set_ylabel("Action Magnitude (Normalized)", fontsize=16)
+                axs[2][j].set_title(f"{subgoal_label} Gradient", fontsize=16)
                 axs[2][j].set_ylabel("Gradient Magnitude", fontsize=16)
                 for k in [0,1,2]:
-                    axs[k][j].set_title(f"{subgoal_label} {titles[k]}", fontsize=16)
-                    axs[k][j].set_ylabel(y_labels[k], fontsize=16)
                     axs[k][j].set_xlabel("Time Step", fontsize=16)
                     axs[k][j].grid(True)
                     axs[k][j].legend()
@@ -677,6 +800,7 @@ class AICONLogger:
             # save / show
             loss_path = os.path.join(save_path, f"records/loss/goal_gradients_{ax_label}") if save_path is not None else None
             self.save_fig(fig_goal, loss_path, show)
+            self.save_fig(extrafig, os.path.join(save_path, f"records/loss/gradient_{ax_label}"), show)
 
     # ================================== saving ==========================================
 

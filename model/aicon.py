@@ -80,7 +80,7 @@ class SMCAICON(AICON):
     def compute_action_gradient(self):
         if self.control == "aicon":
             return super().compute_action_gradient()
-        elif self.control in ["task", "manual"]:
+        elif self.control in ["task", "trc"]:
             # goal control
             task_grad = torch.zeros(3)
             task_vel_radial = 2e-1 * (self.REs["PolarTargetPos"].mean[0] - self.goal.desired_distance)
@@ -88,7 +88,7 @@ class SMCAICON(AICON):
 
             # smc control
             unc_grad = torch.zeros(3)
-            if self.control == "manual":
+            if self.control == "trc":
                 unc_vel_tangential = 5e-1 * self.REs["PolarTargetPos"].cov[0][0] if "Triangulation" in self.smcs else 0.0
                 unc_vel_radial     = 1e-1 * self.REs["PolarTargetPos"].cov[0][0] * task_vel_radial.sign() if "Divergence" in self.smcs else 0
                 unc_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].mean[1], torch.tensor([unc_vel_radial, unc_vel_tangential])).squeeze()
