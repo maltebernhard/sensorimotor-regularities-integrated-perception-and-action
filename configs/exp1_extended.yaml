@@ -46,35 +46,35 @@ plotting_config:
       boxybounds: [[[0, 17.5]], [[0, 7]], [[0, 7]]]
 
   style:
-    stationary_aicon:
+    aicon_stationary:
       label:     \makebox[2.0cm][l]{AICON} T stationary
       boxlabel:  $S$
       boxcolor:  lightblue
       color:     blue
       linestyle: solid
       linewidth: 2
-    linear_aicon:
+    aicon_linear:
       label:     \makebox[2.0cm][l]{AICON} T linear
       boxlabel:  $L$
       boxcolor:  lightblue
       color:     blue
       linestyle: dashed
       linewidth: 2
-    sine_aicon:
+    aicon_sine:
       label:     \makebox[2.0cm][l]{AICON} T sine
       boxlabel:  $W$
       boxcolor:  lightblue
       color:     blue
       linestyle: dotted
       linewidth: 2
-    flight_aicon:
+    aicon_flight:
       label:     \makebox[2.0cm][l]{AICON} T flees from R
       boxlabel:  $F$
       boxcolor:  lightblue
       color:     blue
       linestyle: dashdot
       linewidth: 2
-    chase_aicon:
+    aicon_chase:
       label:     \makebox[2.0cm][l]{AICON} T chases R
       boxlabel:  $C$
       boxcolor:  lightblue
@@ -82,35 +82,35 @@ plotting_config:
       linestyle: dashed
       linewidth: 2
 
-    stationary_trc:
+    trc_stationary:
       label:     \makebox[2.0cm][l]{TRC} T stationary
       boxlabel:  $S$
       boxcolor:  lightcoral
       color:     red
       linestyle: solid
       linewidth: 2
-    linear_trc:
+    trc_linear:
       label:     \makebox[2.0cm][l]{TRC} T linear
       boxlabel:  $L$
       boxcolor:  lightcoral
       color:     red
       linestyle: dashed
       linewidth: 2
-    sine_trc:
+    trc_sine:
       label:     \makebox[2.0cm][l]{TRC} T sine
       boxlabel:  $W$
       boxcolor:  lightcoral
       color:     red
       linestyle: dotted
       linewidth: 2
-    flight_trc:
+    trc_flight:
       label:     \makebox[2.0cm][l]{TRC} T flees from R
       boxlabel:  $F$
       boxcolor:  lightcoral
       color:     red
       linestyle: dashdot
       linewidth: 2
-    chase_trc:
+    trc_chase:
       label:     \makebox[2.0cm][l]{TRC} T chases R
       boxlabel:  $C$
       boxcolor:  lightcoral

@@ -1,0 +1,64 @@
+same_for_all:
+  smcs:             both
+  distance_sensor:  no_dist_sensor
+  #controller:      aicon
+  target_config:    stationary
+  obstacles:        no_obstacles
+  sensor_noise:     small_noise
+  observation_loss: no_obs_loss
+  fv_noise:         no_fv_noise
+  desired_distance: 10
+  start_distance:   10
+  #wind:            no_wind
+  control:          acc
+
+variations:
+  - controller:    aicon
+    wind:          no_wind
+  - controller:    aicon
+    wind:          light_wind
+  - controller:    trc
+    wind:          no_wind
+  - controller:    trc
+    wind:          light_wind
+
+plotting_config:
+  exclude_runs: []
+  xbounds: [0, 200]
+
+  states:
+    PolarTargetPos:
+      indices:    [0]
+      labels:     [Distance]
+      ybounds:    [[[8, 26]], [[-1, 8]], [[-1, 8]]]
+      absybounds: [[[0, 15]], [[0, 8]], [[0, 5]]]
+
+  style:
+    aicon_no_wind:
+      label:     \makebox[2.0cm][l]{AICON} no wind
+      boxlabel:  "AICON\nno wind"
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: solid    # dotted, dashed, dashdot
+      linewidth: 2
+    aicon_light_wind:
+      label:     \makebox[2.0cm][l]{AICON} wind
+      boxlabel:  "AICON\nwind"
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: dashed
+      linewidth: 2
+    trc_no_wind:
+      label:     \makebox[2.0cm][l]{TRC} no wind
+      boxlabel:  "TRC\nno wind"
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: solid
+      linewidth: 2
+    trc_light_wind:
+      label:     \makebox[2.0cm][l]{TRC} wind
+      boxlabel:  "TRC\nwind"
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: dashed
+      linewidth: 2

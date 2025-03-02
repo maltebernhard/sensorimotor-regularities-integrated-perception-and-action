@@ -138,7 +138,7 @@ class SMCConfig:
 
 class ControllerConfig:
     aicon  = "aicon"
-    trc = "trc"
+    trc    = "trc"
     task   = "task"
 
 class DistanceSensorConfig:
@@ -197,7 +197,7 @@ class ControlConfig:
 # ---------------------- collection with keys --------------------------------
 
 class ExperimentConfig:
-    keys = ["smcs", "control", "distance_sensor", "sensor_noise", "fv_noise", "target_config", "observation_loss", "controller"]
+    keys = ["smcs", "controller", "distance_sensor", "sensor_noise", "fv_noise", "target_config", "obstacles", "observation_loss", "wind", "control"]
     smcs             = SMCConfig
     controller       = ControllerConfig
     distance_sensor  = DistanceSensorConfig
