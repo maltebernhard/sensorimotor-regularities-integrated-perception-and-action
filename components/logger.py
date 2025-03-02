@@ -315,7 +315,7 @@ class AICONLogger:
                 subplot.plot(run[:, state_index], label=f'{labels[i]}', **c)
                 if collisions[i][-1]:
                     subplot.plot(len(collisions[i]), run[-1], 'x', markersize=10, markeredgewidth=2, **c)
-        subplot.set_title(title)
+        subplot.set_title("\\textbf{" + title + "}", fontsize=20)
         subplot.set_xlabel("Time Step", fontsize=20)
         subplot.set_ylabel(y_label, fontsize=20)
         max_steps = max(len(run) for run in data)
@@ -345,6 +345,7 @@ class AICONLogger:
         return np.array(means), np.array(stddevs), collisions
     
     def plot_state_boxplots(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+        xbounds = plotting_config["xbounds"]
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
             if len(indices) == 1:
@@ -355,7 +356,6 @@ class AICONLogger:
             else:
                 fig, axs = plt.subplots(3, len(indices), figsize=(6 * len(indices), 21))
                 fig_abs, axs_abs = plt.subplots(3, len(indices), figsize=(6 * len(indices), 21))
-            xbounds = config["xbounds"]
             len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
 
             states = {}
@@ -433,7 +433,7 @@ class AICONLogger:
                     max_val = max(data[alt_label].max() for alt_label in alt_abs_states.keys())
                     alt_ax.set_ylim(0.0, max_val * 1.1)
                     #alt_ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
-                    alt_ax.set_title(f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][i]}", fontsize=16)
+                    alt_ax.set_title("\\textbf{" + f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][i]}" + "}", fontsize=16)
                     alt_ax.set_ylabel(['Distance Offset from $d^\\ast$', 'Distance Estimation Error', 'Distance Estimate Standard Deviation'][i], fontsize=16)
                     alt_ax.grid(True)#, axis='y')
                 alt_fig.tight_layout()
@@ -467,7 +467,7 @@ class AICONLogger:
                     max_val = max(data[label].max() for label in plotting_config["axes"].keys())
                     axs_abs[j][i].set_ylim(0.0, max_val * 1.1)
                     axs_abs[j][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
-                    axs_abs[j][i].set_title(f"{['Task Error', 'Estimation Error', 'Estimation Uncertainty'][j]}", fontsize=16)
+                    axs_abs[j][i].set_title("\\textbf{" + f"{['Task Error', 'Estimation Error', 'Estimation Uncertainty'][j]}" + "}", fontsize=16)
                     axs_abs[j][i].set_ylabel(['Distance Offset from $d^\\ast$', 'Distance Estimation Error', 'Distance Estimate Standard Deviation'][j], fontsize=16)
                     axs_abs[j][i].grid(True)#, axis='y')
 
@@ -499,7 +499,7 @@ class AICONLogger:
                     min_val = min(data[label].min() for label in plotting_config["axes"].keys())
                     axs[j][i].set_ylim(min(0.0, min_val * 1.1), max(0.0, max_val * 1.1))
                     axs[j][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
-                    axs[j][i].set_title(f"{['Task Error', 'Estimation Error', 'Estimation Uncertainty'][j]}", fontsize=16)
+                    axs[j][i].set_title("\\textbf{" + f"{['Task Error', 'Estimation Error', 'Estimation Uncertainty'][j]}" + "}", fontsize=16)
                     axs[j][i].set_ylabel(['Distance Offset from $d^\\ast$', 'Distance Estimation Error', 'Distance Estimate Standard Deviation'][j], fontsize=16)
                     axs[j][i].grid(True)#, axis='y')
             # save / show
@@ -508,6 +508,9 @@ class AICONLogger:
             path = os.path.join(save_path, f"records/abs_box_{plotting_config['name']}") if save_path is not None else None
             self.save_fig(fig_abs, path, show)
 
+    def plot_collisions(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+        xbounds = plotting_config["xbounds"]
+        
         ratio_collisions = {}
         total_runs = len(self.variations[self.current_variation_id]['data']) - len(plotting_config["exclude_runs"])
         for label, variation in plotting_config["axes"].items():
@@ -515,20 +518,26 @@ class AICONLogger:
             var_collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
             ratio_collisions[label] = sum(collisions_run[:min(len(collisions_run),xbounds[1])].sum() for collisions_run in var_collisions) / total_runs
         if not all(col == 0 for col in ratio_collisions.values()):
-            fig, ax = plt.subplots(1, 1, figsize=(6, 5))
+            fig, ax = plt.subplots(1, 1, figsize=(7, 6))
             ax.grid(axis='x')
             for label, ratio in ratio_collisions.items():
-                ax.barh(plotting_config['style'][label]['label'], ratio, color=plotting_config['style'][label]['color'])
-            ax.set_title("Collisions")
-            ax.set_xlabel("Avg. Collisions per Run", fontsize=20)
+                ax.barh(
+                    plotting_config['style'][label]['label'],
+                    ratio,
+                    color=plotting_config['style'][label]['color']
+                )
+            ax.tick_params(axis='y', labelsize=16)
+            ax.set_title("\\textbf{Collisions }", fontsize=20)
+            ax.set_xlabel("Avg. Collisions per Run", fontsize=16)
+
             ax.set_xlim(0, 1)
             path = os.path.join(save_path, f"records/collisions_{plotting_config['name']}") if save_path is not None else None
             self.save_fig(fig, path, show)
 
     def plot_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+        xbounds = plotting_config["xbounds"]
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
-            xbounds = config["xbounds"]
             ybounds = config["ybounds"]
             len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
             absybounds = config.get("absybounds", None)
@@ -602,7 +611,7 @@ class AICONLogger:
                     self.plot_mean_stddev(abs_axs[1][i], abs_error_means[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], abs_error_stddevs[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], abs_error_collisions, label, plotting_config)
                     self.plot_mean_stddev(abs_axs[2][i], uctty_means[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], uctty_stddevs[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], uctty_collisions, label, plotting_config)
 
-            titles   = ["Task Error", "Estimation Error", "Estimation Uncertainty"]
+            titles   = ["\\textbf{Task Error}", "\\textbf{Estimation Error}", "\\textbf{Estimation Uncertainty}"]
             y_labels = ["Distance to Target", "Distance Estimation Error", "Distance Estimation Uncertainty (stddev)"]
             max_steps = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
             for j in range(3):
@@ -635,10 +644,10 @@ class AICONLogger:
             self.save_fig(abs_fig, path, show)
 
     def plot_state_runs(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], axs_id: str, runs: list[int], save_path:str=None, show:bool=False):
+        xbounds = plotting_config["xbounds"]
         for state_id, config in plotting_config["states"].items():
             indices = np.array(config["indices"])
             labels = config["labels"]
-            xbounds = config["xbounds"]
             ybounds = config["ybounds"]
             len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
             if len(indices) == 1:
@@ -679,7 +688,7 @@ class AICONLogger:
         # Plot goal losses
         fig_goal, ax = plt.subplots(1, 1, figsize=(7, 6))
         
-        xbounds = plotting_config["states"]["PolarTargetPos"]["xbounds"]
+        xbounds = plotting_config["xbounds"]
         len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
         
         for label, variation in plotting_config["axes"].items():
@@ -695,7 +704,7 @@ class AICONLogger:
                     self.plot_mean_stddev(ax, goal_loss_means, goal_loss_stddevs, goal_loss_collisions, f"{label} {subgoal_key} loss", "Loss Mean and Stddev", plotting_config)
             total_loss_means, total_loss_stddevs, total_loss_collisions = self.compute_mean_and_stddev(total_loss, collisions)
             self.plot_mean_stddev(ax, total_loss_means, total_loss_stddevs, total_loss_collisions, f"{label} total loss", plotting_config)
-        ax.set_title("Goal Loss", fontsize=20)
+        ax.set_title("\\textbf{Goal Loss}", fontsize=20)
         ax.set_ylabel("Loss Value", fontsize=20)
         ax.set_xlabel("Time Step", fontsize=20)
         ax.grid(True)
@@ -722,7 +731,7 @@ class AICONLogger:
                 'linewidth': 2
             }
         
-        xbounds = plotting_config["states"]["PolarTargetPos"]["xbounds"]
+        xbounds = plotting_config["xbounds"]
         len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
 
         y_lim_start = min(int(len_data/2), 25)
@@ -794,7 +803,7 @@ class AICONLogger:
                     ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
                     self.plot_mean_stddev(ax, grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
                     self.plot_mean_stddev(ax, grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
-                    ax.set_title(f"Uncertainty Gradient", fontsize=20)
+                    ax.set_title("\\textbf{Uncertainty Gradient}", fontsize=20)
                     ax.set_ylabel("Gradient Magnitude", fontsize=20)
                     ax.set_xlabel("Time Step", fontsize=20)
                     ax.grid(True)
@@ -804,11 +813,11 @@ class AICONLogger:
                     extrafig.tight_layout()
 
             for j, subgoal_label in enumerate(subgoal_labels):
-                axs[0][j].set_title(f"{subgoal_label} Loss", fontsize=20)
+                axs[0][j].set_title("\\textbf{"+f"{subgoal_label} Loss" + "}", fontsize=20)
                 axs[0][j].set_ylabel("Loss Value", fontsize=20)
-                axs[1][j].set_title(f"Action", fontsize=20)
+                axs[1][j].set_title("\\textbf{Action }", fontsize=20)
                 axs[1][j].set_ylabel("Action Magnitude (Normalized)", fontsize=20)
-                axs[2][j].set_title(f"{subgoal_label} Gradient", fontsize=20)
+                axs[2][j].set_title("\\textbf{" + f"{subgoal_label} Gradient" + "}", fontsize=20)
                 axs[2][j].set_ylabel("Gradient Magnitude", fontsize=20)
                 for k in [0,1,2]:
                     axs[k][j].set_xlabel("Time Step", fontsize=20)

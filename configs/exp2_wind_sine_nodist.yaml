@@ -20,12 +20,12 @@ variations:
 
 plotting_config:
   exclude_runs: [2, 5, 7]
+  xbounds: [0, 200]
 
   states:
     PolarTargetPos:
       indices: [0]
       labels:  [Distance]
-      xbounds: [0, 200]
       ybounds: [[[-1, 40]], [[-1, 40]], [[-1, 40]]]
 
   style:

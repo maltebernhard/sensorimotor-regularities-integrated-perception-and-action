@@ -249,7 +249,7 @@ class Analysis:
             runner.video_record_path = video_path
         runner.run()
 
-    def plot_states(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], save: bool=True, show: bool=False):
+    def plot_time(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], save: bool=True, show: bool=False):
         """
         Plots the logged states according to the state dictionary.
         Args:
@@ -259,7 +259,7 @@ class Analysis:
         """
         self.logger.plot_states(plotting_config, save_path=self.record_dir if save else None, show=show)
 
-    def plot_state_bars(self, plotting_config, save: bool=True, show:bool=False):
+    def plot_boxplots(self, plotting_config, save: bool=True, show:bool=False):
         self.logger.plot_state_boxplots(plotting_config, save_path=self.record_dir if save else None, show=show)
 
     def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, runs: list[int]=None, save: bool=True, show: bool=False):
@@ -270,6 +270,9 @@ class Analysis:
 
     def plot_loss_and_gradient(self, plotting_config:dict, save:bool=True, show:bool=False):
         self.logger.plot_losses_and_gradients(plotting_config, save_path=self.record_dir if save else None, show=show)
+
+    def plot_collisions(self, plotting_config:dict, save:bool=True, show:bool=False):
+        self.logger.plot_collisions(plotting_config, save_path=self.record_dir if save else None, show=show)
 
     @staticmethod
     def get_key_from_value(d: dict, value):
@@ -297,7 +300,7 @@ class Analysis:
             print(ex)
             return False
 
-    def plot_states_and_losses(self):
+    def plot_states_and_losses(self, time=True, boxplots=True, runs=True, losses=True, gradients=True, collisions=True):
         plotting_config: dict = self.custom_config["plotting_config"]
         plot_variation_values = {key: [variation[key] for variation in self.variations] for key in config.keys}
         axes = {
@@ -309,14 +312,19 @@ class Analysis:
             "name":         "main",
             "axes":         axes,
         })
-        print(f"Plotting has the following axes:")
-        print([key for key in axes.keys()])
-        self.plot_states(plotting_config)
-        self.plot_state_bars(plotting_config)
-        self.plot_loss_and_gradient(plotting_config)
-        self.plot_goal_losses(plotting_config)
-        for ax_key in axes.keys():
-            self.plot_state_runs(plotting_config, ax_key)
+        if time:
+            self.plot_time(plotting_config)
+        if boxplots:
+            self.plot_boxplots(plotting_config)
+        if gradients:
+            self.plot_loss_and_gradient(plotting_config)
+        if losses:
+            self.plot_goal_losses(plotting_config)
+        if collisions:
+            self.plot_collisions(plotting_config)
+        if runs:
+            for ax_key in axes.keys():
+                self.plot_state_runs(plotting_config, ax_key)
 
     # ------------------------------------------------------------------------------------------------
 
