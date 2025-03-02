@@ -400,7 +400,7 @@ class AICONLogger:
                     "motion_aicon": np.concatenate([ucttys[label] for label in ucttys if "aicon" in label and "stationary" not in label]),
                     "motion_trc": np.concatenate([ucttys[label] for label in ucttys if "trc" in label and "stationary" not in label]),
                 }
-                alt_fig, alt_axs = plt.subplots(1, 3, figsize=(21, 6))
+                alt_fig, alt_axs = plt.subplots(1, 3, figsize=(15, 5))
                 for i, data in enumerate([alt_abs_states, alt_abs_errors, alt_ucttys]):
                     alt_ax = alt_axs[i]
                     label_index = -1
@@ -612,7 +612,8 @@ class AICONLogger:
                     self.plot_mean_stddev(abs_axs[2][i], uctty_means[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], uctty_stddevs[xbounds[0]:min(xbounds[1]+1,len(state_means)), i], uctty_collisions, label, plotting_config)
 
             titles   = ["\\textbf{Task Error}", "\\textbf{Estimation Error}", "\\textbf{Estimation Uncertainty}"]
-            y_labels = ["Distance to Target", "Distance Estimation Error", "Distance Estimation Uncertainty (stddev)"]
+            y_labels = ["Distance to Target", "Distance Estimation Error", "Distance Estimate Standard Deviation"]
+            abs_y_labels = ["Distance Offset from $d^\\ast$", "Distance Estimation Error", "Distance Estimate Standard Deviation"]
             max_steps = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
             for j in range(3):
                 axs[j][i].set_title(titles[j], fontsize=20)
