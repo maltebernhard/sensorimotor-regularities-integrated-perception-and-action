@@ -22,47 +22,50 @@ variations:
   - controller:    trc
     target_config: sine
 
-plotting_state_config:
-  PolarTargetPos:
-    indices:    [0]
-    labels:     [Distance]
-    xbounds:    [0, 200]
-    ybounds:    [[[8, 26]], [[-1, 8]], [[-1, 8]]]
-    absybounds: [[[0, 15]], [[0, 8]], [[0, 5]]]
-  # RobotVel:
-  #   indices: [0,1]
-  #   labels:  [Frontal Velocity, Lateral Velocity]
-  #   xbounds: [0, 200]
-  #   ybounds: [[[-10.0, 10.0], [-10.0, 10.0]],
-  #             [[0, 1.5],      [0, 1.5]],
-  #             [[0, 1.5],      [0, 1.5]]]
+plotting_config:
+  exclude_runs: []
 
-plotting_style_config:
-  stationary_aicon:
-    label:     \makebox[2.0cm][l]{AICON} T stationary
-    boxlabel:  "AICON\nT stationary"
-    boxcolor:  lightblue
-    color:     blue
-    linestyle: solid    # dotted, dashed, dashdot
-    linewidth: 2
-  sine_aicon:
-    label:     \makebox[2.0cm][l]{AICON} T moves
-    boxlabel:  "AICON\nT moves"
-    boxcolor:  lightblue
-    color:     blue
-    linestyle: dashed
-    linewidth: 2
-  stationary_trc:
-    label:     \makebox[2.0cm][l]{TRC} T stationary
-    boxlabel:  "TRC\nT stationary"
-    boxcolor:  lightcoral
-    color:     red
-    linestyle: solid
-    linewidth: 2
-  sine_trc:
-    label:     \makebox[2.0cm][l]{TRC} T moves
-    boxlabel:  "TRC\nT moves"
-    boxcolor:  lightcoral
-    color:     red
-    linestyle: dashed
-    linewidth: 2
+  states:
+    PolarTargetPos:
+      indices:    [0]
+      labels:     [Distance]
+      xbounds:    [0, 200]
+      ybounds:    [[[8, 26]], [[-1, 8]], [[-1, 8]]]
+      absybounds: [[[0, 15]], [[0, 8]], [[0, 5]]]
+    # RobotVel:
+    #   indices: [0,1]
+    #   labels:  [Frontal Velocity, Lateral Velocity]
+    #   xbounds: [0, 200]
+    #   ybounds: [[[-10.0, 10.0], [-10.0, 10.0]],
+    #             [[0, 1.5],      [0, 1.5]],
+    #             [[0, 1.5],      [0, 1.5]]]
+
+  style:
+    stationary_aicon:
+      label:     \makebox[2.0cm][l]{AICON} T stationary
+      boxlabel:  "AICON\nT stationary"
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: solid    # dotted, dashed, dashdot
+      linewidth: 2
+    sine_aicon:
+      label:     \makebox[2.0cm][l]{AICON} T moves
+      boxlabel:  "AICON\nT moves"
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: dashed
+      linewidth: 2
+    stationary_trc:
+      label:     \makebox[2.0cm][l]{TRC} T stationary
+      boxlabel:  "TRC\nT stationary"
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: solid
+      linewidth: 2
+    sine_trc:
+      label:     \makebox[2.0cm][l]{TRC} T moves
+      boxlabel:  "TRC\nT moves"
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: dashed
+      linewidth: 2

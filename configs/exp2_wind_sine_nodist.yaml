@@ -18,35 +18,38 @@ variations:
   - smcs: div
   - smcs: both
 
-plotting_state_config:
-  PolarTargetPos:
-    indices: [0]
-    labels:  [Distance]
-    xbounds: [0, 200]
-    ybounds: [[[-1, 40]], [[-1, 40]], [[-1, 40]]]
+plotting_config:
+  exclude_runs: [2, 5, 7]
 
-plotting_style_config:
-  nosmcs:
-    label:     No SMCs
-    boxcolor:  lightcoral
-    color:     red
-    linestyle: solid    # dotted, dashed, dashdot
-    linewidth: 2
-  tri:
-    label:     T
-    boxcolor:  peachpuff
-    color:     darkorange
-    linestyle: solid
-    linewidth: 2
-  div:
-    label:     D
-    boxcolor:  lightgreen
-    color:     green
-    linestyle: solid
-    linewidth: 2
-  both:
-    label:     T+D
-    boxcolor:  lightblue
-    color:     blue
-    linestyle: solid
-    linewidth: 2
+  states:
+    PolarTargetPos:
+      indices: [0]
+      labels:  [Distance]
+      xbounds: [0, 200]
+      ybounds: [[[-1, 40]], [[-1, 40]], [[-1, 40]]]
+
+  style:
+    nosmcs:
+      label:     No SMCs
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: solid    # dotted, dashed, dashdot
+      linewidth: 2
+    tri:
+      label:     T
+      boxcolor:  peachpuff
+      color:     darkorange
+      linestyle: solid
+      linewidth: 2
+    div:
+      label:     D
+      boxcolor:  lightgreen
+      color:     green
+      linestyle: solid
+      linewidth: 2
+    both:
+      label:     T+D
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: solid
+      linewidth: 2

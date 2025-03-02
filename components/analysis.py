@@ -298,21 +298,17 @@ class Analysis:
             return False
 
     def plot_states_and_losses(self):
-        plotting_states_config = self.custom_config["plotting_state_config"]
-        plot_styles            = self.custom_config["plotting_style_config"]
+        plotting_config: dict = self.custom_config["plotting_config"]
         plot_variation_values = {key: [variation[key] for variation in self.variations] for key in config.keys}
         axes = {
             "_".join([self.get_key_from_value(vars(vars(config)[key]), variation[key]) for key in config.keys if (key not in plot_variation_values.keys() or len(plot_variation_values[key])>1) and self.count_variations(self.variations, key)>1]): {
                 subkey: variation[subkey] for subkey in variation.keys()
             } for variation in self.variations if all([variation[key] in plot_variation_values[key] for key in plot_variation_values.keys()])
         }
-        plotting_config = {
+        plotting_config.update({
             "name":         "main",
-            "states":       plotting_states_config,
             "axes":         axes,
-            "exclude_runs": [],
-            "style":        plot_styles
-        }
+        })
         print(f"Plotting has the following axes:")
         print([key for key in axes.keys()])
         self.plot_states(plotting_config)
