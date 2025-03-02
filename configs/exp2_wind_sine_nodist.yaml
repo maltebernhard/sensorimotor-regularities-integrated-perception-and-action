@@ -20,7 +20,7 @@ variations:
 
 plotting_config:
   exclude_runs: [2, 5, 7]
-  xbounds: [0, 200]
+  xbounds: [0, 500]
 
   states:
     PolarTargetPos:

@@ -58,21 +58,21 @@ plotting_config:
       boxlabel:  $L$
       boxcolor:  lightblue
       color:     blue
-      linestyle: dashdot
+      linestyle: dashed
       linewidth: 2
     sine_aicon:
       label:     \makebox[2.0cm][l]{AICON} T sine
       boxlabel:  $W$
       boxcolor:  lightblue
       color:     blue
-      linestyle: dashed
+      linestyle: dotted
       linewidth: 2
     flight_aicon:
       label:     \makebox[2.0cm][l]{AICON} T flees from R
       boxlabel:  $F$
       boxcolor:  lightblue
       color:     blue
-      linestyle: dotted
+      linestyle: dashdot
       linewidth: 2
     chase_aicon:
       label:     \makebox[2.0cm][l]{AICON} T chases R
@@ -94,21 +94,21 @@ plotting_config:
       boxlabel:  $L$
       boxcolor:  lightcoral
       color:     red
-      linestyle: dashdot
+      linestyle: dashed
       linewidth: 2
     sine_trc:
       label:     \makebox[2.0cm][l]{TRC} T sine
       boxlabel:  $W$
       boxcolor:  lightcoral
       color:     red
-      linestyle: dashed
+      linestyle: dotted
       linewidth: 2
     flight_trc:
       label:     \makebox[2.0cm][l]{TRC} T flees from R
       boxlabel:  $F$
       boxcolor:  lightcoral
       color:     red
-      linestyle: dotted
+      linestyle: dashdot
       linewidth: 2
     chase_trc:
       label:     \makebox[2.0cm][l]{TRC} T chases R

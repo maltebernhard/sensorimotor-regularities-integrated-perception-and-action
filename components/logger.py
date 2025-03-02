@@ -863,7 +863,7 @@ class AICONLogger:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             fig.tight_layout()
             time.sleep(0.3)
-            #print(f"Saving to {save_path}...")
+            print(f"Saving plot to {save_path}...")
             fig.savefig(save_path+'.pdf', format='pdf')
         if show:
             fig.show()

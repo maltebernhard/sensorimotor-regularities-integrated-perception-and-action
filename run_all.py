@@ -17,13 +17,11 @@ analysis_configs: list[str] = [
     # Action Disturbance
     "exp2_wind_stat_nodist.yaml",
     "exp2_wind_sine_nodist.yaml",
-    "exp2_wind_stat_dist.yaml",
-    #"exp2_wind_sine_dist.yaml",
     "exp2_wind_sine_distdot.yaml",
     "exp2_wind_stat_distdot.yaml",
 ]
 
-num_runs:  int = 20
+num_runs:  int = 100
 num_steps: int = 500
 
 if __name__ == "__main__":
@@ -33,7 +31,7 @@ if __name__ == "__main__":
 
         custom_config.update({
             "num_runs": num_runs,
-            "num_steps": num_steps,
+            "num_steps": min(num_steps, custom_config["plotting_config"]["xbounds"][1]),
         })
 
         analysis = create_analysis_from_custom_config(filename.split("/")[-1].split(".")[0], custom_config)
