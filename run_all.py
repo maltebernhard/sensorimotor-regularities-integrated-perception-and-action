@@ -18,7 +18,7 @@ analysis_configs: list[str] = [
     "exp2_wind_stat_nodist.yaml",
     "exp2_wind_sine_nodist.yaml",
     "exp2_wind_stat_dist.yaml",
-    "exp2_wind_sine_dist.yaml",
+    #"exp2_wind_sine_dist.yaml",
     "exp2_wind_sine_distdot.yaml",
     "exp2_wind_stat_distdot.yaml",
 ]

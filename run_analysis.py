@@ -2,7 +2,6 @@ from typing import List
 
 import yaml
 from components.analysis import Analysis
-from configs import configs
 from configs.configs import ExperimentConfig as config
 import sys
 import os
@@ -31,27 +30,16 @@ def create_analysis_from_custom_config(name: str, custom_config: dict):
     for var in custom_variations:
         var.update(custom_same_for_all)
     variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key not in ["desired_distance", "start_distance"] else val) for key, val in var.items()} for var in custom_variations]
-    
-    while "num_runs" not in custom_config.keys():
-        try:
-            custom_config["num_runs"] = int(input("Number of runs: "))
-        except:
-            print("Must be an integer.")
-    while "num_steps" not in custom_config.keys():
-        try:
-            custom_config["num_steps"] = int(input("Number of steps per run: "))
-        except:
-            print("Must be an integer")
-    
     return create_analysis(name, base_env_config, variations, custom_config)
 
-def create_analysis_from_sys_arg(arg):
+def create_analysis_from_sys_arg(arg, demo=False):
     if os.path.isfile(arg):
         try:
             with open(arg, "r") as config_file:
                 custom_config: dict = yaml.safe_load(config_file)
             analysis = create_analysis_from_custom_config(arg.split("/")[-1].split(".")[0], custom_config)
-        except:
+        except Exception as e:
+            print(e)
             print("No valid config path.")
             sys.exit(1)
     elif os.path.isdir(arg):
@@ -97,7 +85,7 @@ if __name__ == "__main__":
             variations = analysis.variations
             variation_values = {key: [variation[key] for variation in variations] for key in config.keys}
             axes = {
-                "_".join([analysis.get_key_from_value(vars(vars(configs)[key]), variation[key]) for key in config.keys if (key not in variation_values.keys() or len(variation_values[key])>1) and analysis.count_variations(variations, key)>1]): {
+                "_".join([analysis.get_key_from_value(vars(vars(config)[key]), variation[key]) for key in config.keys if (key not in variation_values.keys() or len(variation_values[key])>1) and analysis.count_variations(variations, key)>1]): {
                     subkey: variation[subkey] for subkey in variation.keys()
                 } for variation in analysis.variations if all([variation[key] in variation_values[key] for key in variation_values.keys()])
             }  

@@ -27,28 +27,34 @@ plotting_config:
       indices: [0]
       labels:  [Distance]
       ybounds: [[[0, 30]], [[-5, 10]], [[0, 15]]]
+      absybounds: [[[0, 20]], [[0, 20]], [[0, 20]]]
+      boxybounds: [[[0, 5]], [[0, 5]], [[0, 7]]]
 
   style:
     nosmcs:
       label:     No SMCs
+      boxlabel:  No SMCs
       boxcolor:  lightcoral
       color:     red
       linestyle: solid    # dotted, dashed, dashdot
       linewidth: 2
     tri:
-      label:     T
+      label:     Triangulation
+      boxlabel:  T
       boxcolor:  peachpuff
       color:     darkorange
       linestyle: solid
       linewidth: 2
     div:
-      label:     D
+      label:     Divergence
+      boxlabel:  D
       boxcolor:  lightgreen
       color:     green
       linestyle: solid
       linewidth: 2
     both:
-      label:     T+D
+      label:     Triangulation + Divergence
+      boxlabel:  T+D
       boxcolor:  lightblue
       color:     blue
       linestyle: solid

@@ -65,7 +65,7 @@ class AICON(ABC):
             self.print_estimators()
         if render:
             self.render()
-        for step in range(timesteps):
+        for step in range(timesteps+1):
             self.current_step = step
             if prints > 0 and step % prints == 0:
                 print("------------ Computing Action Gradient -------------")

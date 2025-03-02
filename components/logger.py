@@ -347,10 +347,11 @@ class AICONLogger:
     def plot_state_boxplots(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
         xbounds = plotting_config["xbounds"]
         for state_id, config in plotting_config["states"].items():
+            ybounds = config.get("boxybounds", None)
             indices = np.array(config["indices"])
             if len(indices) == 1:
                 fig, axs = plt.subplots(len(indices), 3, figsize=(15, 5))
-                fig_abs, axs_abs = plt.subplots(len(indices), 3, figsize=(15, 5))
+                fig_abs, axs_abs = plt.subplots(len(indices), 3, figsize=(15, 5) if not "extended" in save_path else (18, 5))
                 axs = [[ax] for ax in axs]
                 axs_abs = [[ax] for ax in axs_abs]
             else:
@@ -447,7 +448,7 @@ class AICONLogger:
                         label_key = 'boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label'
                         plot_label = plotting_config['style'][label][label_key]
                         # use the label index as the x-position
-                        label_index = list(plotting_config["axes"].keys()).index(label)
+                        label_index = list(plotting_config["style"].keys()).index(label)
                         axs_abs[j][i].boxplot(
                             data[label],
                             positions=[label_index + 1],
@@ -465,11 +466,25 @@ class AICONLogger:
                         )
                     axs_abs[j][i].tick_params(axis='x', labelsize=14)
                     max_val = max(data[label].max() for label in plotting_config["axes"].keys())
-                    axs_abs[j][i].set_ylim(0.0, max_val * 1.1)
+                    axs_abs[j][i].set_ylim(ybounds[j][i] if ybounds is not None else (0.0, max_val * 1.1))
                     axs_abs[j][i].axhline(y=0, color='black', linestyle='solid', linewidth=1)
                     axs_abs[j][i].set_title("\\textbf{" + f"{['Task Error', 'Estimation Error', 'Estimation Uncertainty'][j]}" + "}", fontsize=16)
                     axs_abs[j][i].set_ylabel(['Distance Offset from $d^\\ast$', 'Distance Estimation Error', 'Distance Estimate Standard Deviation'][j], fontsize=16)
                     axs_abs[j][i].grid(True)#, axis='y')
+                    if 'extended' in save_path:
+                        axs_abs[j][i].legend(
+                            handles=[
+                                plt.Line2D([0], [0], color='blue', marker='s', markersize=10, linestyle='None', label='AICON'),
+                                plt.Line2D([0], [0], color='red', marker='s', markersize=10, linestyle='None', label='TRC'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{S}$', s=100, label='target stationary'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{L}$', s=100, label='linear motion'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{W}$', s=100, label='wave motion (sine)'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{F}$', s=100, label='target flees from robot'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{C}$', s=100, label='target chases robot')
+                            ],
+                            loc='upper left',
+                            fontsize=14
+                        )
 
             # plot avg_bars
             for i in range(len(indices)):
@@ -522,7 +537,7 @@ class AICONLogger:
             ax.grid(axis='x')
             for label, ratio in ratio_collisions.items():
                 ax.barh(
-                    plotting_config['style'][label]['label'],
+                    plotting_config['style'][label]['label'].replace(" ", "\n").replace("+", "and"),
                     ratio,
                     color=plotting_config['style'][label]['color']
                 )
@@ -571,9 +586,14 @@ class AICONLogger:
                 axs[1][i].axhline(y=0, color='black', linestyle='solid', linewidth=2)
                 axs[2][i].axhline(y=0, color='black', linestyle='solid', linewidth=2)
                 if len(sensor_failures) > 0:
-                    axs[0][i].axvspan(100, 200, color='grey', alpha=0.2, label=f'sensor failure for {sensor_failures}')
-                    axs[1][i].axvspan(100, 200, color='grey', alpha=0.2, label=f'sensor failure for {sensor_failures}')
-                    axs[2][i].axvspan(100, 200, color='grey', alpha=0.2, label=f'sensor failure for {sensor_failures}')
+                    axs[0][i].axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
+                    axs[1][i].axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
+                    axs[2][i].axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
+
+                    if len(sensor_failures) > 0:
+                        abs_axs[0][i].axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
+                        abs_axs[1][i].axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
+                        abs_axs[2][i].axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
 
             for label, variation in plotting_config["axes"].items():
                 self.set_variation(variation)
@@ -843,7 +863,7 @@ class AICONLogger:
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
             fig.tight_layout()
             time.sleep(0.3)
-            print(f"Saving to {save_path}...")
+            #print(f"Saving to {save_path}...")
             fig.savefig(save_path+'.pdf', format='pdf')
         if show:
             fig.show()

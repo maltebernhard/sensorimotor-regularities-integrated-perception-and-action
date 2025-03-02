@@ -105,7 +105,6 @@ class Analysis:
         self.experiment_config = experiment_config
         self.variations = experiment_config["variations"]
         self.custom_config = experiment_config["custom_config"]
-        self.num_runs = self.custom_config["num_runs"]
 
         self.base_run_config: dict = self.create_base_run_config()
         
@@ -130,8 +129,23 @@ class Analysis:
             "render": False,
             "prints": 0,
             "step_by_step": False,
-            "num_steps": self.custom_config["num_steps"]
         }
+    
+    def get_num_runs(self):
+        while "num_runs" not in self.custom_config.keys():
+            try:
+                self.custom_config["num_runs"] = int(input("Number of runs: "))
+            except:
+                print("Must be an integer.")
+        return self.custom_config["num_runs"]
+    
+    def get_num_steps(self):
+        while "num_steps" not in self.custom_config.keys():
+            try:
+                self.custom_config["num_steps"] = int(input("Number of steps: "))
+            except:
+                print("Must be an integer")
+        return self.custom_config["num_steps"]
 
     # -------------------------------------------------------------------------
 
@@ -141,10 +155,12 @@ class Analysis:
         self.experiment_config["variations"] = self.variations
 
     def run_analysis(self, variations: List[dict] = None):
+        num_runs = self.get_num_runs()
+        self.base_run_config["num_steps"] = self.get_num_steps()
         if variations is None:
             variations = self.variations
         total_configs = len(variations)
-        total_runs = total_configs * self.num_runs
+        total_runs = total_configs * num_runs
         mp.set_start_method('spawn', force=True)
         with tqdm(total=total_runs, desc="Running Analysis", position=0, leave=True, smoothing=0.0) as pbar:
             counter = mp.Value('i', 0)
@@ -153,7 +169,7 @@ class Analysis:
             active_processes = []
             for variation in variations:
                 var_id = self.logger.set_variation(variation)
-                p = mp.Process(target=run_variation, args=(self.base_run_config, self.base_env_config, var_id, variation, self.wandb_config, self.num_runs, data_queue, counter))
+                p = mp.Process(target=run_variation, args=(self.base_run_config, self.base_env_config, var_id, variation, self.wandb_config, num_runs, data_queue, counter))
                 processes.append(p)
             run_save_counter = 0
             while len(processes) > 0 or len(active_processes) > 0:
@@ -233,6 +249,7 @@ class Analysis:
                 print(f"{key}: {value}")
         print("===============================================")
         run_config = self.base_run_config.copy()
+        run_config['num_steps'] = self.get_num_steps()
         run_config['render'] = True
         run_config['prints'] = 1
         run_config['step_by_step'] = step_by_step

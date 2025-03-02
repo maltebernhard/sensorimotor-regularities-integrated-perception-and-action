@@ -32,19 +32,24 @@ analysis_configs: list[str] = [
 ]
 
 which_plots = [
-    "time",
-    "boxplots",
-    "losses",
-    "gradients",
-    "runs",
+    # "time",
+    # "boxplots",
+    # "losses",
+    # "gradients",
+    # "runs",
     "collisions",
 ]
 
 if __name__ == "__main__":
 
     # NOTE: example conditionals
-    # foldername = f"./records/{filename.replace(".yaml", "")}_01"
-    # if os.path.exists(os.path.join(foldername, "records", "collisions_main.pdf")):
+    for filename in analysis_configs:
+        foldername = f"./records/{filename.replace(".yaml", "")}_01"
+        if os.path.exists(os.path.join(foldername, "records", "collisions_main.pdf")):
+            os.remove(os.path.join(foldername, "records", "collisions_main.pdf"))
+    
+    
+    
     for filename in analysis_configs:
         config_path = f"./configs/{filename}"
         with open(config_path, "r") as config_file:
