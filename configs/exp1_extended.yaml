@@ -44,72 +44,71 @@ plotting_state_config:
 plotting_style_config:
   # From classic_exp1_extended.yaml
   stationary_aicon:
-    label:     \makebox[1.5cm][l]{AICON} T stationary
+    label:     \makebox[2.0cm][l]{AICON} T stationary
     boxlabel:  "AICON\nT stat."
     boxcolor:  lightblue
     color:     blue
     linestyle: solid
     linewidth: 2
   sine_aicon:
-    label:     \makebox[1.5cm][l]{AICON} T sine
+    label:     \makebox[2.0cm][l]{AICON} T sine
     boxlabel:  "AICON\nT sine"
     boxcolor:  lightblue
     color:     blue
     linestyle: dashed
     linewidth: 2
   linear_aicon:
-    label:     \makebox[1.5cm][l]{AICON} T linear
+    label:     \makebox[2.0cm][l]{AICON} T linear
     boxlabel:  "AICON\nT linear"
     boxcolor:  lightgreen
     color:     green
     linestyle: dashdot
     linewidth: 2
   flight_aicon:
-    label:     \makebox[1.5cm][l]{AICON} T flees from R
+    label:     \makebox[2.0cm][l]{AICON} T flees from R
     boxlabel:  "AICON\nT flees from R"
     boxcolor:  lightblue
     color:     blue
     linestyle: dotted
     linewidth: 2
   chase_aicon:
-    label:     \makebox[1.5cm][l]{AICON} T chases R
+    label:     \makebox[2.0cm][l]{AICON} T chases R
     boxlabel:  "AICON\nT chases R"
     boxcolor:  lightblue
     color:     blue
     linestyle: dashed
     linewidth: 2
 
-
   stationary_trc:
-    label:     \makebox[1.5cm][l]{TRC} T stationary
+    label:     \makebox[2.0cm][l]{TRC} T stationary
     boxlabel:  "TRC\nT stat."
     boxcolor:  lightcoral
     color:     red
     linestyle: solid
     linewidth: 2
   sine_trc:
-    label:     \makebox[1.5cm][l]{TRC} T sine
+    label:     \makebox[2.0cm][l]{TRC} T sine
     boxlabel:  "TRC\nT sine"
     boxcolor:  lightcoral
     color:     red
     linestyle: dashed
     linewidth: 2
   linear_trc:
-    label:     \makebox[1.5cm][l]{TRC} T linear
+    label:     \makebox[2.0cm][l]{TRC} T linear
     boxlabel:  "TRC\nT linear"
     boxcolor:  lightgreen
     color:     green
     linestyle: dashdot
     linewidth: 2
   flight_trc:
-    label:     \makebox[1.5cm][l]{TRC} T flees from R
+    label:     \makebox[2.0cm][l]{TRC} T flees from R
     boxlabel:  "TRC\nT flees from R"
     boxcolor:  lightcoral
     color:     red
     linestyle: dotted
     linewidth: 2
   chase_trc:
-    label:     \makebox[1.5cm][l]{TRC} T chases R
+    label:     \makebox[2.0cm][l]{TRC} T chases R
     boxlabel:  "TRC\nT chases R"
     boxcolor:  lightcoral
     color:     red

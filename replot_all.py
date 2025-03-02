@@ -2,22 +2,21 @@ import subprocess
 
 analysis_configs: list[str] = [
     # -------- AICON vs. control --------
-    "classic_exp1.yaml",
-    #"classic_exp1_targetflightnchase.yaml",
-
-    # ---------- Disturbances ----------
-    # Dist Sensor Failure
-    "classic_exp2_sine.yaml",
-    # Dist Noise
-    "non0mean_stationary_smcs.yaml",
-    "non0mean_sine_smcs.yaml",
+    "exp1_sine.yaml",
+    "exp1_extended.yaml",
+    # # ---------- Disturbances ----------
+    # # Dist Sensor Failure
+    "exp2_distloss_sine.yaml",
+    # # Dist Noise
+    "exp2_non0mean_stat.yaml",
+    "exp2_non0mean_sine.yaml",
     # Action Disturbance
-    "acc_wind_stationary_smc-comparison.yaml",
-    "acc_wind_sine_smc-comparison.yaml",
-    "acc_wind_stationary_distsensor_smc-comparison.yaml",
-    "acc_wind_sine_distsensor_smc-comparison.yaml",
-    "acc_wind_sine_distdotsensor_smc-comparison.yaml",
-    "acc_wind_stationary_distdotsensor_smc-comparison.yaml",
+    "exp2_wind_stat_nodist.yaml",
+    "exp2_wind_sine_nodist.yaml",
+    "exp2_wind_stat_dist.yaml",
+    "exp2_wind_sine_dist.yaml",
+    "exp2_wind_sine_distdot.yaml",
+    "exp2_wind_stat_distdot.yaml",
 ]
 
 if __name__ == "__main__":
