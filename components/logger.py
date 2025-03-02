@@ -513,7 +513,7 @@ class AICONLogger:
         for label, variation in plotting_config["axes"].items():
             self.set_variation(variation)
             var_collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
-            ratio_collisions[label] = sum(collisions_run.sum() for collisions_run in var_collisions) / total_runs
+            ratio_collisions[label] = sum(collisions_run[:min(len(collisions_run),xbounds[1])].sum() for collisions_run in var_collisions) / total_runs
         if not all(col == 0 for col in ratio_collisions.values()):
             fig, ax = plt.subplots(1, 1, figsize=(6, 5))
             ax.grid(axis='x')
