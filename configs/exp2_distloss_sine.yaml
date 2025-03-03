@@ -41,15 +41,15 @@ plotting_config:
     tri:
       label:     Triangulation
       boxlabel:  T
-      boxcolor:  peachpuff
-      color:     darkorange
+      boxcolor:  lightgreen
+      color:     green
       linestyle: solid
       linewidth: 2
     div:
       label:     Divergence
       boxlabel:  D
-      boxcolor:  lightgreen
-      color:     green
+      boxcolor:  peachpuff
+      color:     darkorange
       linestyle: solid
       linewidth: 2
     both:

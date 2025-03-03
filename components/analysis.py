@@ -320,7 +320,7 @@ class Analysis:
     def plot_states_and_losses(self, time=True, boxplots=True, runs=True, losses=True, gradients=True, collisions=True):
         plotting_config: dict = self.custom_config["plotting_config"]
         plot_variation_values = {key: [variation[key] for variation in self.variations] for key in config.keys}
-        print(plot_variation_values)
+        #print(plot_variation_values)
         axes = {
             "_".join([self.get_key_from_value(vars(vars(config)[key]), variation[key]) for key in config.keys if (key not in plot_variation_values.keys() or len(plot_variation_values[key])>1) and self.count_variations(self.variations, key)>1]): {
                 subkey: variation[subkey] for subkey in variation.keys()

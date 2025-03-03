@@ -8,14 +8,14 @@ from configs.configs import ExperimentConfig as config
 variation_config = {
     "smcs":              config.smcs.both,
     "distance_sensor":   config.distance_sensor.no_dist_sensor,
-    "controller":        config.controller.aicon,
+    "controller":        config.controller.task,
     "target_config":     config.target_config.stationary,
     "obstacles":         config.obstacles.no_obstacles,
     "sensor_noise":      config.sensor_noise.small_noise,
     "observation_loss":  config.observation_loss.no_obs_loss,
     "fv_noise":          config.fv_noise.fv_noise,
     "desired_distance":  5,
-    "start_distance":    10,
+    "start_distance":    20,
     "wind":              config.wind.no_wind,
     "control":           config.control.vel,
 }

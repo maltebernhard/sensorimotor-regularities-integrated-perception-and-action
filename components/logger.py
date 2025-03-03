@@ -382,31 +382,51 @@ class AICONLogger:
                 ucttys[label] = np.array([np.mean(run) for run, col in zip(var_ucttys, var_collisions) if len(col) >= xbounds[1]])
 
             # NOTE: used only to accumulate different target motions into one plot
-            if 'extended' in save_path:
+            if 'exp1_extended' in save_path:
                 alt_abs_states = {
-                    "stationary_aicon": abs_states["stationary_aicon"],
-                    "stationary_trc": abs_states["stationary_trc"],
-                    "motion_aicon": np.concatenate([abs_states[label] for label in abs_states if "aicon" in label and "stationary" not in label]),
-                    "motion_trc": np.concatenate([abs_states[label] for label in abs_states if "trc" in label and "stationary" not in label]),
+                    "aicon_stationary": abs_states["aicon_stationary"],
+                    "trc_stationary": abs_states["trc_stationary"],
+                    "aicon_motion": np.concatenate([abs_states[label] for label in abs_states if "aicon" in label and "stationary" not in label]),
+                    "trc_motion": np.concatenate([abs_states[label] for label in abs_states if "trc" in label and "stationary" not in label]),
                 }
                 alt_abs_errors = {
-                    "stationary_aicon": abs_errors["stationary_aicon"],
-                    "stationary_trc": abs_errors["stationary_trc"],
-                    "motion_aicon": np.concatenate([abs_errors[label] for label in abs_errors if "aicon" in label and "stationary" not in label]),
-                    "motion_trc": np.concatenate([abs_errors[label] for label in abs_errors if "trc" in label and "stationary" not in label]),
+                    "aicon_stationary": abs_errors["aicon_stationary"],
+                    "trc_stationary": abs_errors["trc_stationary"],
+                    "aicon_motion": np.concatenate([abs_errors[label] for label in abs_errors if "aicon" in label and "stationary" not in label]),
+                    "trc_motion": np.concatenate([abs_errors[label] for label in abs_errors if "trc" in label and "stationary" not in label]),
                 }
                 alt_ucttys = {
-                    "stationary_aicon": ucttys["stationary_aicon"],
-                    "stationary_trc": ucttys["stationary_trc"],
-                    "motion_aicon": np.concatenate([ucttys[label] for label in ucttys if "aicon" in label and "stationary" not in label]),
-                    "motion_trc": np.concatenate([ucttys[label] for label in ucttys if "trc" in label and "stationary" not in label]),
+                    "aicon_stationary": ucttys["aicon_stationary"],
+                    "trc_stationary": ucttys["trc_stationary"],
+                    "aicon_motion": np.concatenate([ucttys[label] for label in ucttys if "aicon" in label and "stationary" not in label]),
+                    "trc_motion": np.concatenate([ucttys[label] for label in ucttys if "trc" in label and "stationary" not in label]),
                 }
+
+                for label in alt_abs_states.keys():
+                    mean_abs_alt_state = np.mean(alt_abs_states[label])
+                    print(f"Mean abs_alt_state for {label}: {mean_abs_alt_state:.4f}")
+
+                stationary_mean = np.mean(alt_abs_states["aicon_stationary"])
+                motion_mean = np.mean(alt_abs_states["aicon_motion"])
+                percentual_increase = ((motion_mean - stationary_mean) / stationary_mean) * 100
+                print(f"Percentual increase of motion case against stationary case for AICON: {percentual_increase:.2f}%")
+
+                stationary_mean = np.mean(alt_abs_states["trc_stationary"])
+                motion_mean = np.mean(alt_abs_states["trc_motion"])
+                percentual_increase = ((motion_mean - stationary_mean) / stationary_mean) * 100
+                print(f"Percentual increase of motion case against stationary case for TRC: {percentual_increase:.2f}%")
+
+                stationary_mean_aicon = np.mean(alt_abs_states["aicon_stationary"])
+                stationary_mean_trc = np.mean(alt_abs_states["trc_stationary"])
+                percentual_increase_stationary = ((stationary_mean_trc - stationary_mean_aicon) / stationary_mean_aicon) * 100
+                print(f"Percentual increase of stationary TRC against stationary AICON: {percentual_increase_stationary:.2f}%")
+
                 alt_fig, alt_axs = plt.subplots(1, 3, figsize=(15, 5))
                 for i, data in enumerate([alt_abs_states, alt_abs_errors, alt_ucttys]):
                     alt_ax = alt_axs[i]
                     label_index = -1
-                    for alt_label in ["stationary_aicon", "motion_aicon", "stationary_trc", "motion_trc"]:
-                        label = ("sine_aicon" if "aicon" in alt_label else "sine_trc") if "motion" in alt_label else alt_label
+                    for alt_label in ["aicon_stationary", "aicon_motion", "trc_stationary", "trc_motion"]:
+                        label = ("aicon_sine" if "aicon" in alt_label else "trc_sine") if "motion" in alt_label else alt_label
                         label_key = 'boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label'
                         plot_label: str = plotting_config['style'][label][label_key]
                         if "sine" in plot_label:
@@ -415,6 +435,104 @@ class AICONLogger:
                             plot_label = plot_label.replace("stat.", "stationary")
                         # use the label index as the x-position
                         label_index += 1
+
+                        alt_ax.boxplot(
+                            data[alt_label],
+                            positions=[label_index + 1],
+                            labels=[plot_label],
+                            patch_artist=True,
+                            boxprops=dict(
+                                facecolor=plotting_config['style'][label]['boxcolor'],
+                            ),
+                            medianprops=dict(
+                                linewidth=2.0,
+                                color=plotting_config['style'][label]['color'],
+                            ),
+                            showfliers=False,
+                            widths=0.5  # Adjust the width of the box
+                        )
+                    alt_ax.tick_params(axis='x', labelsize=14)
+                    max_val = max(data[alt_label].max() for alt_label in alt_abs_states.keys())
+                    alt_ax.set_ylim(0.0, max_val * 1.1)
+                    #alt_ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
+                    alt_ax.set_title("\\textbf{" + f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][i]}" + "}", fontsize=16)
+                    alt_ax.set_ylabel(['Distance Offset from $d^\\ast$', 'Distance Estimation Error', 'Distance Estimate Standard Deviation'][i], fontsize=16)
+                    alt_ax.grid(True)#, axis='y')
+                alt_fig.tight_layout()
+                path = os.path.join(save_path, f"records/alt_abs_box_{plotting_config['name']}") if save_path is not None else None
+                self.save_fig(alt_fig, path, show)
+
+            if 'exp2' in save_path and 'extended' in save_path:
+                alt_abs_states = {
+                    "nosmcs_stationary": abs_states["nosmcs_stationary"],
+                    "tri_stationary": abs_states["tri_stationary"],
+                    "div_stationary": abs_states["div_stationary"],
+                    "both_stationary": abs_states["both_stationary"],
+                    "nosmcs_motion": np.concatenate([abs_states[label] for label in abs_states if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([abs_states[label] for label in abs_states if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([abs_states[label] for label in abs_states if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([abs_states[label] for label in abs_states if "both" in label and "stationary" not in label]),
+                }
+                alt_abs_errors = {
+                    "nosmcs_stationary": abs_errors["nosmcs_stationary"],
+                    "tri_stationary": abs_errors["tri_stationary"],
+                    "div_stationary": abs_errors["div_stationary"],
+                    "both_stationary": abs_errors["both_stationary"],
+                    "nosmcs_motion": np.concatenate([abs_errors[label] for label in abs_errors if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([abs_errors[label] for label in abs_errors if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([abs_errors[label] for label in abs_errors if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([abs_errors[label] for label in abs_errors if "both" in label and "stationary" not in label]),
+                }
+                alt_ucttys = {
+                    "nosmcs_stationary": ucttys["nosmcs_stationary"],
+                    "tri_stationary": ucttys["tri_stationary"],
+                    "div_stationary": ucttys["div_stationary"],
+                    "both_stationary": ucttys["both_stationary"],
+                    "nosmcs_motion": np.concatenate([ucttys[label] for label in ucttys if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([ucttys[label] for label in ucttys if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([ucttys[label] for label in ucttys if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([ucttys[label] for label in ucttys if "both" in label and "stationary" not in label]),
+                }
+
+                for label in alt_abs_states.keys():
+                    mean_abs_alt_state = np.mean(alt_abs_states[label])
+                    print(f"Mean abs_alt_state for {label}: {mean_abs_alt_state:.4f}")
+
+                stationary_mean = np.mean(alt_abs_states["nosmcs_stationary"])
+                motion_mean = np.mean(alt_abs_states["nosmcs_motion"])
+                percentual_increase = ((motion_mean - stationary_mean) / stationary_mean) * 100
+                print(f"Percentual increase of motion case against stationary case for No SMRs: {percentual_increase:.2f}%")
+
+                stationary_mean = np.mean(alt_abs_states["tri_stationary"])
+                motion_mean = np.mean(alt_abs_states["tri_motion"])
+                percentual_increase = ((motion_mean - stationary_mean) / stationary_mean) * 100
+                print(f"Percentual increase of motion case against stationary case for Tri: {percentual_increase:.2f}%")
+
+                stationary_mean = np.mean(alt_abs_states["div_stationary"])
+                motion_mean = np.mean(alt_abs_states["div_motion"])
+                percentual_increase = ((motion_mean - stationary_mean) / stationary_mean) * 100
+                print(f"Percentual increase of motion case against stationary case for Div: {percentual_increase:.2f}%")
+
+                stationary_mean = np.mean(alt_abs_states["both_stationary"])
+                motion_mean = np.mean(alt_abs_states["both_motion"])
+                percentual_increase = ((motion_mean - stationary_mean) / stationary_mean) * 100
+                print(f"Percentual increase of motion case against stationary case for Both: {percentual_increase:.2f}%")
+
+                alt_fig, alt_axs = plt.subplots(1, 3, figsize=(15, 5))
+                for i, data in enumerate([alt_abs_states, alt_abs_errors, alt_ucttys]):
+                    alt_ax = alt_axs[i]
+                    label_index = -1
+                    for alt_label in ["nosmcs_stationary", "nosmcs_motion", "tri_stationary", "tri_motion", "div_stationary", "div_motion", "both_stationary", "both_motion"]:
+                        label = ("nosmcs_sine" if "nosmcs" in alt_label else "tri_sine" if "tri" in alt_label else "div_sine" if "div" in alt_label else "both_sine") if "motion" in alt_label else alt_label
+                        label_key = 'boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label'
+                        plot_label: str = plotting_config['style'][label][label_key]
+                        if "sine" in plot_label:
+                            plot_label = plot_label.replace("sine", "moves")
+                        if "stat." in plot_label:
+                            plot_label = plot_label.replace("stat.", "stationary")
+                        # use the label index as the x-position
+                        label_index += 1
+
                         alt_ax.boxplot(
                             data[alt_label],
                             positions=[label_index + 1],
@@ -444,6 +562,7 @@ class AICONLogger:
             # plot absolute_bars
             for i in range(len(indices)):
                 for j, data in enumerate([abs_states, abs_errors, ucttys]):
+
                     for label in plotting_config["axes"].keys():
                         label_key = 'boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label'
                         plot_label = plotting_config['style'][label][label_key]
@@ -471,7 +590,7 @@ class AICONLogger:
                     axs_abs[j][i].set_title("\\textbf{" + f"{['Task Error', 'Estimation Error', 'Estimation Uncertainty'][j]}" + "}", fontsize=16)
                     axs_abs[j][i].set_ylabel(['Distance Offset from $d^\\ast$', 'Distance Estimation Error', 'Distance Estimate Standard Deviation'][j], fontsize=16)
                     axs_abs[j][i].grid(True)#, axis='y')
-                    if 'extended' in save_path:
+                    if 'exp1_extended' in save_path:
                         axs_abs[j][i].legend(
                             handles=[
                                 plt.Line2D([0], [0], color='blue', marker='s', markersize=10, linestyle='None', label='AICON'),
@@ -484,6 +603,23 @@ class AICONLogger:
                             ],
                             loc='upper left',
                             fontsize=14
+                        )
+                    elif 'distloss_extended' in save_path:
+                        axs_abs[j][i].legend(
+                            handles=[
+                                plt.Line2D([0], [0], color='red', marker='s', markersize=10, linestyle='None', label='No SMRs'),
+                                plt.Line2D([0], [0], color='green', marker='s', markersize=10, linestyle='None', label='Tri.'),
+                                plt.Line2D([0], [0], color='darkorange', marker='s', markersize=10, linestyle='None', label='Div.'),
+                                plt.Line2D([0], [0], color='blue', marker='s', markersize=10, linestyle='None', label='Tri. + Div.'),
+                                
+                                plt.scatter([], [], color='black', marker='$\\mbox{S}$', s=100, label='target stationary'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{L}$', s=100, label='linear motion'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{W}$', s=100, label='wave motion (sine)'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{F}$', s=100, label='target flees from robot'),
+                                plt.scatter([], [], color='black', marker='$\\mbox{C}$', s=100, label='target chases robot')
+                            ],
+                            loc='upper right',
+                            fontsize=14,
                         )
 
             # plot avg_bars
@@ -542,6 +678,7 @@ class AICONLogger:
                     color=plotting_config['style'][label]['color']
                 )
             ax.tick_params(axis='y', labelsize=16)
+            #ax.tick_params(axis='y', labelsize=8)
             ax.set_title("\\textbf{Collisions }", fontsize=20)
             ax.set_xlabel("Avg. Collisions per Run", fontsize=16)
 
@@ -595,7 +732,11 @@ class AICONLogger:
                         abs_axs[1][i].axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
                         abs_axs[2][i].axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
 
-            for label, variation in plotting_config["axes"].items():
+            alt_abs_states = {}
+            alt_abs_errors = {}
+            alt_ucttys = {}
+            for label in plotting_config["style"].keys():
+                variation = plotting_config["axes"][label]
                 self.set_variation(variation)
                 # NOTE: calculate mean_stddev with collisions and plot collisions
                 states = [run_data["estimators"][state_id]["env_state"][:,indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
@@ -612,7 +753,11 @@ class AICONLogger:
                 # calculate absolute arrors
                 desired_distance = [desired_distance*np.ones_like(np.array(states[i])) for i,desired_distance in enumerate([run_data["desired_distance"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"] and not len(run_data["collision"])<xbounds[1]])]
                 abs_task_errors = [np.abs(states[i]-desired_distance[i]) for i in range(len(states))]
+                alt_abs_states[label] = abs_task_errors.copy()
                 abs_estimation_errors = [np.abs(errors[i]) for i in range(len(errors))]
+                alt_abs_errors[label] = abs_estimation_errors.copy()
+                alt_ucttys[label] = ucttys.copy()
+                alt_collisions = collisions.copy()
 
                 state_means, state_stddevs, state_collisions = self.compute_mean_and_stddev(states, collisions)
                 # HACK: overwrite distances to target at collision step, cause they slightly vary due to how much "inside" the agent is in the target at the step
@@ -645,7 +790,7 @@ class AICONLogger:
                 axs[j][i].set_ylim(ybounds[j][i])
 
                 abs_axs[j][i].set_title(titles[j], fontsize=20)
-                abs_axs[j][i].set_ylabel(y_labels[j], fontsize=20)
+                abs_axs[j][i].set_ylabel(abs_y_labels[j], fontsize=20)
                 abs_axs[j][i].set_xlabel("Time Step", fontsize=20)
                 abs_axs[j][i].grid(True)
                 abs_axs[j][i].legend(fontsize=16)
@@ -658,6 +803,81 @@ class AICONLogger:
                     else:
                         abs_axs[j][i].set_ylim(0, ybounds[j][i][1]-ybounds[j][i][0])
             
+
+            if 'exp2' in save_path and 'extended' in save_path:
+                for smc_config in ["nosmcs", "tri", "div", "both"]:
+                    plotting_config["style"][f"{smc_config}_motion"] = plotting_config["style"][f"{smc_config}_linear"].copy()
+                    plotting_config["style"][f"{smc_config}_motion"]["label"] = " ".join(plotting_config["style"][f"{smc_config}_motion"]["label"].split(" ")[:-1] + ["motion"])
+                    plotting_config["style"][f"{smc_config}_motion"]["linestyle"] = "solid"
+
+                alt_states = {
+                    "nosmcs_stationary": alt_abs_states["nosmcs_stationary"],
+                    "tri_stationary": alt_abs_states["tri_stationary"],
+                    "div_stationary": alt_abs_states["div_stationary"],
+                    "both_stationary": alt_abs_states["both_stationary"],
+                    "nosmcs_motion": [item for label in alt_abs_states if "nosmcs" in label and "stationary" not in label for item in alt_abs_states[label]],
+                    "tri_motion": [item for label in alt_abs_states if "tri" in label and "stationary" not in label for item in alt_abs_states[label]],
+                    "div_motion": [item for label in alt_abs_states if "div" in label and "stationary" not in label for item in alt_abs_states[label]],
+                    "both_motion": [item for label in alt_abs_states if "both" in label and "stationary" not in label for item in alt_abs_states[label]],
+                }
+                alt_errors = {
+                    "nosmcs_stationary": alt_abs_errors["nosmcs_stationary"],
+                    "tri_stationary": alt_abs_errors["tri_stationary"],
+                    "div_stationary": alt_abs_errors["div_stationary"],
+                    "both_stationary": alt_abs_errors["both_stationary"],
+                    "nosmcs_motion": [item for label in alt_abs_errors if "nosmcs" in label and "stationary" not in label for item in alt_abs_errors[label]],
+                    "tri_motion": [item for label in alt_abs_errors if "tri" in label and "stationary" not in label for item in alt_abs_errors[label]],
+                    "div_motion": [item for label in alt_abs_errors if "div" in label and "stationary" not in label for item in alt_abs_errors[label]],
+                    "both_motion": [item for label in alt_abs_errors if "both" in label and "stationary" not in label for item in alt_abs_errors[label]],
+                }
+                alt_ucttys = {
+                    "nosmcs_stationary": alt_ucttys["nosmcs_stationary"],
+                    "tri_stationary": alt_ucttys["tri_stationary"],
+                    "div_stationary": alt_ucttys["div_stationary"],
+                    "both_stationary": alt_ucttys["both_stationary"],
+                    "nosmcs_motion": [item for label in alt_ucttys if "nosmcs" in label and "stationary" not in label for item in alt_ucttys[label]],
+                    "tri_motion": [item for label in alt_ucttys if "tri" in label and "stationary" not in label for item in alt_ucttys[label]],
+                    "div_motion": [item for label in alt_ucttys if "div" in label and "stationary" not in label for item in alt_ucttys[label]],
+                    "both_motion": [item for label in alt_ucttys if "both" in label and "stationary" not in label for item in alt_ucttys[label]],
+                }
+
+                alt_fig, alt_axs = plt.subplots(1, 3, figsize=(21, 6))
+                if len(sensor_failures) > 0:
+                    for ax in alt_axs:
+                        ax.axvspan(100, 200, color='grey', alpha=0.3, label=f'distance sensor failure')
+                    
+                for i, data in enumerate([alt_states, alt_errors, alt_ucttys]):
+                    ax = alt_axs[i]
+                    means, stddevs, collisions = self.compute_mean_and_stddev(data["nosmcs_motion"], alt_collisions)
+                    self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "nosmcs_motion", plotting_config)
+                    means, stddevs, collisions = self.compute_mean_and_stddev(data["tri_motion"], alt_collisions)
+                    self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "tri_motion", plotting_config)
+                    means, stddevs, collisions = self.compute_mean_and_stddev(data["div_motion"], alt_collisions)
+                    self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "div_motion", plotting_config)
+                    means, stddevs, collisions = self.compute_mean_and_stddev(data["both_motion"], alt_collisions)
+                    self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "both_motion", plotting_config)
+
+                    # means, stddevs, collisions = self.compute_mean_and_stddev(data["nosmcs_stationary"], alt_collisions)
+                    # self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "nosmcs_stationary", plotting_config)
+                    # means, stddevs, collisions = self.compute_mean_and_stddev(data["tri_stationary"], alt_collisions)
+                    # self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "tri_stationary", plotting_config)
+                    # means, stddevs, collisions = self.compute_mean_and_stddev(data["div_stationary"], alt_collisions)
+                    # self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "div_stationary", plotting_config)
+                    # means, stddevs, collisions = self.compute_mean_and_stddev(data["both_stationary"], alt_collisions)
+                    # self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "both_stationary", plotting_config)
+                    ax.set_title("\\textbf{" + f"{['Task State', 'Estimation Error', 'Estimation Uncertainty'][i]}" + "}", fontsize=16)
+                    ax.set_ylabel(["Distance Offset from $d^\\ast$", "Distance Estimation Error", "Distance Estimate Standard Deviation"][i], fontsize=16)
+                    ax.legend(fontsize=14, loc='upper left')
+                    ax.set_xlabel("Time Step", fontsize=16)
+
+                    ax.grid(True)
+                alt_axs[0].set_ylim(0, 12)
+                alt_axs[1].set_ylim(0, 12)
+                alt_axs[2].set_ylim(0, 14)
+                alt_fig.tight_layout()
+                path = os.path.join(save_path, f"records/alt_state_line_{plotting_config['name']}") if save_path is not None else None
+                self.save_fig(alt_fig, path, show)
+
             # save / show
             path = os.path.join(save_path, f"records/state_{plotting_config['name']}") if save_path is not None else None
             self.save_fig(fig, path, show)
@@ -740,16 +960,22 @@ class AICONLogger:
         
         for i, (ax_label, style) in enumerate(list(plotting_config["style"].items())):
             plotting_config["style"][f"{ax_label} frontal"] = {
-                'label':     'axial motion',
+                'label':     'axial motion (divergence) control',
                 'linestyle': 'solid',
                 'color':     'c',
                 'linewidth': 2
             }
             plotting_config["style"][f"{ax_label} lateral"] = {
-                'label':     'orthogonal motion',
+                'label':     'orthogonal motion (triangulation) control',
                 'linestyle': 'solid',
                 'color':     'm',
                 'linewidth': 2
+            }
+            plotting_config["style"][f"{ax_label} loss"] = {
+                'label':     'distance belief uncertainty',
+                'linestyle': '--',
+                'color':     'black',
+                'linewidth':  2
             }
         
         xbounds = plotting_config["xbounds"]
@@ -781,17 +1007,65 @@ class AICONLogger:
             uctty_grad = np.array([run_data["rtf_gradient"]["target_distance_uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
             total_grad = np.array([run_data["rtf_gradient"]["total"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
             
-            # # TODO: utilize to get correlations of gradients and context variables
-            # uctty = np.array([run_data["estimators"]["PolarTargetPos"]["uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
-            # if uctty.shape[2] == 5:
-            #     datapoints = np.array([uctty_grad[0, :, 0], uctty[0, :, 2]])
+            uctty = np.array([run_data["estimators"]["PolarTargetPos"]["uncertainty"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]])
+            # TODO: utilize to get correlations of gradients and context variables
+            # if "sine" in ax_label:
+            #     correlation_range = xbounds
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 0]), uctty[0, correlation_range[0]:correlation_range[1], 2]])
             #     correlation = np.corrcoef(datapoints)
-            #     print(f"Correlation between frontal gradient and frontal target vel uncertainty:")
-            #     print(correlation[0,1])
-            #     datapoints = np.array([uctty_grad[0, :, 1], uctty[0, :, 3]])
+            #     print(f"{ax_label}: abs frontal grad / frontal target vel uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 0], uctty[0, correlation_range[0]:correlation_range[1], 2]])
             #     correlation = np.corrcoef(datapoints)
-            #     print(f"Correlation between lateral gradient and lateral target vel uncertainty:")
-            #     print(correlation[0,1])
+            #     print(f"{ax_label}: frontal grad / frontal target vel uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 0]), uctty[0, correlation_range[0]:correlation_range[1], 3]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: abs frontal grad / lateral target vel uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 0], uctty[0, correlation_range[0]:correlation_range[1], 3]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: frontal grad / lateral target vel uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 1]), uctty[0, correlation_range[0]:correlation_range[1], 2]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: abs lateral grad / frontal target vel uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 1], uctty[0, correlation_range[0]:correlation_range[1], 2]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: lateral grad / frontal target vel uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 1]), uctty[0, correlation_range[0]:correlation_range[1], 3]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: abs lateral grad / lateral target vel uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 1], uctty[0, correlation_range[0]:correlation_range[1], 3]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: lateral grad / lateral target vel uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 0]), uctty[0, correlation_range[0]:correlation_range[1], 4]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: abs frontal grad / radius uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 0], uctty[0, correlation_range[0]:correlation_range[1], 4]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: frontal grad / radius uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 1]), uctty[0, correlation_range[0]:correlation_range[1], 4]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: abs lateral grad / radius uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 1], uctty[0, correlation_range[0]:correlation_range[1], 4]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: lateral grad / radius uncertainty: {correlation[0, 1]}")
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 0]), np.array(uctty_loss[0])[correlation_range[0]:correlation_range[1]]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: abs frontal grad / general uctty loss: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 0], np.array(uctty_loss[0])[correlation_range[0]:correlation_range[1]]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: frontal grad / general uctty loss: {correlation[0, 1]}")
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 1]), np.array(uctty_loss[0])[correlation_range[0]:correlation_range[1]]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: abs lateral grad / general uctty loss: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 1], np.array(uctty_loss[0])[correlation_range[0]:correlation_range[1]]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: lateral grad / general uctty loss: {correlation[0, 1]}")
+            #     datapoints = np.array([uctty_grad[0, correlation_range[0]:correlation_range[1], 0], uctty_grad[0, correlation_range[0]:correlation_range[1], 1]])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: frontal grad / lateral grad: {correlation[0, 1]}")
+            #     datapoints = np.array([np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 0]), np.abs(uctty_grad[0, correlation_range[0]:correlation_range[1], 1])])
+            #     correlation = np.corrcoef(datapoints)
+            #     print(f"{ax_label}: abs frontal grad / abs lateral grad: {correlation[0, 1]}")
+
 
             for j, loss in enumerate([total_loss, task_loss, uctty_loss]):
                 loss_means, loss_stddevs, loss_collisions = self.compute_mean_and_stddev(loss, collisions)
@@ -822,16 +1096,28 @@ class AICONLogger:
                 if j == 2:
                     extrafig, ax = plt.subplots(1, 1, figsize=(7, 6))
                     ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
-                    self.plot_mean_stddev(ax, grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
+
+                    self.plot_mean_stddev(ax, -np.abs(grad_means_frontal), grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
                     self.plot_mean_stddev(ax, grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
-                    ax.set_title("\\textbf{Uncertainty Gradient}", fontsize=20)
-                    ax.set_ylabel("Gradient Magnitude", fontsize=20)
+                    ax.set_title("\\textbf{TRC SMR Control Components}", fontsize=20)
+                    
+                    # self.plot_mean_stddev(ax, grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
+                    # self.plot_mean_stddev(ax, grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
+                    # ax.set_title("\\textbf{Uncertainty Gradient}", fontsize=20)
+                    ax.set_ylabel("Control Output", fontsize=20)
                     ax.set_xlabel("Time Step", fontsize=20)
                     ax.grid(True)
-                    ax.legend(fontsize=16)
-                    ax.set_xlim(0, min(xbounds[1], len_data))
-                    ax.set_ylim(min_y + 0.1*(min_y-max_y), max_y + 0.1*(max_y-min_y))
-                    extrafig.tight_layout()
+                    ax.legend(fontsize=16, loc='lower left')
+                    ax.set_xlim(xbounds[0], min(xbounds[1], len_data))
+                    #ax.set_ylim(min_y + 0.1*(min_y-max_y), max_y + 0.1*(max_y-min_y))
+                    ax.set_ylim(-6,4)
+
+                    ax2 = ax.twinx()
+                    uctty_means, uctty_stddevs, uctty_collisions = self.compute_mean_and_stddev(uctty[:,:,0], collisions)
+                    self.plot_mean_stddev(ax2, uctty_means, uctty_stddevs, uctty_collisions, f"{ax_label} loss", plotting_config)
+                    ax2.set_ylabel("Distance Belief Uncertainty", fontsize=20)
+                    ax2.legend(fontsize=16, loc='lower left', bbox_to_anchor=(0, 0.16))
+                    ax2.set_ylim(-6, 4)
 
             for j, subgoal_label in enumerate(subgoal_labels):
                 axs[0][j].set_title("\\textbf{"+f"{subgoal_label} Loss" + "}", fontsize=20)
@@ -844,7 +1130,7 @@ class AICONLogger:
                     axs[k][j].set_xlabel("Time Step", fontsize=20)
                     axs[k][j].grid(True)
                     axs[k][j].legend(fontsize=16)
-                    axs[k][j].set_xlim(0, min(xbounds[1], len_data))
+                    axs[k][j].set_xlim(xbounds[0], min(xbounds[1], len_data))
 
             # save / show
             loss_path = os.path.join(save_path, f"records/loss/goal_gradients_{ax_label}") if save_path is not None else None

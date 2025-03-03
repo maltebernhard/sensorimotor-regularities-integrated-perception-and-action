@@ -11,10 +11,11 @@ analysis_configs: list[str] = [
     "exp1_sine.yaml",
     "exp1_extended.yaml",
     "exp1_non0mean.yaml",
-    # # ---------- Disturbances ----------
-    # # Dist Sensor Failure
+    # ---------- Disturbances ----------
+    # Dist Sensor Failure
     "exp2_distloss_sine.yaml",
-    # # Dist Noise
+    "exp2_distloss_extended.yaml",
+    # Dist Noise
     "exp2_non0mean_stat.yaml",
     "exp2_non0mean_sine.yaml",
     # Action Disturbance

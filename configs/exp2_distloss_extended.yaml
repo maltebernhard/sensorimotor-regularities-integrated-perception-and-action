@@ -1,0 +1,228 @@
+same_for_all:
+  #smcs:            both
+  distance_sensor:  dist_sensor
+  controller:       aicon
+  #target_config:    sine
+  obstacles:        no_obstacles
+  sensor_noise:     small_noise
+  observation_loss: dist_loss
+  fv_noise:         no_fv_noise
+  desired_distance: 10
+  start_distance:   10
+  wind:             no_wind
+  control:          vel
+
+variations:
+  - smcs:          nosmcs
+    target_config: stationary
+  - smcs:          tri
+    target_config: stationary
+  - smcs:          div
+    target_config: stationary
+  - smcs:          both
+    target_config: stationary
+  - smcs:          nosmcs
+    target_config: linear
+  - smcs:          tri
+    target_config: linear
+  - smcs:          div
+    target_config: linear
+  - smcs:          both
+    target_config: linear
+  - smcs:          nosmcs
+    target_config: sine
+  - smcs:          tri
+    target_config: sine
+  - smcs:          div
+    target_config: sine
+  - smcs:          both
+    target_config: sine
+  - smcs:          nosmcs
+    target_config: flight
+  - smcs:          tri
+    target_config: flight
+  - smcs:          div
+    target_config: flight
+  - smcs:          both
+    target_config: flight
+  - smcs:          nosmcs
+    target_config: chase
+  - smcs:          tri
+    target_config: chase
+  - smcs:          div
+    target_config: chase
+  - smcs:          both
+    target_config: chase
+
+plotting_config:
+  exclude_runs: []
+  xbounds: [0, 300]
+
+  states:
+    PolarTargetPos:
+      indices: [0]
+      labels:  [Distance]
+      ybounds: [[[0, 30]], [[-5, 10]], [[0, 15]]]
+      absybounds: [[[0, 20]], [[0, 20]], [[0, 20]]]
+      boxybounds: [[[0, 7]], [[0, 6]], [[0, 9]]]
+  style:
+    nosmcs_stationary:
+      #label:     \makebox[2.5cm][l]{No SMRs} T stat.
+      label:     N | T stat.
+      boxlabel:  S
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: solid    # dotted, dashed, dashdot
+      linewidth: 2
+    nosmcs_linear:
+      #label:     \makebox[2.5cm][l]{No SMRs} T linear
+      label:     N | T linear
+      boxlabel:  L
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: dashed
+      linewidth: 2
+    nosmcs_sine:
+      #label:     \makebox[2.5cm][l]{No SMRs} T sine
+      label:     N | T sine
+      boxlabel:  W
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: dashed
+      linewidth: 2
+    nosmcs_flight:
+      #label:     \makebox[2.5cm][l]{No SMRs} T flight
+      label:     N | T flight
+      boxlabel:  F
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: dashdot
+      linewidth: 2
+    nosmcs_chase:
+      #label:     \makebox[2.5cm][l]{No SMRs} T chase
+      label:     N | T chase
+      boxlabel:  C
+      boxcolor:  lightcoral
+      color:     red
+      linestyle: dotted
+      linewidth: 2
+    tri_stationary:
+      #label:     \makebox[2.5cm][l]{Tri.} T stat.
+      label:     Tri | T stat.
+      boxlabel:  S
+      boxcolor:  lightgreen
+      color:     green
+      linestyle: solid
+      linewidth: 2
+    tri_linear:
+      #label:     \makebox[2.5cm][l]{Tri.} T linear
+      label:     Tri | T linear
+      boxlabel:  L
+      boxcolor:  lightgreen
+      color:     green
+      linestyle: dashed
+      linewidth: 2
+    tri_sine:
+      #label:     \makebox[2.5cm][l]{Tri.} T sine
+      label:     Tri | T sine
+      boxlabel:  W
+      boxcolor:  lightgreen
+      color:     green
+      linestyle: dashed
+      linewidth: 2
+    tri_flight:
+      #label:     \makebox[2.5cm][l]{Tri.} T flight
+      label:     Tri | T flight
+      boxlabel:  F
+      boxcolor:  lightgreen
+      color:     green
+      linestyle: dashdot
+      linewidth: 2
+    tri_chase:
+      #label:     \makebox[2.5cm][l]{Tri.} T chase
+      label:     Tri | T chase
+      boxlabel:  C
+      boxcolor:  lightgreen
+      color:     green
+      linestyle: dotted
+      linewidth: 2
+    div_stationary:
+      #label:     \makebox[2.5cm][l]{Div.} T stat.
+      label:     Div | T stat.
+      boxlabel:  S
+      boxcolor:  peachpuff
+      color:     darkorange
+      linestyle: solid
+      linewidth: 2
+    div_linear:
+      #label:     \makebox[2.5cm][l]{Div.} T linear
+      label:     Div | T linear
+      boxlabel:  L
+      boxcolor:  peachpuff
+      color:     darkorange
+      linestyle: dashed
+      linewidth: 2
+    div_sine:
+      #label:     \makebox[2.5cm][l]{Div.} T sine
+      label:     Div | T sine
+      boxlabel:  W
+      boxcolor:  peachpuff
+      color:     darkorange
+      linestyle: dashed
+      linewidth: 2
+    div_flight:
+      #label:     \makebox[2.5cm][l]{Div.} T flight
+      label:     Div | T flight
+      boxlabel:  F
+      boxcolor:  peachpuff
+      color:     darkorange
+      linestyle: dashdot
+      linewidth: 2
+    div_chase:
+      #label:     \makebox[2.5cm][l]{Div.} T chase
+      label:     Div | T chase
+      boxlabel:  C
+      boxcolor:  peachpuff
+      color:     darkorange
+      linestyle: dotted
+      linewidth: 2
+    both_stationary:
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T stat.
+      label:     Tri+Div | T stat.
+      boxlabel:  S
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: solid
+      linewidth: 2
+    both_linear:
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T linear
+      label:     Tri+Div | T linear
+      boxlabel:  L
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: dashed
+      linewidth: 2
+    both_sine:
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T sine
+      label:     Tri+Div | T sine
+      boxlabel:  W
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: dashed
+      linewidth: 2
+    both_flight:
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T flight
+      label:     Tri+Div | T flight
+      boxlabel:  F
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: dashdot
+      linewidth: 2
+    both_chase:
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T chase
+      label:     Tri+Div | T chase
+      boxlabel:  C
+      boxcolor:  lightblue
+      color:     blue
+      linestyle: dotted
+      linewidth: 2

@@ -16,9 +16,8 @@ def delete_old_plots(dirname: str, which_plots):
             delete_pdfs(dirname+"/records", "box")
         elif plot == "losses":
             delete_pdfs(dirname+"/records/loss/", "main")
-            delete_pdfs(dirname+"/records/loss/", "goal")
         elif plot == "gradients":
-            delete_pdfs(dirname+"/records/loss/", "gradient_")
+            delete_pdfs(dirname+"/records/loss/", "gradient")
         elif plot == "runs":
             delete_pdfs(dirname+"/records/runs/", "run")
         elif plot == "collisions":
@@ -35,19 +34,20 @@ plots = {
 
 analysis_configs: list[str] = [
     # -------- AICON vs. control --------
-    "exp1_sine.yaml",
-    "exp1_extended.yaml",
-    # # ---------- Disturbances ----------
-    # # Dist Sensor Failure
-    "exp2_distloss_sine.yaml",
-    # # Dist Noise
-    "exp2_non0mean_stat.yaml",
-    "exp2_non0mean_sine.yaml",
-    # Action Disturbance
-    "exp2_wind_stat_nodist.yaml",
-    "exp2_wind_sine_nodist.yaml",
-    "exp2_wind_sine_distdot.yaml",
-    "exp2_wind_stat_distdot.yaml",
+    # "exp1_sine.yaml",
+    # "exp1_extended.yaml",
+    # # # ---------- Disturbances ----------
+    # # # Dist Sensor Failure
+    # "exp2_distloss_sine.yaml",
+    "exp2_distloss_extended.yaml",
+    # # # Dist Noise
+    # "exp2_non0mean_stat.yaml",
+    # "exp2_non0mean_sine.yaml",
+    # # Action Disturbance
+    # "exp2_wind_stat_nodist.yaml",
+    # "exp2_wind_sine_nodist.yaml",
+    # "exp2_wind_sine_distdot.yaml",
+    # "exp2_wind_stat_distdot.yaml",
 ]
 
 which_plots = [
