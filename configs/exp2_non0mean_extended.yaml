@@ -58,6 +58,22 @@ plotting_config:
   exclude_runs: []
   xbounds: [0, 200]
 
+  config_colors:
+    nosmcs: black
+    tri:    firebrick
+    div:    slateblue
+    both:   seagreen
+
+  motion_colors:
+    stationary: [darkgoldenrod, gold]
+    linear:     [darkslategrey, teal]
+    sine:       [indigo, mediumpurple]
+    #flight:     [darkred, lightcoral]
+    flight:     [navy, cornflowerblue]
+    #chase:      [darkgreen, lightgreen]
+    chase:      [darkred, lightcoral]
+    motion:     [darkblue, lightsteelblue]
+
   states:
     PolarTargetPos:
       indices: [0]

@@ -34,15 +34,26 @@ variations:
   - controller:    trc
     target_config: chase
 
+
 plotting_config:
   exclude_runs: []
   xbounds: [0, 200]
+
+  motion_colors:
+    stationary: [darkgoldenrod, gold]
+    linear:     [darkslategrey, teal]
+    sine:       [indigo, mediumpurple]
+    #flight:     [darkred, lightcoral]
+    flight:     [navy, cornflowerblue]
+    #chase:      [darkgreen, lightgreen]
+    chase:      [darkred, lightcoral]
+    motion:     [darkblue, lightsteelblue]
 
   states:
     PolarTargetPos:
       indices:    [0]
       labels:     [Distance]
-      ybounds:    [[[5, 30]], [[-1, 10]], [[-1, 20]]]
+      ybounds:    [[[0, 30]], [[-1, 10]], [[-1, 20]]]
       boxybounds: [[[0, 17.5]], [[0, 7]], [[0, 7]]]
 
   style:

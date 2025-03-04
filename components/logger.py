@@ -421,13 +421,19 @@ class AICONLogger:
                 var_states = [run_data["estimators"][state_id]["env_state"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 desired_distance = [run_data["desired_distance"]*np.ones_like(run_data["estimators"][state_id]["env_state"][xbounds[0]:min(xbounds[1]+1,len_data),indices]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
+                var_tasks = [state-desired for state, desired in zip(var_states, desired_distance)]
                 var_ucttys = [run_data["estimators"][state_id]["uncertainty"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 var_errors = [run_data["estimators"][state_id]["estimation_error"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 var_collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
-                states[label] = np.array([np.mean(run - dd) for run, dd, col in zip(var_states, desired_distance, var_collisions) if len(col) >= xbounds[1]])
-                errors[label] = np.array([np.mean(run) for run, col in zip(var_errors, var_collisions) if len(col) >= xbounds[1]])
-                ucttys[label] = np.array([np.mean(run) for run, col in zip(var_ucttys, var_collisions) if len(col) >= xbounds[1]])
+                if abs:
+                    var_tasks = [np.abs(task) for task in var_tasks]
+                    var_errors = [np.abs(error) for error in var_errors]
+
+                states[label] = np.array([np.mean(run) for run in var_tasks if len(run) >= xbounds[1]])
+                errors[label] = np.array([np.mean(run) for run in var_errors if len(run) >= xbounds[1]])
+                ucttys[label] = np.array([np.mean(run) for run in var_ucttys if len(run) >= xbounds[1]])
+
                 if abs:
                     states[label] = np.abs(states[label])
                     errors[label] = np.abs(errors[label])
@@ -524,7 +530,7 @@ class AICONLogger:
                             handles=[
                                 plt.Line2D([0], [0], color=plotting_config['style'][groups[0]+'_'+motion_keys[i]]['boxcolor'], marker='s', markersize=10, linestyle='None', label=motion_labels[i])
                             for i in range(len(motion_keys))],
-                            loc='upper left',
+                            loc='upper left' if 'exp1' in save_path else 'upper right',
                             fontsize=14
                         )
 
@@ -534,8 +540,14 @@ class AICONLogger:
 
     # --------------------------------------------------------------------------------------------------
 
-    def plot_accumulated_motion_boxplots(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
+    def plot_accumulated_motion_boxplots(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], abs:bool=False, save_path:str=None, show:bool=False):
         xbounds = plotting_config["xbounds"]
+        if 'config_colors' in plotting_config and 'motion_colors' in plotting_config:
+            for config_key in plotting_config["config_colors"]:
+                for motion_key, motion_color in plotting_config["motion_colors"].items():
+                    if f"{config_key}_{motion_key}" in plotting_config["style"]:
+                        plotting_config["style"][f"{config_key}_{motion_key}"]["color"] = motion_color[0]
+                        plotting_config["style"][f"{config_key}_{motion_key}"]["boxcolor"] = motion_color[1]
         # for style_key in ["nosmcs", "tri", "div", "both", "aicon", "trc"]:
         #     if any(style_key in key for key in plotting_config["style"].keys()):
         #         plotting_config["style"][f"{style_key}_motion"] = plotting_config["style"][f"{style_key}_linear"].copy()
@@ -566,14 +578,19 @@ class AICONLogger:
                 var_states = [run_data["estimators"][state_id]["env_state"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 desired_distance = [run_data["desired_distance"]*np.ones_like(run_data["estimators"][state_id]["env_state"][xbounds[0]:min(xbounds[1]+1,len_data),indices]) for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
+                var_task_errors = [state-desired_distance for state, desired_distance in zip(var_states, desired_distance)]
                 var_ucttys = [run_data["estimators"][state_id]["uncertainty"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 var_errors = [run_data["estimators"][state_id]["estimation_error"][xbounds[0]:min(xbounds[1]+1,len_data),indices] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
                 var_collisions = [run_data["collision"] for run_key, run_data in self.variations[self.current_variation_id]['data'].items() if run_key not in plotting_config["exclude_runs"]]
 
-                states[label] = np.array([np.mean(run - dd) for run, dd, col in zip(var_states, desired_distance, var_collisions) if len(col) >= xbounds[1]])
+                if abs:
+                    var_task_errors = [np.abs(err) for err in var_task_errors]
+                    var_errors = [np.abs(err) for err in var_errors]
+
+                states[label] = np.array([np.mean(task_error) for task_error, col in zip(var_task_errors, var_collisions) if len(col) >= xbounds[1]])
                 errors[label] = np.array([np.mean(run) for run, col in zip(var_errors, var_collisions) if len(col) >= xbounds[1]])
                 ucttys[label] = np.array([np.mean(run) for run, col in zip(var_ucttys, var_collisions) if len(col) >= xbounds[1]])
-                
+
             if 'exp1_extended' in save_path:
                 alt_states = {
                     "aicon_stationary": states["aicon_stationary"],
@@ -628,63 +645,116 @@ class AICONLogger:
                 print("Not an extended Experiment. Abort.")
                 return
 
-            for label in alt_states.keys():
-                mean_alt_state = np.mean(alt_states[label])
-                print(f"Mean abs_alt_state for {label}: {mean_alt_state:.4f}")
+            with open(os.path.join(save_path, "records/stats.txt"), "w") as f:
+                for label in alt_states.keys():
+                    mean_alt_state = np.mean(alt_states[label])
+                    f.write(f"Mean abs_alt_state for {label}: {mean_alt_state:.4f}\n")
 
-            # Extract unique prefixes and suffixes
-            prefixes = set(label.split('_')[0] for label in alt_states.keys())
-            comparisons = [(f"{prefix}_stationary", f"{prefix}_motion", prefix.capitalize()) for prefix in prefixes]
+                prefixes = set(label.split('_')[0] for label in alt_states.keys())
+                comparisons = [(f"{prefix}_stationary", f"{prefix}_motion", prefix.capitalize()) for prefix in prefixes]
 
-            for stationary_label, motion_label, name in comparisons:
-                stationary_mean = np.mean(alt_states[stationary_label])
-                motion_mean = np.mean(alt_states[motion_label])
-                percentual_increase = ((motion_mean - stationary_mean) / stationary_mean) * 100
-                print(f"{name}: task error increase stationary -> motion: {percentual_increase:.2f}%")
+                for stationary_label, motion_label, name in comparisons:
+                    stationary_mean = np.mean(alt_states[stationary_label])
+                    motion_mean = np.mean(alt_states[motion_label])
+                    percentual_increase = ((motion_mean - stationary_mean) / stationary_mean) * 100
+                    f.write(f"{name}: task error increase stationary -> motion: {percentual_increase:.2f}%\n")
 
-            for prefix in prefixes:
-                stationary_mean = np.mean(alt_states[f"{prefix}_stationary"])
-                motion_mean = np.mean(alt_states[f"{prefix}_motion"])
-                for other_prefix in prefixes:
-                    if other_prefix != prefix:
-                        other_stationary_mean = np.mean(alt_states[f"{other_prefix}_stationary"])
-                        other_motion_mean = np.mean(alt_states[f"{other_prefix}_motion"])
-                        percentual_increase_stationary = ((other_stationary_mean - stationary_mean) / stationary_mean) * 100
-                        percentual_increase_motion = ((other_motion_mean - motion_mean) / motion_mean) * 100
-                        print(f"{prefix} vs. {other_prefix}: task error increase stationary: {percentual_increase_stationary:.2f}%, motion: {percentual_increase_motion:.2f}%")
+                for prefix in prefixes:
+                    stationary_mean = np.mean(alt_states[f"{prefix}_stationary"])
+                    motion_mean = np.mean(alt_states[f"{prefix}_motion"])
+                    for other_prefix in prefixes:
+                        if other_prefix != prefix:
+                            other_stationary_mean = np.mean(alt_states[f"{other_prefix}_stationary"])
+                            other_motion_mean = np.mean(alt_states[f"{other_prefix}_motion"])
+                            percentual_increase_stationary = ((other_stationary_mean - stationary_mean) / stationary_mean) * 100
+                            percentual_increase_motion = ((other_motion_mean - motion_mean) / motion_mean) * 100
+                            f.write(
+                                f"{prefix} vs. {other_prefix}: task error increase stationary: "
+                                f"{percentual_increase_stationary:.2f}%, motion: {percentual_increase_motion:.2f}%\n"
+                            )
 
             for i, data in enumerate([alt_states, alt_errors, alt_ucttys]):
                 ax = axs[i][0]
-                index = -1
-                for label in alt_states.keys():
-                    # use the label index as the x-position
-                    index += 1
-                    ax.boxplot(
-                        data[label],
-                        positions=[index + 1],
-                        labels=[plotting_config['style'][label]['boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label']],
-                        patch_artist=True,
-                        boxprops=dict(
-                            facecolor=plotting_config['style'][label]['boxcolor'],
-                        ),
-                        medianprops=dict(
-                            linewidth=2.0,
-                            color=plotting_config['style'][label]['color'],
-                        ),
-                        showfliers=False,
-                        widths=0.5  # Adjust the width of the box
-                    )
+                groups = ["nosmcs", "tri", "div", "both"] if 'exp2' in save_path else ["aicon", "trc"]
+                group_labels = ["No SMRs", "Tri.", "Div.", "Tri. + Div."] if 'exp2' in save_path else ["AICON", "TRC"]
+                motion_keys = ["stationary", "motion"]
+                motion_labels = ["Stationary", "Motion"]
+
+                # We'll place each group in a "block" on the x-axis, with two boxes (stationary, motion) per group.
+                for group_index, group_name in enumerate(groups):
+                    for motion_index, motion_key in enumerate(motion_keys):
+                        label = f"{group_name}_{motion_key}"
+                        if label not in data:
+                            print(f"WARN: '{label}' not found in data")
+                            continue
+
+                        # Position = (group_index block) + (which motion in that block) + 1
+                        position = group_index * len(motion_keys) + motion_index + 1
+
+                        label_key = 'boxlabel' if 'boxlabel' in plotting_config['style'][label] else 'label'
+                        plot_label = plotting_config['style'][label][label_key]
+
+                        ax.boxplot(
+                            data[label],
+                            positions=[position],
+                            labels=[plot_label],
+                            patch_artist=True,
+                            boxprops=dict(
+                                facecolor=plotting_config['style'][label]['boxcolor'],
+                            ),
+                            medianprops=dict(
+                                linewidth=2.0,
+                                color=plotting_config['style'][label]['color'],
+                            ),
+                            showfliers=False,
+                            widths=0.5
+                        )
+
+                # For each group label on the x-axis, pick the midpoint of its two boxes
+                group_positions = [
+                    group_index * len(motion_keys) + (len(motion_keys) / 2) + 0.5
+                    for group_index in range(len(groups))
+                ]
+                ax.set_xticks(group_positions)
+                ax.set_xticklabels(group_labels, fontsize=14)
+
+                # Vertical lines separating group blocks
+                for sep_index in range(1, len(groups)):
+                    ax.axvline(x=sep_index * len(motion_keys) + 0.5, color='grey', linestyle='--')
+
+                # Legend for stationary vs. motion
+                ax.legend(
+                    handles=[
+                        plt.Line2D([0], [0],
+                                   color=plotting_config['style'][f"{groups[0]}_{motion_keys[m_idx]}"]['boxcolor'],
+                                   marker='s', markersize=10, linestyle='None',
+                                   label=motion_labels[m_idx])
+                        for m_idx in range(len(motion_keys))
+                    ],
+                    loc=('upper left' if 'exp1' in save_path else 'upper right'),
+                    fontsize=14
+                )
+
                 ax.tick_params(axis='x', labelsize=14)
-                max_val = max(data[alt_label].max() for alt_label in alt_states.keys())
+                max_val = max(max(data[label]) for label in alt_states.keys())
                 ax.set_ylim(0.0, max_val * 1.1)
-                #alt_ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
                 ax.set_title("\\textbf{" + f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][i]}" + "}", fontsize=16)
                 ax.set_ylabel(['Distance Offset from $d^\\ast$', 'Distance Estimation Error', 'Distance Estimate Standard Deviation'][i], fontsize=16)
                 ax.grid(True)#, axis='y')
+                # ax.tick_params(axis='x', labelsize=14)
+                # max_val = max(data[alt_label].max() for alt_label in alt_states.keys())
+                # ax.set_ylim(0.0, max_val * 1.1)
+                # #alt_ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
+                # ax.set_title("\\textbf{" + f"{['Absolute Task (Distance) Error', 'Absolute Estimation Error', 'Estimation Uncertainty'][i]}" + "}", fontsize=16)
+                # ax.set_ylabel(['Distance Offset from $d^\\ast$', 'Distance Estimation Error', 'Distance Estimate Standard Deviation'][i], fontsize=16)
+                # ax.grid(True)#, axis='y')
 
 
             for name, fig in zip(["task", "error", "uctty"], [task_fig, err_fig, uctty_fig]):
-                path = os.path.join(save_path, "records/box/accumulated_" + f"{name}") if save_path is not None else None
+                path = os.path.join(
+                    save_path,
+                    "records/box/accumulated_" + ("abs_" if abs and name != "uctty" else "") + f"{name}"
+                ) if save_path is not None else None
                 self.save_fig(fig, path, show)
 
     # --------------------------------------------------------------------------------------------------
@@ -856,17 +926,29 @@ class AICONLogger:
 
     def plot_accumulated_motion_states(self, plotting_config:Dict[str,Dict[str,Tuple[List[int],List[str],List[Tuple[float,float]]]]], save_path:str=None, show:bool=False):
         xbounds = plotting_config["xbounds"]
-        if 'config_colors' in plotting_config and 'motion_colors' in plotting_config:
-            for config_key, config_color in plotting_config["config_colors"].items():
-                for motion_key in plotting_config["motion_colors"]:
-                    if f"{config_key}_{motion_key}" in plotting_config["style"]:
-                        plotting_config["style"][f"{config_key}_{motion_key}"]["color"] = config_color
-                        plotting_config["style"][f"{config_key}_{motion_key}"]["linestyle"] = 'solid' if 'stationary' in motion_key else '--'
+        if 'exp2' in save_path:
+            if 'config_colors' in plotting_config and 'motion_colors' in plotting_config:
+                for config_key, config_color in plotting_config["config_colors"].items():
+                    for motion_key in plotting_config["motion_colors"]:
+                        if f"{config_key}_{motion_key}" in plotting_config["style"]: 
+                            plotting_config["style"][f"{config_key}_{motion_key}"]["color"] = config_color
+                            plotting_config["style"][f"{config_key}_{motion_key}"]["linestyle"] = 'solid' if ('stationary' in motion_key or 'exp2' in save_path) else '--'
+        else:
+            plotting_config["style"]["aicon_stationary"]["color"] = 'blue'
+            plotting_config["style"]["aicon_stationary"]["linestyle"] = 'solid'
+            plotting_config["style"]["trc_stationary"]["color"] = 'red'
+            plotting_config["style"]["trc_stationary"]["linestyle"] = 'solid'
+            plotting_config["style"]["aicon_motion"]["color"] = 'blue'
+            plotting_config["style"]["aicon_motion"]["linestyle"] = '--'
+            plotting_config["style"]["trc_motion"]["color"] = 'red'
+            plotting_config["style"]["trc_motion"]["linestyle"] = '--'
+
         for state_id, config in plotting_config["states"].items():
             
             indices = np.array(config["indices"])
             len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
             ybounds = config["absybounds"] if "absybounds" in config else config["ybounds"]
+            ybounds = config["boxybounds"] if "boxybounds" in config else config["ybounds"]
 
             x_axis = np.arange(0, len_data * 0.05, 0.05)
 
@@ -892,41 +974,73 @@ class AICONLogger:
                 states[label] = [np.abs(states[label][i]) for i in range(len(states[label]))]
                 errors[label] = [np.abs(errors[label][i]) for i in range(len(errors[label]))]
 
-            alt_states = {
-                "nosmcs_stationary": states["nosmcs_stationary"],
-                "tri_stationary": states["tri_stationary"],
-                "div_stationary": states["div_stationary"],
-                "both_stationary": states["both_stationary"],
-                "nosmcs_motion": [item for label in states if "nosmcs" in label and "stationary" not in label for item in states[label]],
-                "tri_motion": [item for label in states if "tri" in label and "stationary" not in label for item in states[label]],
-                "div_motion": [item for label in states if "div" in label and "stationary" not in label for item in states[label]],
-                "both_motion": [item for label in states if "both" in label and "stationary" not in label for item in states[label]],
-            }
-            alt_errors = {
-                "nosmcs_stationary": errors["nosmcs_stationary"],
-                "tri_stationary": errors["tri_stationary"],
-                "div_stationary": errors["div_stationary"],
-                "both_stationary": errors["both_stationary"],
-                "nosmcs_motion": [item for label in errors if "nosmcs" in label and "stationary" not in label for item in errors[label]],
-                "tri_motion": [item for label in errors if "tri" in label and "stationary" not in label for item in errors[label]],
-                "div_motion": [item for label in errors if "div" in label and "stationary" not in label for item in errors[label]],
-                "both_motion": [item for label in errors if "both" in label and "stationary" not in label for item in errors[label]],
-            }
-            alt_ucttys = {
-                "nosmcs_stationary": ucttys["nosmcs_stationary"],
-                "tri_stationary": ucttys["tri_stationary"],
-                "div_stationary": ucttys["div_stationary"],
-                "both_stationary": ucttys["both_stationary"],
-                "nosmcs_motion": [item for label in ucttys if "nosmcs" in label and "stationary" not in label for item in ucttys[label]],
-                "tri_motion": [item for label in ucttys if "tri" in label and "stationary" not in label for item in ucttys[label]],
-                "div_motion": [item for label in ucttys if "div" in label and "stationary" not in label for item in ucttys[label]],
-                "both_motion": [item for label in ucttys if "both" in label and "stationary" not in label for item in ucttys[label]],
-            }
+            # HACK
+            if 'wind_extended' in save_path:
+                global_shortest_length = min(
+                    min(len(run) for run in states[lbl])
+                    for lbl in states
+                )
+                print(global_shortest_length)
+                for lbl in states:
+                    states[lbl] = [run[:global_shortest_length] for run in states[lbl]]
+                    errors[lbl] = [run[:global_shortest_length] for run in errors[lbl]]
+                    ucttys[lbl] = [run[:global_shortest_length] for run in ucttys[lbl]]
+                    alt_collisions[lbl] = [run[:global_shortest_length] for run in alt_collisions[lbl]]
+                x_axis = x_axis[:global_shortest_length]
 
-            for smc_config in ["nosmcs", "tri", "div", "both"]:
-                plotting_config["style"][f"{smc_config}_motion"] = plotting_config["style"][f"{smc_config}_linear"].copy()
-                plotting_config["style"][f"{smc_config}_motion"]["label"] = " ".join(plotting_config["style"][f"{smc_config}_motion"]["label"].split(" ")[:-1] + ["motion"])
-                plotting_config["style"][f"{smc_config}_motion"]["linestyle"] = "--"
+            if 'exp1_extended' in save_path:
+                alt_states = {
+                    "aicon_stationary": states["aicon_stationary"],
+                    "trc_stationary": states["trc_stationary"],
+                    "aicon_motion": np.concatenate([states[label] for label in states if "aicon" in label and "stationary" not in label]),
+                    "trc_motion": np.concatenate([states[label] for label in states if "trc" in label and "stationary" not in label]),
+                }
+                alt_errors = {
+                    "aicon_stationary": errors["aicon_stationary"],
+                    "trc_stationary": errors["trc_stationary"],
+                    "aicon_motion": np.concatenate([errors[label] for label in errors if "aicon" in label and "stationary" not in label]),
+                    "trc_motion": np.concatenate([errors[label] for label in errors if "trc" in label and "stationary" not in label]),
+                }
+                alt_ucttys = {
+                    "aicon_stationary": ucttys["aicon_stationary"],
+                    "trc_stationary": ucttys["trc_stationary"],
+                    "aicon_motion": np.concatenate([ucttys[label] for label in ucttys if "aicon" in label and "stationary" not in label]),
+                    "trc_motion": np.concatenate([ucttys[label] for label in ucttys if "trc" in label and "stationary" not in label]),
+                }
+            elif 'exp2' in save_path and 'extended' in save_path:
+                alt_states = {
+                    "nosmcs_stationary": states["nosmcs_stationary"],
+                    "tri_stationary": states["tri_stationary"],
+                    "div_stationary": states["div_stationary"],
+                    "both_stationary": states["both_stationary"],
+                    "nosmcs_motion": np.concatenate([states[label] for label in states if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([states[label] for label in states if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([states[label] for label in states if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([states[label] for label in states if "both" in label and "stationary" not in label]),
+                }
+                alt_errors = {
+                    "nosmcs_stationary": errors["nosmcs_stationary"],
+                    "tri_stationary": errors["tri_stationary"],
+                    "div_stationary": errors["div_stationary"],
+                    "both_stationary": errors["both_stationary"],
+                    "nosmcs_motion": np.concatenate([errors[label] for label in errors if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([errors[label] for label in errors if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([errors[label] for label in errors if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([errors[label] for label in errors if "both" in label and "stationary" not in label]),
+                }
+                alt_ucttys = {
+                    "nosmcs_stationary": ucttys["nosmcs_stationary"],
+                    "tri_stationary": ucttys["tri_stationary"],
+                    "div_stationary": ucttys["div_stationary"],
+                    "both_stationary": ucttys["both_stationary"],
+                    "nosmcs_motion": np.concatenate([ucttys[label] for label in ucttys if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([ucttys[label] for label in ucttys if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([ucttys[label] for label in ucttys if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([ucttys[label] for label in ucttys if "both" in label and "stationary" not in label]),
+                }
+            else:
+                print("Not an extended Experiment. Abort.")
+                return
 
             task_fig, task_ax = plt.subplots(1, 1, figsize=(7, 6))
             err_fig, err_ax = plt.subplots(1, 1, figsize=(7, 6))
@@ -934,21 +1048,41 @@ class AICONLogger:
             axs = [[ax] for ax in [task_ax, err_ax, uctty_ax]]
             self.plot_sensor_failures(axs, plotting_config, indices, (x_axis[100], x_axis[200]))
 
+            # HACK
+            if 'exp2' in save_path:
+                alt_states = {
+                    "nosmcs_motion": np.concatenate([states[label] for label in states if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([states[label] for label in states if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([states[label] for label in states if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([states[label] for label in states if "both" in label and "stationary" not in label]),
+                }
+                alt_errors = {
+                    "nosmcs_motion": np.concatenate([errors[label] for label in errors if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([errors[label] for label in errors if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([errors[label] for label in errors if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([errors[label] for label in errors if "both" in label and "stationary" not in label]),
+                }
+                alt_ucttys = {
+                    "nosmcs_motion": np.concatenate([ucttys[label] for label in ucttys if "nosmcs" in label and "stationary" not in label]),
+                    "tri_motion": np.concatenate([ucttys[label] for label in ucttys if "tri" in label and "stationary" not in label]),
+                    "div_motion": np.concatenate([ucttys[label] for label in ucttys if "div" in label and "stationary" not in label]),
+                    "both_motion": np.concatenate([ucttys[label] for label in ucttys if "both" in label and "stationary" not in label]),
+                }
+            else:
+                print("Not an extended Experiment. Abort.")
+                return
+
             for i, data in enumerate([alt_states, alt_errors, alt_ucttys]):
                 ax = axs[i][0]
-                means, stddevs, collisions = self.compute_mean_and_stddev(np.array(data["nosmcs_motion"]))
-                self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "nosmcs_motion", plotting_config, x_axis)
-                means, stddevs, collisions = self.compute_mean_and_stddev(np.array(data["tri_motion"]))
-                self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "tri_motion", plotting_config, x_axis)
-                means, stddevs, collisions = self.compute_mean_and_stddev(np.array(data["div_motion"]))
-                self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "div_motion", plotting_config, x_axis)
-                means, stddevs, collisions = self.compute_mean_and_stddev(np.array(data["both_motion"]))
-                self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, "both_motion", plotting_config, x_axis)
+                for label in data.keys():
+                    means, stddevs, collisions = self.compute_mean_and_stddev(np.array(data[label]))
+                    self.plot_mean_stddev(ax, means[xbounds[0]:min(xbounds[1]+1,len(means)),0], stddevs[xbounds[0]:min(xbounds[1]+1,len(stddevs)),0], collisions, label, plotting_config, x_axis)
 
                 ax.set_title("\\textbf{" + f"{['Task State', 'Estimation Error', 'Estimation Uncertainty'][i]}" + "}", fontsize=16)
                 ax.set_ylabel(["Distance Offset from $d^\\ast$", "Distance Estimation Error", "Distance Estimate Standard Deviation"][i], fontsize=16)
 
             for ax in range(3):
+                #axs[ax][0].set_ylim(0.0, 20.0) if 'exp1' in save_path else axs[ax][0].set_ylim(ybounds[ax][0])
                 axs[ax][0].set_ylim(ybounds[ax][0])
                 axs[ax][0].set_xlim(xbounds[0]*0.05, min(xbounds[1], len_data)*0.05)
                 axs[ax][0].set_xlabel("Time $[s]$", fontsize=16)
@@ -1061,6 +1195,7 @@ class AICONLogger:
         
         xbounds = plotting_config["xbounds"]
         len_data = max(len(run_data["step"]) for variation in self.variations.values() for run_data in variation['data'].values())
+        x_axis = np.arange(0, len_data * 0.05, 0.05)
 
         y_lim_start = min(int(len_data/2), 25)
         y_lim_end = min(len_data, xbounds[1])
@@ -1178,24 +1313,27 @@ class AICONLogger:
                     extrafig, ax = plt.subplots(1, 1, figsize=(7, 6))
                     ax.axhline(y=0, color='black', linestyle='solid', linewidth=1)
 
-                    self.plot_mean_stddev(ax, -np.abs(grad_means_frontal), grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
-                    self.plot_mean_stddev(ax, grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
+                    if "trc" in ax_label:
+                        self.plot_mean_stddev(ax, -np.abs(grad_means_frontal), grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config, x_axis)
+                    else:
+                        self.plot_mean_stddev(ax, grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config, x_axis)
+                    self.plot_mean_stddev(ax, grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config, x_axis)
                     ax.set_title("\\textbf{TRC SMR Control Components}", fontsize=20)
                     
                     # self.plot_mean_stddev(ax, grad_means_frontal, grad_stddevs_frontal, grad_collisions_frontal, f"{ax_label} frontal", plotting_config)
                     # self.plot_mean_stddev(ax, grad_means_lateral, grad_stddevs_lateral, grad_collisions_lateral, f"{ax_label} lateral", plotting_config)
                     # ax.set_title("\\textbf{Uncertainty Gradient}", fontsize=20)
                     ax.set_ylabel("Control Output", fontsize=20)
-                    ax.set_xlabel("Time Step", fontsize=20)
+                    ax.set_xlabel("Time $[s]$", fontsize=20)
                     ax.grid(True)
                     ax.legend(fontsize=16, loc='lower left')
-                    ax.set_xlim(xbounds[0], min(xbounds[1], len_data))
+                    ax.set_xlim(xbounds[0]*0.05, min(xbounds[1], len_data)*0.05)
                     #ax.set_ylim(min_y + 0.1*(min_y-max_y), max_y + 0.1*(max_y-min_y))
                     ax.set_ylim(-6,4)
 
                     ax2 = ax.twinx()
                     uctty_means, uctty_stddevs, uctty_collisions = self.compute_mean_and_stddev(uctty[:,:,0], collisions)
-                    self.plot_mean_stddev(ax2, uctty_means, uctty_stddevs, uctty_collisions, f"{ax_label} loss", plotting_config)
+                    self.plot_mean_stddev(ax2, uctty_means, uctty_stddevs, uctty_collisions, f"{ax_label} loss", plotting_config, x_axis)
                     ax2.set_ylabel("Distance Belief Uncertainty", fontsize=20)
                     ax2.legend(fontsize=16, loc='lower left', bbox_to_anchor=(0, 0.16))
                     ax2.set_ylim(-6, 4)

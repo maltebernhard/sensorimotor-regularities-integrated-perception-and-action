@@ -58,13 +58,29 @@ plotting_config:
   exclude_runs: []
   xbounds: [0, 300]
 
+  config_colors:
+    nosmcs: black
+    tri:    firebrick
+    div:    slateblue
+    both:   seagreen
+
+  motion_colors:
+    stationary: [darkgoldenrod, gold]
+    linear:     [darkslategrey, teal]
+    sine:       [indigo, mediumpurple]
+    #flight:     [darkred, lightcoral]
+    flight:     [navy, cornflowerblue]
+    #chase:      [darkgreen, lightgreen]
+    chase:      [darkred, lightcoral]
+    motion:     [darkblue, lightsteelblue]
+
   states:
     PolarTargetPos:
       indices: [0]
       labels:  [Distance]
       ybounds: [[[0, 30]], [[-5, 10]], [[0, 15]]]
       absybounds: [[[0, 20]], [[0, 20]], [[0, 20]]]
-      boxybounds: [[[0, 7]], [[0, 6]], [[0, 9]]]
+      boxybounds: [[[0, 10]], [[0, 6]], [[0, 9]]]
   style:
     nosmcs_stationary:
       #label:     \makebox[2.5cm][l]{No SMRs} T stat.
