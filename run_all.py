@@ -8,21 +8,23 @@ from run_analysis import create_analysis_from_custom_config
 
 analysis_configs: list[str] = [
     # -------- AICON vs. control --------
-    "exp1_sine.yaml",
-    "exp1_extended.yaml",
-    "exp1_non0mean.yaml",
+    # "exp1_sine.yaml",
+    # "exp1_extended.yaml",
+    # "exp1_non0mean.yaml",
     # ---------- Disturbances ----------
     # Dist Sensor Failure
-    "exp2_distloss_sine.yaml",
-    "exp2_distloss_extended.yaml",
+    # "exp2_distloss_sine.yaml",
+    # "exp2_distloss_extended.yaml",
     # Dist Noise
-    "exp2_non0mean_stat.yaml",
-    "exp2_non0mean_sine.yaml",
+    "exp2_non0mean_extended.yaml",
+    # "exp2_non0mean_stat.yaml",
+    # "exp2_non0mean_sine.yaml",
     # Action Disturbance
-    "exp2_wind_stat_nodist.yaml",
-    "exp2_wind_sine_nodist.yaml",
-    "exp2_wind_sine_distdot.yaml",
-    "exp2_wind_stat_distdot.yaml",
+    "exp2_wind_extended.yaml",
+    # "exp2_wind_stat_nodist.yaml",
+    # "exp2_wind_sine_nodist.yaml",
+    # "exp2_wind_sine_distdot.yaml",
+    # "exp2_wind_stat_distdot.yaml",
 ]
 
 num_runs:  int = 100

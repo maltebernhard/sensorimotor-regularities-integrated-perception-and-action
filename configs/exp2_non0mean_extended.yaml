@@ -1,12 +1,12 @@
 same_for_all:
   #smcs:            both
-  distance_sensor:  dist_sensor
   controller:       aicon
-  #target_config:    sine
-  obstacles:        no_obstacles
-  sensor_noise:     small_noise
-  observation_loss: dist_loss
+  sensor_noise:     neg_dist_o_noise
+  distance_sensor:  dist_sensor
   fv_noise:         no_fv_noise
+  # target_config:    sine
+  obstacles:        no_obstacles
+  observation_loss: no_obs_loss
   desired_distance: 10
   start_distance:   10
   wind:             no_wind
@@ -56,7 +56,7 @@ variations:
 
 plotting_config:
   exclude_runs: []
-  xbounds: [0, 300]
+  xbounds: [0, 200]
 
   states:
     PolarTargetPos:
@@ -65,214 +65,193 @@ plotting_config:
       ybounds: [[[0, 30]], [[-5, 10]], [[0, 15]]]
       absybounds: [[[0, 20]], [[0, 20]], [[0, 20]]]
       boxybounds: [[[0, 7]], [[0, 6]], [[0, 9]]]
-  
-  config_colors:
-    nosmcs: black
-    tri:    firebrick
-    div:    slateblue
-    both:   seagreen
-
-  motion_colors:
-    stationary: [darkgoldenrod, gold]
-    linear:     [darkslategrey, teal]
-    sine:       [indigo, mediumpurple]
-    #flight:     [darkred, lightcoral]
-    flight:     [navy, cornflowerblue]
-    #chase:      [darkgreen, lightgreen]
-    chase:      [darkred, lightcoral]
-    motion:     [darkblue, lightsteelblue]
-  
   style:
     nosmcs_stationary:
-      label:     \makebox[2.5cm][l]{No SMRs} T stat.
-      # label:     No SMRs $\mid$ T stat.
+      #label:     \makebox[2.5cm][l]{No SMRs} T stat.
+      label:     No SMRs $\mid$ T stat.
       boxlabel:  S
       boxcolor:  lightcoral
       color:     darkred
       linestyle: solid    # dotted, dashed, dashdot
       linewidth: 2
     nosmcs_linear:
-      label:     \makebox[2.5cm][l]{No SMRs} T linear
-      # label:     No SMRs $\mid$ T linear
+      #label:     \makebox[2.5cm][l]{No SMRs} T linear
+      label:     No SMRs $\mid$ T linear
       boxlabel:  L
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed
       linewidth: 2
     nosmcs_sine:
-      label:     \makebox[2.5cm][l]{No SMRs} T sine
-      # label:     No SMRs $\mid$ T sine
+      #label:     \makebox[2.5cm][l]{No SMRs} T sine
+      label:     No SMRs $\mid$ T sine
       boxlabel:  W
       boxcolor:  lightblue
       color:     darkblue
       linestyle: dashed
       linewidth: 2
     nosmcs_flight:
-      label:     \makebox[2.5cm][l]{No SMRs} T flight
-      # label:     No SMRs $\mid$ T flight
+      #label:     \makebox[2.5cm][l]{No SMRs} T flight
+      label:     No SMRs $\mid$ T flight
       boxlabel:  F
       boxcolor:  peachpuff
       color:     darkorange
       linestyle: dashdot
       linewidth: 2
     nosmcs_chase:
-      label:     \makebox[2.5cm][l]{No SMRs} T chase
-      # label:     No SMRs $\mid$ T chase
+      #label:     \makebox[2.5cm][l]{No SMRs} T chase
+      label:     No SMRs $\mid$ T chase
       boxlabel:  C
       boxcolor:  thistle
       color:     purple
       linestyle: dotted
       linewidth: 2
     nosmcs_motion:
-      label:     \makebox[2.5cm][l]{No SMRs} T moves
-      # label:     No SMRs $\mid$ T moves
+      label:     No SMRs $\mid$ T moves
       boxlabel:  M
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed
       linewidth: 2
-  # ------------------------------------------
+    # -----------------------------------------------------
     tri_stationary:
-      label:     \makebox[2.5cm][l]{Tri.} T stat.
-      # label:     Tri $\mid$ T stat.
+      #label:     \makebox[2.5cm][l]{Tri.} T stat.
+      label:     Tri $\mid$ T stat.
       boxlabel:  S
       boxcolor:  lightcoral
       color:     darkred
       linestyle: solid
       linewidth: 2
     tri_linear:
-      label:     \makebox[2.5cm][l]{Tri.} T linear
-      # label:     Tri $\mid$ T linear
+      #label:     \makebox[2.5cm][l]{Tri.} T linear
+      label:     Tri $\mid$ T linear
       boxlabel:  L
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed
       linewidth: 2
     tri_sine:
-      label:     \makebox[2.5cm][l]{Tri.} T sine
-      # label:     Tri $\mid$ T sine
+      #label:     \makebox[2.5cm][l]{Tri.} T sine
+      label:     Tri $\mid$ T sine
       boxlabel:  W
       boxcolor:  lightblue
       color:     darkblue
       linestyle: dashed
       linewidth: 2
     tri_flight:
-      label:     \makebox[2.5cm][l]{Tri.} T flight
-      # label:     Tri $\mid$ T flight
+      #label:     \makebox[2.5cm][l]{Tri.} T flight
+      label:     Tri $\mid$ T flight
       boxlabel:  F
       boxcolor:  peachpuff
       color:     darkorange
       linestyle: dashdot
       linewidth: 2
     tri_chase:
-      label:     \makebox[2.5cm][l]{Tri.} T chase
-      # label:     Tri $\mid$ T chase
+      #label:     \makebox[2.5cm][l]{Tri.} T chase
+      label:     Tri $\mid$ T chase
       boxlabel:  C
       boxcolor:  thistle
       color:     purple
       linestyle: dotted
       linewidth: 2
     tri_motion:
-      label:     \makebox[2.5cm][l]{Tri.} T moves
-      # label:     Tri $\mid$ T moves
+      label:     Tri $\mid$ T moves
       boxlabel:  M
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed
       linewidth: 2
-    # ---------------------------------------
+    # -----------------------------------------------------
     div_stationary:
-      label:     \makebox[2.5cm][l]{Div.} T stat.
-      # label:     Div $\mid$ T stat.
+      #label:     \makebox[2.5cm][l]{Div.} T stat.
+      label:     Div $\mid$ T stat.
       boxlabel:  S
       boxcolor:  lightcoral
       color:     darkred
       linestyle: solid
       linewidth: 2
     div_linear:
-      label:     \makebox[2.5cm][l]{Div.} T linear
-      # label:     Div $\mid$ T linear
+      #label:     \makebox[2.5cm][l]{Div.} T linear
+      label:     Div $\mid$ T linear
       boxlabel:  L
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed
       linewidth: 2
     div_sine:
-      label:     \makebox[2.5cm][l]{Div.} T sine
-      # label:     Div $\mid$ T sine
+      #label:     \makebox[2.5cm][l]{Div.} T sine
+      label:     Div $\mid$ T sine
       boxlabel:  W
       boxcolor:  lightblue
       color:     darkblue
       linestyle: dashed
       linewidth: 2
     div_flight:
-      label:     \makebox[2.5cm][l]{Div.} T flight
-      # label:     Div $\mid$ T flight
+      #label:     \makebox[2.5cm][l]{Div.} T flight
+      label:     Div $\mid$ T flight
       boxlabel:  F
       boxcolor:  peachpuff
       color:     darkorange
       linestyle: dashdot
       linewidth: 2
     div_chase:
-      label:     \makebox[2.5cm][l]{Div.} T chase
-      # label:     Div $\mid$ T chase
+      #label:     \makebox[2.5cm][l]{Div.} T chase
+      label:     Div $\mid$ T chase
       boxlabel:  C
       boxcolor:  thistle
       color:     purple
       linestyle: dotted
       linewidth: 2
     div_motion:
-      label:     \makebox[2.5cm][l]{Div.} T moves
-      # label:     Div $\mid$ T moves
+      label:     Div $\mid$ T moves
       boxlabel:  M
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed
       linewidth: 2
-    # ---------------------------------------
+    # -----------------------------------------------------
     both_stationary:
-      label:     \makebox[2.5cm][l]{Tri. + Div.} T stat.
-      # label:     Tri+Div $\mid$ T stat.
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T stat.
+      label:     Tri+Div $\mid$ T stat.
       boxlabel:  S
       boxcolor:  lightcoral
       color:     darkred
       linestyle: solid
       linewidth: 2
     both_linear:
-      label:     \makebox[2.5cm][l]{Tri. + Div.} T linear
-      # label:     Tri+Div $\mid$ T linear
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T linear
+      label:     Tri+Div $\mid$ T linear
       boxlabel:  L
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed
       linewidth: 2
     both_sine:
-      label:     \makebox[2.5cm][l]{Tri. + Div.} T sine
-      # label:     Tri+Div $\mid$ T sine
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T sine
+      label:     Tri+Div $\mid$ T sine
       boxlabel:  W
       boxcolor:  lightblue
       color:     darkblue
       linestyle: dashed
       linewidth: 2
     both_flight:
-      label:     \makebox[2.5cm][l]{Tri. + Div.} T flight
-      # label:     Tri+Div $\mid$ T flight
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T flight
+      label:     Tri+Div $\mid$ T flight
       boxlabel:  F
       boxcolor:  peachpuff
       color:     darkorange
       linestyle: dashdot
       linewidth: 2
     both_chase:
-      label:     \makebox[2.5cm][l]{Tri. + Div.} T chase
-      # label:     Tri+Div $\mid$ T chase
+      #label:     \makebox[2.5cm][l]{Tri. + Div.} T chase
+      label:     Tri+Div $\mid$ T chase
       boxlabel:  C
       boxcolor:  thistle
       color:     purple
       linestyle: dotted
       linewidth: 2
     both_motion:
-      label:     \makebox[2.5cm][l]{Tri. + Div.} T moves
-      # label:     Tri+Div $\mid$ T moves
+      label:     Tri+Div $\mid$ T moves
       boxlabel:  M
       boxcolor:  lightgreen
       color:     darkgreen

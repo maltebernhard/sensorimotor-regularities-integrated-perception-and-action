@@ -274,10 +274,14 @@ class Analysis:
                 A dictionary where keys are estimator names and values are tuples containing 
                 a list of state indices and a list of corresponding labels to plot.
         """
-        self.logger.plot_states(plotting_config, save_path=self.record_dir if save else None, show=show)
+        #self.logger.plot_states(plotting_config, abs=False, save_path=self.record_dir if save else None, show=show)
+        self.logger.plot_states(plotting_config, abs=True, save_path=self.record_dir if save else None, show=show)
+        self.logger.plot_accumulated_motion_states(plotting_config, save_path=self.record_dir if save else None, show=show)
 
     def plot_boxplots(self, plotting_config, save: bool=True, show:bool=False):
-        self.logger.plot_state_boxplots(plotting_config, save_path=self.record_dir if save else None, show=show)
+        #self.logger.plot_state_boxplots(plotting_config, abs=False, save_path=self.record_dir if save else None, show=show)
+        self.logger.plot_state_boxplots(plotting_config, abs=True, save_path=self.record_dir if save else None, show=show)
+        #self.logger.plot_accumulated_motion_boxplots(plotting_config, save_path=self.record_dir if save else None, show=show)
 
     def plot_state_runs(self, plotting_config: Dict[str,Tuple[List[int],List[str]]], config_id: str, runs: list[int]=None, save: bool=True, show: bool=False):
         self.logger.plot_state_runs(plotting_config, config_id, runs, save_path=self.record_dir if save else None, show=show)

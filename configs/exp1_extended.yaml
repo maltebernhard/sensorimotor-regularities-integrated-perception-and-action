@@ -49,71 +49,85 @@ plotting_config:
     aicon_stationary:
       label:     \makebox[2.0cm][l]{AICON} T stationary
       boxlabel:  $S$
-      boxcolor:  lightblue
-      color:     blue
+      boxcolor:  lightcoral
+      color:     darkred
       linestyle: solid
       linewidth: 2
     aicon_linear:
       label:     \makebox[2.0cm][l]{AICON} T linear
       boxlabel:  $L$
-      boxcolor:  lightblue
-      color:     blue
+      boxcolor:  lightgreen
+      color:     darkgreen
       linestyle: dashed
       linewidth: 2
     aicon_sine:
       label:     \makebox[2.0cm][l]{AICON} T sine
       boxlabel:  $W$
       boxcolor:  lightblue
-      color:     blue
+      color:     darkblue
       linestyle: dotted
       linewidth: 2
     aicon_flight:
       label:     \makebox[2.0cm][l]{AICON} T flees from R
       boxlabel:  $F$
-      boxcolor:  lightblue
-      color:     blue
+      boxcolor:  peachpuff
+      color:     darkorange
       linestyle: dashdot
       linewidth: 2
     aicon_chase:
       label:     \makebox[2.0cm][l]{AICON} T chases R
       boxlabel:  $C$
-      boxcolor:  lightblue
-      color:     blue
+      boxcolor:  thistle
+      color:     purple
       linestyle: dashed
       linewidth: 2
-
+    aicon_motion:
+      label:     \makebox[2.0cm][l]{AICON} T moves
+      boxlabel:  M
+      boxcolor:  lightgreen
+      color:     darkgreen
+      linestyle: dashed
+      linewidth: 2
+    # -----------------------------------------------------
     trc_stationary:
       label:     \makebox[2.0cm][l]{TRC} T stationary
       boxlabel:  $S$
       boxcolor:  lightcoral
-      color:     red
+      color:     darkred
       linestyle: solid
       linewidth: 2
     trc_linear:
       label:     \makebox[2.0cm][l]{TRC} T linear
       boxlabel:  $L$
-      boxcolor:  lightcoral
-      color:     red
+      boxcolor:  lightgreen
+      color:     darkgreen
       linestyle: dashed
       linewidth: 2
     trc_sine:
       label:     \makebox[2.0cm][l]{TRC} T sine
       boxlabel:  $W$
-      boxcolor:  lightcoral
-      color:     red
+      boxcolor:  lightblue
+      color:     darkblue
       linestyle: dotted
       linewidth: 2
     trc_flight:
       label:     \makebox[2.0cm][l]{TRC} T flees from R
       boxlabel:  $F$
-      boxcolor:  lightcoral
-      color:     red
+      boxcolor:  peachpuff
+      color:     darkorange
       linestyle: dashdot
       linewidth: 2
     trc_chase:
       label:     \makebox[2.0cm][l]{TRC} T chases R
       boxlabel:  $C$
-      boxcolor:  lightcoral
-      color:     red
+      boxcolor:  thistle
+      color:     purple
+      linestyle: dashed
+      linewidth: 2
+    trc_motion:
+      label:     \makebox[2.0cm][l]{TRC} T moves
+      boxlabel:  M
+      boxcolor:  lightgreen
+      color:     darkgreen
       linestyle: dashed
       linewidth: 2
