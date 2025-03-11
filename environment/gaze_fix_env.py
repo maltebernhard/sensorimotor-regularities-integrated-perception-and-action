@@ -27,6 +27,9 @@ COLORS = [(255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0), (255, 0, 255), (
 
 SCREEN_SIZE = 900
 
+SCREEN_OFFSET_X = 200
+SCREEN_OFFSET_Y = 200
+
 # =====================================================================================================
 
 class Robot:
@@ -707,7 +710,7 @@ class GazeFixEnv(BaseEnv):
             self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
         pygame.display.flip()
         # NOTE: use this to save individual pictures of the env
-        if self.render_relative_to_robot == 1:
+        if self.render_svg:
             if self.current_step <= 30:
                 if "counter" not in self.__dict__:
                     self.counter = 0
@@ -906,8 +909,8 @@ class GazeFixEnv(BaseEnv):
             x = int(self.screen_size/2 + xy[0] * self.scale)
             y = int(self.screen_size/2 - xy[1] * self.scale)
             xy_a = self.rotation_matrix(-np.pi/2) @ np.array([x-self.screen_size/2,y-self.screen_size/2])
-            x_pxl = int(xy_a[0] + self.screen_size/2)
-            y_pxl = int(xy_a[1] + self.screen_size/2) 
+            x_pxl = int(xy_a[0] + self.screen_size/2) - SCREEN_OFFSET_X
+            y_pxl = int(xy_a[1] + self.screen_size/2) + SCREEN_OFFSET_Y
         elif self.render_relative_to_robot == 2:
             x_pxl = int(self.screen_size/2 + (self.rotation_matrix(-self.robot.orientation + np.pi/2) @ (xy-self.robot.pos))[0] * self.scale)
             y_pxl = int(self.screen_size/2 - (self.rotation_matrix(-self.robot.orientation + np.pi/2) @ (xy-self.robot.pos))[1] * self.scale)

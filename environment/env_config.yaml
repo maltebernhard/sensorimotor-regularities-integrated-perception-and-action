@@ -2,7 +2,7 @@
 # seconds per env step
 timestep:           0.05
 # render window dimensions, influences target and obstacle sizes and spawn distances
-world_size:         50.0
+world_size:         30.0
 # max. sim time seconds per episonde
 episode_duration:   30.0
 # collisions with environment borders

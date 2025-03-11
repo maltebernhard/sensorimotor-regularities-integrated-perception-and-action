@@ -50,14 +50,14 @@ analysis_configs: list[str] = [
     # "exp2_wind_stat_distdot.yaml",
 
     # "exp1_extended.yaml",
-    "exp2_distloss_extended.yaml",
+    # "exp2_distloss_extended.yaml",
     # "exp2_non0mean_extended.yaml",
-    # "exp2_wind_extended.yaml",
+    "exp2_lightwind_extended.yaml",
 ]
 
 which_plots = [
     # "time",
-    # "boxplots",
+    "boxplots",
     # "losses",
     # "gradients",
     # "runs",

@@ -530,7 +530,7 @@ class AICONLogger:
                             handles=[
                                 plt.Line2D([0], [0], color=plotting_config['style'][groups[0]+'_'+motion_keys[i]]['boxcolor'], marker='s', markersize=10, linestyle='None', label=motion_labels[i])
                             for i in range(len(motion_keys))],
-                            loc='upper left' if 'exp1' in save_path else 'upper right',
+                            loc='upper left' if 'exp1' in save_path or 'wind' in save_path else 'upper right',
                             fontsize=14
                         )
 
