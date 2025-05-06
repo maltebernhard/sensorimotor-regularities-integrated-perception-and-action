@@ -1,5 +1,5 @@
 same_for_all:
-  #smcs:            both
+  #smrs:            both
   distance_sensor:  dist_dot_sensor
   controller:       aicon
   #target_config:    sine
@@ -13,45 +13,45 @@ same_for_all:
   control:          acc
 
 variations:
-  - smcs:          nosmcs
+  - smrs:          nosmrs
     target_config: stationary
-  - smcs:          tri
+  - smrs:          tri
     target_config: stationary
-  - smcs:          div
+  - smrs:          div
     target_config: stationary
-  - smcs:          both
+  - smrs:          both
     target_config: stationary
-  - smcs:          nosmcs
+  - smrs:          nosmrs
     target_config: linear
-  - smcs:          tri
+  - smrs:          tri
     target_config: linear
-  - smcs:          div
+  - smrs:          div
     target_config: linear
-  - smcs:          both
+  - smrs:          both
     target_config: linear
-  - smcs:          nosmcs
+  - smrs:          nosmrs
     target_config: sine
-  - smcs:          tri
+  - smrs:          tri
     target_config: sine
-  - smcs:          div
+  - smrs:          div
     target_config: sine
-  - smcs:          both
+  - smrs:          both
     target_config: sine
-  - smcs:          nosmcs
+  - smrs:          nosmrs
     target_config: flight
-  - smcs:          tri
+  - smrs:          tri
     target_config: flight
-  - smcs:          div
+  - smrs:          div
     target_config: flight
-  - smcs:          both
+  - smrs:          both
     target_config: flight
-  - smcs:          nosmcs
+  - smrs:          nosmrs
     target_config: chase
-  - smcs:          tri
+  - smrs:          tri
     target_config: chase
-  - smcs:          div
+  - smrs:          div
     target_config: chase
-  - smcs:          both
+  - smrs:          both
     target_config: chase
 
 plotting_config:
@@ -59,7 +59,7 @@ plotting_config:
   xbounds: [0, 300]
 
   config_colors:
-    nosmcs: black
+    nosmrs: black
     tri:    firebrick
     div:    slateblue
     both:   seagreen
@@ -82,7 +82,7 @@ plotting_config:
       absybounds: [[[0, 20]], [[0, 20]], [[0, 20]]]
       boxybounds: [[[0, 20]], [[0, 6]], [[0, 9]]]
   style:
-    nosmcs_stationary:
+    nosmrs_stationary:
       #label:     \makebox[2.5cm][l]{No SMRs} T stat.
       label:     No SMRs $\mid$ T stat.
       boxlabel:  S
@@ -90,7 +90,7 @@ plotting_config:
       color:     darkred
       linestyle: solid    # dotted, dashed, dashdot
       linewidth: 2
-    nosmcs_linear:
+    nosmrs_linear:
       #label:     \makebox[2.5cm][l]{No SMRs} T linear
       label:     No SMRs $\mid$ T linear
       boxlabel:  L
@@ -98,7 +98,7 @@ plotting_config:
       color:     darkgreen
       linestyle: dashed
       linewidth: 2
-    nosmcs_sine:
+    nosmrs_sine:
       #label:     \makebox[2.5cm][l]{No SMRs} T sine
       label:     No SMRs $\mid$ T sine
       boxlabel:  W
@@ -106,7 +106,7 @@ plotting_config:
       color:     darkblue
       linestyle: dashed
       linewidth: 2
-    nosmcs_flight:
+    nosmrs_flight:
       #label:     \makebox[2.5cm][l]{No SMRs} T flight
       label:     No SMRs $\mid$ T flight
       boxlabel:  F
@@ -114,7 +114,7 @@ plotting_config:
       color:     darkorange
       linestyle: dashdot
       linewidth: 2
-    nosmcs_chase:
+    nosmrs_chase:
       #label:     \makebox[2.5cm][l]{No SMRs} T chase
       label:     No SMRs $\mid$ T chase
       boxlabel:  C
@@ -122,7 +122,7 @@ plotting_config:
       color:     purple
       linestyle: dotted
       linewidth: 2
-    nosmcs_motion:
+    nosmrs_motion:
       label:     No SMRs $\mid$ T moves
       boxlabel:  M
       boxcolor:  lightgreen

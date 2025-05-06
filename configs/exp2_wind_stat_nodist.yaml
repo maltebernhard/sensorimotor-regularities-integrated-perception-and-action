@@ -1,5 +1,5 @@
 same_for_all:
-  #smcs:            both
+  #smrs:            both
   distance_sensor:  no_dist_sensor
   controller:       aicon
   target_config:    stationary
@@ -13,10 +13,10 @@ same_for_all:
   control:          acc
 
 variations:
-  - smcs: nosmcs
-  - smcs: tri
-  - smcs: div
-  - smcs: both
+  - smrs: nosmrs
+  - smrs: tri
+  - smrs: div
+  - smrs: both
 
 plotting_config:
   exclude_runs: []
@@ -29,9 +29,9 @@ plotting_config:
       ybounds: [[[-1, 30]], [[-5, 30]], [[-1, 15]]]
 
   style:
-    nosmcs:
-      label:     No SMCs
-      boxlabel:  No SMCs
+    nosmrs:
+      label:     No SMRs
+      boxlabel:  No SMRs
       boxcolor:  lightcoral
       color:     red
       linestyle: solid    # dotted, dashed, dashdot

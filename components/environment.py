@@ -1,13 +1,11 @@
 import os
 from typing import Dict, List, Tuple
+from abc import abstractmethod
 import gymnasium as gym
 import numpy as np
 import pygame
-import vidmaker
 import math
-from environment.base_env import BaseEnv, Observation
 import svgwrite
-import cairosvg
 
 # =====================================================================================================
 
@@ -29,6 +27,52 @@ SCREEN_SIZE = 900
 
 SCREEN_OFFSET_X = 200
 SCREEN_OFFSET_Y = 200
+
+# =================================================================================
+
+class Observation:
+    def __init__(self, low, high, callable) -> None:
+        self.low = low
+        self.high = high
+        self.calculate = callable
+
+    def calculate_value(self):
+        self.value = self.calculate()
+        return self.value
+
+# =================================================================================
+
+class BaseEnv(gym.Env):
+    def __init__(self):
+        super().__init__()
+        self.observations: Dict[str, Observation] = {}
+    
+    @abstractmethod
+    def step(self, partial_action):
+        raise NotImplementedError
+
+    @abstractmethod
+    def reset(self, seed=None, **kwargs):
+        super().reset(seed=seed)
+        np.random.seed(seed)
+
+    @abstractmethod
+    def render(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def close(self):
+        raise NotImplementedError
+    
+    # --------------------------------------------------
+
+    @abstractmethod
+    def generate_observation_space(self):
+        raise NotImplementedError
+    
+    @abstractmethod
+    def generate_action_space(self):
+        raise NotImplementedError
 
 # =====================================================================================================
 
@@ -71,10 +115,12 @@ class Target(EnvObject):
 
 # =====================================================================================================
 
-class GazeFixEnv(BaseEnv):
+class DroneEnv(BaseEnv):
     def __init__(self, config: dict):
         super().__init__()
         self.config = config
+
+        self.world_size = config["world_size"]
 
         self.episode_duration = config["episode_duration"]
         self.timestep: float = config["timestep"]
@@ -134,7 +180,6 @@ class GazeFixEnv(BaseEnv):
             self.render_relative_to_robot = 1
             self.screen_size = 5000
         # env dimensions
-        self.world_size = config["world_size"]
         self.scale = self.screen_size / self.world_size
 
     def step(self, action):
@@ -684,7 +729,7 @@ class GazeFixEnv(BaseEnv):
             self.viewer = pygame.display.set_mode((self.screen_size, self.screen_size))
             pygame.display.set_caption("Gaze Fixation")
             if self.record_video:
-                self.video = vidmaker.Video(self.video_path, fps=int(1/self.timestep), resolution=(self.screen_size,self.screen_size), late_export=True)
+                print("WARN: Video recording is deprecated. Use SVG export instead.")
         if self.svg_exporter is not None: self.svg_exporter.create_new_drawing()  # start a fresh SVG for each render call
         self.draw_env()
         if abs(self.action[0]) > 0.0 or abs(self.action[1]) > 0.0:
@@ -706,8 +751,8 @@ class GazeFixEnv(BaseEnv):
                 pygame.draw.circle(self.viewer, COLORS[i], self.pxl_coordinates(mean), int(self.screen_size/150))
                 if self.svg_exporter is not None: self.svg_exporter.draw_circle(COLORS[i],self.pxl_coordinates(mean),int(self.screen_size/150))
         #self.display_info()
-        if self.record_video:
-            self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
+        # if self.record_video:
+        #     self.video.update(pygame.surfarray.pixels3d(self.viewer).swapaxes(0, 1), inverted=False)
         pygame.display.flip()
         # NOTE: use this to save individual pictures of the env
         if self.render_svg:
@@ -970,9 +1015,7 @@ class SVGExporter:
 
     def export(self):
         svg_file = f"./env_svgs/frame_{self.export_counter}.svg"
-        #png_file = f"./env_svgs/frame_{self.export_counter}.png"
         self.dwg.saveas(svg_file)
-        #cairosvg.svg2png(url=svg_file, write_to=png_file)
         self.export_counter += 1
 
     def draw_circle(self, color, center, radius, stroke=False, stroke_width=1, fill_opacity=1.0):

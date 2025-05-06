@@ -1,11 +1,11 @@
 from typing import Dict
-from components.measurement_model import SensorimotorContingency
+from components.aicon import SensorimotorRegularity
 from components.helpers import rotate_vector_2d
 import torch
 
 # ========================================================================================================
 
-class DroneEnv_SMC(SensorimotorContingency):
+class DroneEnv_SMR(SensorimotorRegularity):
     def __init__(self, id: str, state_component:str, action_component:str, sensory_components:list, fv_noise:dict={}, sensor_angle:float={}) -> None:
         self.fv_noise:dict = fv_noise
         self.sensor_angle = sensor_angle
@@ -18,7 +18,7 @@ class DroneEnv_SMC(SensorimotorContingency):
         """
         # derive expected noise from state estimate, not from sensor readings
         predicted_meas = self.get_predicted_meas(buffer_dict[self.state_component]['mean'], buffer_dict[self.action_component]['mean'])
-        # add "contingent noise" to expectation according to some SMC (e.g. foveal vision)
+        # add "contingent noise" to expectation according to some SMR (e.g. foveal vision)
         contingent_noise = self.get_contingent_noise(buffer_dict[self.state_component]['mean'])
         noise = {}
         for key, obs in self.connected_observations.items():
@@ -58,7 +58,7 @@ class DroneEnv_SMC(SensorimotorContingency):
 
 # --------------------------------------------------------------------------------------------------------
 
-class Robot_Vel_MM(DroneEnv_SMC):
+class Robot_Vel_MM(DroneEnv_SMR):
     def __init__(self) -> None:
         sensory_components = ['vel_frontal', 'vel_lateral', 'vel_rot']
         super().__init__(
@@ -77,7 +77,7 @@ class Robot_Vel_MM(DroneEnv_SMC):
     
 # --------------------------------------------------------------------------------------------------------
     
-class Distance_MM(DroneEnv_SMC):
+class Distance_MM(DroneEnv_SMR):
     def __init__(self, object_name:str="Target", moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
         self.moving_object = moving_object
@@ -104,7 +104,7 @@ class Distance_MM(DroneEnv_SMC):
     
 # --------------------------------------------------------------------------------------------------------
     
-class DistanceDot_MM(DroneEnv_SMC):
+class DistanceDot_MM(DroneEnv_SMR):
     def __init__(self, object_name:str="Target", moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
         self.moving_object = moving_object
@@ -128,7 +128,7 @@ class DistanceDot_MM(DroneEnv_SMC):
 
 # --------------------------------------------------------------------------------------------------------
 
-class Angle_MM(DroneEnv_SMC):
+class Angle_MM(DroneEnv_SMR):
     def __init__(self, object_name:str="Target", fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
         sensory_components = [f"{self.object_name.lower()}_offset_angle"]
@@ -153,7 +153,7 @@ class Angle_MM(DroneEnv_SMC):
     
 # --------------------------------------------------------------------------------------------------------
 
-class Triangulation_SMC(DroneEnv_SMC):
+class Triangulation_SMR(DroneEnv_SMR):
     def __init__(self, object_name:str="Target", moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
         self.moving_object = moving_object
@@ -176,7 +176,7 @@ class Triangulation_SMC(DroneEnv_SMC):
 
 # --------------------------------------------------------------------------------------------------------
 
-class Divergence_SMC(DroneEnv_SMC):
+class Divergence_SMR(DroneEnv_SMR):
     def __init__(self, object_name:str="Target",  moving_object:bool=False, fv_noise:dict={}, sensor_angle:float=2*torch.pi) -> None:
         self.object_name = object_name
         self.moving_object = moving_object

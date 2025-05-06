@@ -91,7 +91,7 @@ pos_distance_offset_noise = {
 
 # --------------------- observation loss configs ---------------------
 
-# for each observation key, deactivate sensor readings in given ranges of seconds
+# for each observation key, deactivate sensor readings in given ranges of timesteps
 tri_loss = {
     "offset_angle": [
         (100, 200),
@@ -130,8 +130,8 @@ fv_noise = {
 
 # ---------------------- collection with keys -----------------------
 
-class SMCConfig:
-    nosmcs = []
+class SMRConfig:
+    nosmrs = []
     both   = ["Divergence", "Triangulation"]
     tri    = ["Triangulation"]
     div    = ["Divergence"]
@@ -198,8 +198,8 @@ class ControlConfig:
 # ---------------------- collection with keys --------------------------------
 
 class ExperimentConfig:
-    keys = ["smcs", "controller", "distance_sensor", "sensor_noise", "fv_noise", "target_config", "obstacles", "observation_loss", "wind", "control"]
-    smcs             = SMCConfig
+    keys = ["smrs", "controller", "distance_sensor", "sensor_noise", "fv_noise", "target_config", "obstacles", "observation_loss", "wind", "control"]
+    smrs             = SMRConfig
     controller       = ControllerConfig
     distance_sensor  = DistanceSensorConfig
     sensor_noise     = SensorNoiseConfig

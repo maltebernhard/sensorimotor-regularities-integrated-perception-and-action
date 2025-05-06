@@ -1,5 +1,5 @@
 import torch
-from components.goal import Goal
+from components.aicon import Goal
 from typing import Dict
 
 # ==================================================================================

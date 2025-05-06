@@ -1,0 +1,9 @@
+# Requires Python 3.13 or higher
+gymnasium==1.1.1
+matplotlib==3.10.1
+pygame==2.6.1
+pyyaml==6.0.2
+svgwrite==1.4.3
+torch==2.6.0
+wandb==0.19.9
+tqdm==4.67.1

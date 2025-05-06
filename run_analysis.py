@@ -1,3 +1,4 @@
+import time
 from typing import List
 
 import yaml
@@ -20,24 +21,24 @@ def create_analysis(name, base_env_config, variations, custom_config):
         "base_env_config": base_env_config,
         "record_videos":   False,
         "variations":      variations,
-        "wandb":           True,
-        "custom_config":   custom_config,
+        "wandb":           False,               # set true to log run data to weights and biases
+        "variation_config":   custom_config,       # custom config for plotting
     })
 
-def create_analysis_from_custom_config(name: str, custom_config: dict):
-    custom_same_for_all = custom_config["same_for_all"]
-    custom_variations: List[dict] = custom_config["variations"]
-    for var in custom_variations:
-        var.update(custom_same_for_all)
-    variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key not in ["desired_distance", "start_distance"] else val) for key, val in var.items()} for var in custom_variations]
-    return create_analysis(name, base_env_config, variations, custom_config)
+def create_analysis_from_experiment_config(name: str, experiment_config: dict):
+    experiment_invariants = experiment_config["same_for_all"]
+    experiment_variations: List[dict] = experiment_config["variations"]
+    for var in experiment_variations:
+        var.update(experiment_invariants)
+    variations: List[dict] = [{key: (config.__dict__[key].__dict__[val] if key not in ["desired_distance", "start_distance"] else val) for key, val in var.items()} for var in experiment_variations]
+    return create_analysis(name, base_env_config, variations, experiment_config)
 
 def create_analysis_from_sys_arg(arg, demo=False):
     if os.path.isfile(arg):
         try:
             with open(arg, "r") as config_file:
-                custom_config: dict = yaml.safe_load(config_file)
-            analysis = create_analysis_from_custom_config(arg.split("/")[-1].split(".")[0], custom_config)
+                experiment_config: dict = yaml.safe_load(config_file)
+            analysis = create_analysis_from_experiment_config(arg.split("/")[-1].split(".")[0], experiment_config)
         except Exception as e:
             print(e)
             print("No valid config path.")
@@ -69,15 +70,17 @@ if __name__ == "__main__":
         print("Action: demo        | Argument: config path: str OR analysis_path: str -> useful for quick testing")
         print("Action: rerun       | Argument: analysis_path: str -> useful after changing model or environment code")
         print("Action: replot      | Argument: analysis_path: str -> useful after changing plotting config")
+        print("Action: run_all     | Argument: None -> runs all analyses in ./configs")
+        print("Action: replot_all  | Argument: None -> replots all analyses in ./records")
 
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 3 and len(sys.argv) != 2:
         print_usage()
         sys.exit(1)
     else:
         if sys.argv[1]   == "run":
             with open(sys.argv[2], "r") as config_file:
                 custom_config = yaml.safe_load(config_file)
-            analysis = create_analysis_from_custom_config(sys.argv[2].split("/")[-1].split(".")[0], custom_config)
+            analysis = create_analysis_from_experiment_config(sys.argv[2].split("/")[-1].split(".")[0], custom_config)
             analysis.run_analysis()
             analysis.plot_states_and_losses()
         elif sys.argv[1] == "demo":
@@ -117,9 +120,112 @@ if __name__ == "__main__":
                 if '_'.join(subfolder_name.split('_')[:-1]) == custom_name:
                     found_counter += 1
                     analysis = Analysis.load(os.path.join(records_path, subfolder_name))
-                    analysis.custom_config = custom_config
+                    analysis.variant_config = custom_config
                     analysis.plot_states_and_losses()
-                    analysis.experiment_config["custom_config"].update(custom_config)
+                    analysis.experiment_config["variation_config"].update(custom_config)
                     analysis.save()
             else:
                 print(f"Replotted {found_counter} analyses.")
+        elif sys.argv[1] == "run_all":
+            analysis_configs: list[str] = [
+                "exp1_extended.yaml",
+                "exp2_distloss_extended.yaml",
+                "exp2_non0mean_extended.yaml",
+                "exp2_lightwind_extended.yaml",
+            ]
+            num_runs:  int = 10
+            num_steps: int = 200
+
+            for filename in analysis_configs:
+                with open("./configs/" + filename, "r") as config_file:
+                    experiment_config = yaml.safe_load(config_file)
+
+                experiment_config.update({
+                    "num_runs": num_runs,
+                    "num_steps": min(num_steps, experiment_config["plotting_config"]["xbounds"][1]),
+                })
+
+                analysis = create_analysis_from_experiment_config(filename.split("/")[-1].split(".")[0], experiment_config)
+                time.sleep(1)
+                analysis.run_analysis()
+
+            for filename in analysis_configs:
+                config_path = f"./configs/{filename}"
+                with open(config_path, "r") as config_file:
+                    experiment_config = yaml.safe_load(config_file)
+                custom_name = config_path.split("/")[-1].split(".")[0]
+                records_path = "./records"
+                found_counter = 0
+                for subfolder_name in os.listdir(records_path):
+                    if '_'.join(subfolder_name.split('_')[:-1]) == custom_name:
+                        found_counter += 1
+                        dirname = os.path.join(records_path, subfolder_name)
+                        analysis = Analysis.load(dirname)
+                        analysis.variant_config = experiment_config
+                        analysis.plot_states_and_losses()
+        elif sys.argv[1] == "replot_all":
+            def delete_pdfs(dirname: str, namestring):
+                if os.path.exists(dirname):
+                    for filename in os.listdir(dirname):
+                        if filename.endswith(".pdf") and namestring in filename:
+                            os.remove(os.path.join(dirname, filename))
+                            print(f"Deleted {dirname} {filename}")
+
+            def delete_old_plots(dirname: str, which_plots):
+                for plot in which_plots:
+                    if plot == "time":
+                        delete_pdfs(dirname+"/records/time/", "")
+                    elif plot == "boxplots":
+                        delete_pdfs(dirname+"/records/box/", "")
+                    elif plot == "losses":
+                        delete_pdfs(dirname+"/records/loss/", "main")
+                    elif plot == "gradients":
+                        delete_pdfs(dirname+"/records/loss/", "gradient_")
+                    elif plot == "runs":
+                        delete_pdfs(dirname+"/records/runs/", "")
+                    elif plot == "collisions":
+                        delete_pdfs(dirname+"/records/", "collisions")
+
+            analysis_configs: list[str] = [
+                "exp1_extended.yaml",
+                "exp2_distloss_extended.yaml",
+                "exp2_non0mean_extended.yaml",
+                "exp2_lightwind_extended.yaml",
+            ]
+
+            which_plots = [
+                "time",
+                "boxplots",
+                "losses",
+                "gradients",
+                "runs",
+                "collisions",
+            ]
+
+            for filename in analysis_configs:
+                config_path = f"./configs/{filename}"
+                with open(config_path, "r") as config_file:
+                    experiment_config = yaml.safe_load(config_file)
+                experiment_name = config_path.split("/")[-1].split(".")[0]
+                records_path = "./records"
+                found_counter = 0
+                for subfolder_name in os.listdir(records_path):
+                    if '_'.join(subfolder_name.split('_')[:-1]) == experiment_name:
+                        print("Replotting ", subfolder_name)
+                        found_counter += 1
+                        dirname = os.path.join(records_path, subfolder_name)
+                        delete_old_plots(dirname, which_plots)
+                        analysis = Analysis.load(dirname)
+                        analysis.variant_config = experiment_config
+                        plots = {
+                            "time":       False,
+                            "boxplots":   False,
+                            "losses":     False,
+                            "gradients":  False,
+                            "runs":       False,
+                            "collisions": False,
+                        }
+                        plots.update({key: True for key in which_plots})
+                        analysis.plot_states_and_losses(**plots)
+                        analysis.experiment_config["variation_config"].update(experiment_config)
+                        analysis.save()

@@ -5,13 +5,13 @@ from components.aicon import DroneEnvAICON as AICON
 from components.helpers import rotate_vector_2d
 from model.estimators import Polar_Pos_Estimator, Robot_Vel_Estimator, Robot_Vel_Estimator_Acc_Action, Robot_VelWind_Estimator
 from model.goals import PolarGoToTargetGoal
-from model.smcs import Angle_MM, Distance_MM, DistanceDot_MM, Robot_Vel_MM, Triangulation_SMC, Divergence_SMC
+from model.smrs import Angle_MM, Distance_MM, DistanceDot_MM, Robot_Vel_MM, Triangulation_SMR, Divergence_SMR
 
 # ========================================================================================================
 
-class SMCAICON(AICON):
+class SMRAICON(AICON):
     def __init__(self, env_config, aicon_type):
-        self.smcs = aicon_type["smcs"]
+        self.smrs = aicon_type["smrs"]
         self.distance_sensor = aicon_type["distance_sensor"]
         self.control = aicon_type["controller"]
         super().__init__(env_config)
@@ -47,12 +47,12 @@ class SMCAICON(AICON):
             meas_models["DistanceMM"] = (Distance_MM("Target", target_config, fv_noise, sensor_angle), ["PolarTargetPos"])
         elif self.distance_sensor == "distdotsensor":
             meas_models["DistanceMM"] = (DistanceDot_MM("Target", target_config, fv_noise, sensor_angle), ["PolarTargetPos"])
-        if "Divergence" in self.smcs:
-            # TODO: reflect whether or not we should update vel estimator with smc - maybe only with wind?
-            meas_models["DivergenceSMC"] = (Divergence_SMC("Target", target_config, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
-        if "Triangulation" in self.smcs:
+        if "Divergence" in self.smrs:
+            # TODO: reflect whether or not we should update vel estimator with smr - maybe only with wind?
+            meas_models["DivergenceSMR"] = (Divergence_SMR("Target", target_config, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
+        if "Triangulation" in self.smrs:
             # TODO: same here
-            meas_models["TriangulationSMC"] = (Triangulation_SMC("Target", target_config, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
+            meas_models["TriangulationSMR"] = (Triangulation_SMR("Target", target_config, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
         # ------------------- obstacles -------------------
         for obs in range(self.env.num_obstacles):
             moving_obs = self.env_config["obstacles"][obs][0] != "stationary"
@@ -61,10 +61,10 @@ class SMCAICON(AICON):
                 meas_models[f"DistanceMM{obs+1}"] = (Distance_MM(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
             elif self.distance_sensor == "distdotsensor":
                 meas_models[f"DistanceMM{obs+1}"] = (DistanceDot_MM(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), [f"PolarObstacle{obs+1}Pos"])
-            if "Divergence" in self.smcs:
-                meas_models[f"DivergenceSMC{obs+1}"] = (Divergence_SMC(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), ["RobotVel", f"PolarObstacle{obs+1}Pos"])
-            if "Triangulation" in self.smcs:
-                meas_models[f"TriangulationSMC{obs+1}"] = (Triangulation_SMC(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), ["RobotVel", f"PolarObstacle{obs+1}Pos"])
+            if "Divergence" in self.smrs:
+                meas_models[f"DivergenceSMR{obs+1}"] = (Divergence_SMR(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), ["RobotVel", f"PolarObstacle{obs+1}Pos"])
+            if "Triangulation" in self.smrs:
+                meas_models[f"TriangulationSMR{obs+1}"] = (Triangulation_SMR(f"Obstacle{obs+1}", moving_obs, fv_noise, sensor_angle), ["RobotVel", f"PolarObstacle{obs+1}Pos"])
         return meas_models
 
     def define_active_interconnections(self):
@@ -86,11 +86,11 @@ class SMCAICON(AICON):
             task_vel_radial = 2e-1 * (self.REs["PolarTargetPos"].mean[0] - self.goal.desired_distance)
             task_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].mean[1], torch.tensor([task_vel_radial, 0.0])).squeeze()
 
-            # smc control
+            # smr control
             unc_grad = torch.zeros(3)
             if self.control == "trc":
-                unc_vel_tangential = 5e-1 * self.REs["PolarTargetPos"].cov[0][0] if "Triangulation" in self.smcs else 0.0
-                unc_vel_radial     = 1e-1 * self.REs["PolarTargetPos"].cov[0][0] * task_vel_radial.sign() if "Divergence" in self.smcs else 0
+                unc_vel_tangential = 5e-1 * self.REs["PolarTargetPos"].cov[0][0] if "Triangulation" in self.smrs else 0.0
+                unc_vel_radial     = 1e-1 * self.REs["PolarTargetPos"].cov[0][0] * task_vel_radial.sign() if "Divergence" in self.smrs else 0
                 unc_grad[:2] = - rotate_vector_2d(self.REs["PolarTargetPos"].mean[1], torch.tensor([unc_vel_radial, unc_vel_tangential])).squeeze()
                 unc_grad[2] = - 5e-3 * self.REs["PolarTargetPos"].cov[0][0] * self.REs["PolarTargetPos"].mean[1].sign() if len(self.env.fv_noise) > 0 else 0.0
             

@@ -1,5 +1,5 @@
 same_for_all:
-  smcs:             both
+  smrs:             both
   distance_sensor:  no_dist_sensor
   obstacles:        no_obstacles
   sensor_noise:     small_noise
@@ -94,7 +94,7 @@ plotting_config:
       linewidth: 2
     aicon_motion:
       label:     \makebox[2.0cm][l]{AICON} T moves
-      boxlabel:  M
+      boxlabel:  $M$
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed
@@ -137,7 +137,7 @@ plotting_config:
       linewidth: 2
     trc_motion:
       label:     \makebox[2.0cm][l]{TRC} T moves
-      boxlabel:  M
+      boxlabel:  $M$
       boxcolor:  lightgreen
       color:     darkgreen
       linestyle: dashed

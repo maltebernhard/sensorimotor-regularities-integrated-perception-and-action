@@ -1,5 +1,5 @@
 import torch
-from components.estimator import RecursiveEstimator
+from components.aicon import RecursiveEstimator
 from components.helpers import rotate_vector_2d
 
 # ==================================== Specific Implementations ==============================================
