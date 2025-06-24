@@ -1,0 +1,15 @@
+<mujoco model="two_spheres">
+    <worldbody>
+        <!-- First sphere -->
+        <body name="sphere1" pos="0 0 0.5">
+            <joint name="sphere1_joint" type="free"/>
+            <geom name="sphere1_geom" type="sphere" size="0.2" rgba="1 0 0 1"/>
+        </body>
+        <!-- Second sphere -->
+        <body name="sphere2" pos="1 0 0.5">
+            <joint name="sphere2_joint" type="free"/>
+            <geom name="sphere2_geom" type="sphere" size="0.2" rgba="0 0 1 1"/>
+        </body>
+    </worldbody>
+    <option timestep="0.01" gravity="0 0 -9.8"/>
+</mujoco>
