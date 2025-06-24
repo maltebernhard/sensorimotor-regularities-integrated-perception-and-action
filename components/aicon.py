@@ -6,7 +6,8 @@ from typing import Dict, List, Tuple, Type, Optional
 from torch.nn import Module
 import wandb
 
-from components.environment import BaseEnv, DroneEnv
+from components.environment import BaseEnv
+
 from components.helpers import rotate_vector_2d
 
 # ========================================================================================
@@ -20,7 +21,7 @@ class AICON(ABC):
         self.dtype = torch.float64
         torch.set_default_device(self.device)
         torch.set_default_dtype(self.dtype)
-        self.env: DroneEnv = self.define_env()
+        self.env: BaseEnv = self.define_env()
         self.REs: Dict[str, RecursiveEstimator] = self.define_estimators()
         self.MMs: Dict[str, Tuple[ActiveInterconnection,List[str]]] = self.define_measurement_models()
         self.AIs: Dict[str, ActiveInterconnection] = self.define_active_interconnections()
@@ -457,71 +458,6 @@ class AICON(ABC):
         SHOULD be overwritten by user. Returns the expected static sesnro noise to be used in measurement updates. 
         """
         return torch.zeros(1), 0.0 * torch.eye(1)
-
-# ----------------------------------------------------------------------------------------
-
-class DroneEnvAICON(AICON):
-    """
-    AICON class with some specifics for our experimental environment.
-    """
-    def __init__(self, env_config: dict):
-        self.env_config = env_config
-        super().__init__()
-
-    def define_env(self):
-        """
-        Sets the environment to the drone env for our experiment
-        """
-        return DroneEnv(self.env_config)
-
-    def convert_polar_to_cartesian_state(self, polar_mean, polar_cov):
-        """
-        simple coordinate space transformation
-        """
-        polar_cov = polar_cov[:2,:2]
-        r = polar_mean[0]
-        phi = polar_mean[1]
-        mean = torch.stack([
-            r * torch.cos(phi),
-            r * torch.sin(phi)
-        ])
-        jac = torch.tensor([
-            [torch.cos(phi), -r * torch.sin(phi)],
-            [torch.sin(phi),  r * torch.cos(phi)]
-        ], device=self.device, dtype=r.dtype)
-        cov = jac @ polar_cov @ jac.T
-        return mean, cov
-    
-    def get_control_input(self, action, buffer_dict, estimator_key) -> torch.Tensor:
-        """
-        takes a normalized action vector and scales it to the robot's max translational and rotational velocity / acceleration
-        """
-        env_action = torch.empty_like(action)
-        env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.env_config["action_mode"]==3 else self.env.robot.max_acc)
-        env_action[2] = action[2] * (self.env.robot.max_vel_rot if self.env_config["action_mode"]==3 else self.env.robot.max_acc_rot)
-        if self.prints > 0 and self.current_step % self.prints == 0:
-            print("Action: ", end=""), self.print_vector(env_action)
-        return torch.concat([torch.tensor([self.env_config["timestep"]]), env_action])
-    
-    def render(self):
-        """
-        calculates cartesian representations of the polar state estimates (and uncertainty ellipses) and renders the environment
-        """
-        target_mean, target_cov = self.convert_polar_to_cartesian_state(self.REs["PolarTargetPos"].mean, self.REs["PolarTargetPos"].cov)
-        estimator_means: Dict[str, torch.Tensor] = {"PolarTargetPos": target_mean}
-        estimator_covs: Dict[str, torch.Tensor] = {"PolarTargetPos": target_cov}
-        if self.env.num_obstacles == 1:
-            obs_mean, obs_cov = self.convert_polar_to_cartesian_state(self.REs["PolarObstacle1Pos"].mean, self.REs["PolarObstacle1Pos"].cov)
-            estimator_means["PolarObstaclePos"] = obs_mean
-            estimator_covs["PolarObstaclePos"] = obs_cov
-        return self.env.render(1.0, {key: np.array(mean.cpu()) for key, mean in estimator_means.items()}, {key: np.array(cov.cpu()) for key, cov in estimator_covs.items()})
-
-    def custom_reset(self):
-        """
-        sets desired distance and obstacles to avoid to the goal function upon environment reset
-        """
-        self.goal.desired_distance = self.env.target.distance
-        self.goal.num_obstacles = self.env.num_obstacles
 
 # =========================================================================================
 

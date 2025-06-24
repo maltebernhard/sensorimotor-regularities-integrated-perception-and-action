@@ -14,7 +14,7 @@ import socket
 
 from components.aicon import AICON, Logger
 from configs.configs import ExperimentConfig as config
-from model.aicon import SMRAICON
+from drone_env_model.aicon import SMRAICON
 
 # Set up matplotlib to use LaTeX fonts
 plt.rcParams.update(
