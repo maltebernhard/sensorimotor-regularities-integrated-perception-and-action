@@ -27,9 +27,6 @@ class Distance_MM(SensorimotorRegularity):
     def __init__(self, object_name:str="Target") -> None:
         self.object_name = object_name
         sensory_components = [f"{object_name.lower()}_distance"]
-        
-        # TODO: consider whether or not to add distance dot sensor
-        # if self.moving_object: sensory_components.append(f"{object_name.lower()}_distance_dot")
         super().__init__(
             id                 = f"{object_name} Distance",
             state_component    = f"Polar{object_name}Pos",
@@ -78,13 +75,13 @@ class Angle_MM(SensorimotorRegularity):
             sensory_components = sensory_components,
         )
 
-    def implicit_interconnection_model(self, meas_dict):
-        key_phi = f"{self.object_name.lower()}_phi"
-        key_theta = f"{self.object_name.lower()}_theta"
-        return torch.tensor([
-            (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_phi] - meas_dict[key_phi] + torch.pi) % (2 * torch.pi) - torch.pi,
-            (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_theta] - meas_dict[key_theta] + torch.pi) % (2 * torch.pi) - torch.pi
-        ])
+    # def implicit_interconnection_model(self, meas_dict):
+    #     key_phi = f"{self.object_name.lower()}_phi"
+    #     key_theta = f"{self.object_name.lower()}_theta"
+    #     return torch.tensor([
+    #         (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_phi] - meas_dict[key_phi] + torch.pi) % (2 * torch.pi) - torch.pi,
+    #         (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_theta] - meas_dict[key_theta] + torch.pi) % (2 * torch.pi) - torch.pi
+    #     ])
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         return {

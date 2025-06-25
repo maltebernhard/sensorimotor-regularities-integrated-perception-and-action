@@ -20,10 +20,11 @@ if __name__ == "__main__":
     # except KeyboardInterrupt:
     #     print("Simulation interrupted by user.")
     
-
-    aicon = MujocoAICON()
-    aicon.run(1000, step_by_step=True, prints=1)
-
+    try:
+        aicon = MujocoAICON()
+        aicon.run(1000, step_by_step=True, prints=1)
+    except KeyboardInterrupt:
+        print("Simulation interrupted by user.")
 
     env.close()
     os._exit(0)  # Forcefully terminate the script to ensure no background process remains

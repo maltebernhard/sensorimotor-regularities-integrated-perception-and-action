@@ -43,7 +43,7 @@ def transform_vector_to_rtf(v, phi, theta):
         # Compute w[1] orthogonal to direction in the xy-plane
         w1 = torch.tensor([-torch.sin(phi), torch.cos(phi), 0], dtype=v.dtype, device=v.device)
         # Compute w[2] orthogonal to both direction and w[1]
-        w2 = torch.cross(direction, w1)
+        w2 = torch.cross(direction, w1, dim=0)
         # Transform the vector to the new frame
         w = torch.stack([torch.dot(v, direction), torch.dot(v, w1), torch.dot(v, w2)])
         return w

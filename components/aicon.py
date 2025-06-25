@@ -112,7 +112,7 @@ class AICON(ABC):
         if torch.abs(action[2]) > 1.0:
             action[2] = action[2]/torch.abs(action[2])
         self.last_action = action
-        #print(f"-------- Action: ", end=""), self.print_vector(action, trail=" --------")
+        print(f"-------- Action: ", end=""), self.print_vector(action, trail=" --------")
         self.env.step(np.array(action.cpu()))
         buffers = self.eval_step(action, new_step=True)
         for key, buffer_dict in buffers.items():
@@ -147,12 +147,14 @@ class AICON(ABC):
         """
         updates the estimators with new measurements, using the expected measurement noise.
         """
-        if self.prints > 0 and self.current_step % self.prints == 0:
-            real_state = self.env.get_state()
-            print("Real State: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in real_state.items() if key in self.last_observation[0].keys()])
-            print("Measurements: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in self.last_observation[0].items()])
-            print("Pre Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
-            print("Pre Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+        # if self.prints > 0 and self.current_step % self.prints == 0:
+        #     real_state = self.env.get_state()
+        #     print("Real State: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in real_state.items() if key in self.last_observation[0].keys()])
+        #     print("Measurements: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in self.last_observation[0].items()])
+        #     print("Pre Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        #     print("Pre Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+        for key, obs in self.obs.items():
+            print(f"Observation {key}: {obs.last_measurement})")
         for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
@@ -165,7 +167,7 @@ class AICON(ABC):
                     #     print(f"Estimated Noise (mean,stddev): {esti_noise}")
                     self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
                     if self.prints > 0 and self.current_step % self.prints == 0:
-                        print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)
+                        # print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)
                         if abs(buffer_dict["PolarTargetPos"]["mean"][2].item()) > 3e+4:
                             raise ValueError("Target distance is too large. Something is wrong.")
 
@@ -173,15 +175,15 @@ class AICON(ABC):
         """
         Updates the estimators with the expected measurements and expected measurement noise.
         """
-        if self.prints > 0 and self.current_step % self.prints == 0:
-            print("Pre Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        #if self.prints > 0 and self.current_step % self.prints == 0:
+            #print("Pre Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
             #print("Pre Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
         for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
                     self.REs[estimator_key].call_update_with_smr(meas_model, buffer_dict)
-                    if self.prints > 0 and self.current_step % self.prints == 0:
-                        print(f"Post Cont {mm_key} Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+                    #if self.prints > 0 and self.current_step % self.prints == 0:
+                        #print(f"Post Cont {mm_key} Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
                         #print("Post Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
 
     def set_observations(self):
@@ -220,7 +222,7 @@ class AICON(ABC):
         """
         self.last_observation = self.env.get_observation()
         for key, value in self.last_observation[0].items():
-            if value is not None:
+            if value is not None and key in self.obs.keys():
                 self.obs[key].set_observation(
                     obs = torch.tensor([value]),
                     time = self.env.time,

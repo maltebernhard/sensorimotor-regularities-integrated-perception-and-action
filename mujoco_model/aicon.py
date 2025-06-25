@@ -40,7 +40,7 @@ class MujocoAICON(AICON):
         # ------------------- target -------------------
         meas_models["AngleMM"] = (Angle_MM("Target"), ["PolarTargetPos"])
         #meas_models["DistanceMM"] = (Distance_MM("Target"), ["PolarTargetPos"])
-        meas_models["DistanceMM"] = (DistanceDot_MM("Target", moving_object=False), ["PolarTargetPos"])
+        #meas_models["DistanceMM"] = (DistanceDot_MM("Target", moving_object=False), ["PolarTargetPos"])
         # if "Divergence" in self.smrs:
         #     meas_models["DivergenceSMR"] = (Divergence_SMR("Target", target_config, fv_noise, sensor_angle), ["RobotVel", "PolarTargetPos"])
         meas_models["TriangulationSMR"] = (Triangulation_SMR("Target", moving_object=False), ["RobotVel", "PolarTargetPos"])
@@ -70,12 +70,12 @@ class MujocoAICON(AICON):
     def compute_action_from_gradient(self, gradient):
         # TODO: improve timestep scaling of action generation
         decay = 0.9 ** (0.01 / 0.05)
-        gradient_action = decay * self.last_action - torch.tensor([2e0, 2e0, 3e1]) * 0.01 * gradient
-        return gradient_action
+        gradient_action = decay * self.last_action - 2e-1 * gradient
+        return -gradient_action
     
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()
-        self.print_estimator("PolarTargetPos", buffer_dict=buffer_dict, print_cov=2)
+        self.print_estimator('PolarTargetPos', buffer_dict=buffer_dict, print_cov=2)
         state = buffer_dict['PolarTargetPos']['mean'] if buffer_dict is not None else self.REs['PolarTargetPos'].mean
         real_state = torch.tensor([env_state['target_distance'], env_state['target_phi'], env_state['target_theta']])
         #real_state = torch.cat([real_state, torch.tensor([env_state['target_radius']])])
@@ -99,33 +99,17 @@ class MujocoAICON(AICON):
         self.print_vector(real_state, "True RobotVel: ")
 
     def get_control_input(self, action, buffer_dict, estimator_key) -> torch.Tensor:
-        """
-        takes a normalized action vector and scales it to the robot's max translational and rotational velocity / acceleration
-        """
         return torch.cat([torch.tensor([0.01]), action])
-        # TODO: implement
-        # env_action = torch.empty_like(action)
-        # env_action[:2] = (action[:2] / action[:2].norm() if action[:2].norm() > 1.0 else action[:2]) * (self.env.robot.max_vel if self.env_config["action_mode"]==3 else self.env.robot.max_acc)
-        # env_action[2] = action[2] * (self.env.robot.max_vel_rot if self.env_config["action_mode"]==3 else self.env.robot.max_acc_rot)
-        # if estimator_key == "RobotVel":
-        #     if self.prints > 0 and self.current_step % self.prints == 0:
-        #         print("Action: ", end=""), self.print_vector(env_action)
-        #     return torch.concat([torch.tensor([self.env_config["timestep"]]), env_action])
-        # elif "Polar" in estimator_key and "Pos" in estimator_key:
-        #     if type(self.REs["RobotVel"]) == Robot_Vel_Estimator:
-        #         return torch.concat([torch.tensor([self.env_config["timestep"]]), env_action])
-        #     elif type(self.REs["RobotVel"]) in [Robot_VelWind_Estimator, Robot_Vel_Estimator_Acc_Action]:
-        #         return torch.cat([torch.tensor([self.env_config["timestep"]]), buffer_dict["RobotVel"]["mean"][:3]])
 
     def get_static_sensor_noise(self, key):
         # NOTE: you can use this to get real env sensor noise
         #(self.env.observation_noise[obs_key])
-        if "angle" in key or "rot" in key:
+        if "phi" in key or "theta" in key:
             sensor_noise_mean   = 0.0
             sensor_noise_stddev = 1e-1
         elif "distance" in key:
             sensor_noise_mean   = 0.0
-            sensor_noise_stddev = 10e0
+            sensor_noise_stddev = 1e-1
         else:
             sensor_noise_mean   = 0.0
             sensor_noise_stddev = 5e-1
@@ -135,5 +119,5 @@ class MujocoAICON(AICON):
         """
         sets desired distance and obstacles to avoid to the goal function upon environment reset
         """
-        self.goal.desired_distance = 10.0
+        self.goal.desired_distance = 1.0
         self.goal.num_obstacles = 0

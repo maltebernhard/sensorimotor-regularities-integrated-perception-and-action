@@ -62,11 +62,15 @@ class MujocoEnv(BaseEnv):
         robot_vel = self.data.qvel[:3]
         target_vel = self.data.qvel[6:9]
 
-        self.data.qvel[:3] = action
+        self.data.qvel[:3] = action * 10
 
         self.current_step += 1
         self.time += 0.01
         mujoco.mj_step(self.model, self.data)
+        #mujoco.mj_forward(self.model, self.data)
+
+        print(self.data.body('robot').xpos)
+        print(self.data.body('target').xpos)
 
         self.last_state = self._get_state()
 
@@ -134,20 +138,25 @@ class MujocoEnv(BaseEnv):
         return np.linalg.norm(self.data.qpos[7:10] - self.data.qpos[:3])
     def get_target_distance_dot(self):
         """Get the rate of change of the distance between the robot and the target."""
-        relative_pos = self.data.qpos[7:10] - self.data.qpos[:3]
+        relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
         relative_vel = self.data.qvel[6:9] - self.data.qvel[:3]
         return np.dot(relative_pos, relative_vel) / np.linalg.norm(relative_pos) if np.linalg.norm(relative_pos) > 0 else 0.0
     def get_target_phi(self):
         """Get the angle between the robot and the target in the x-y plane."""
-        relative_pos = self.data.qpos[7:10] - self.data.qpos[:3]
+        relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
+        if np.allclose(relative_pos[:2], 0):
+            return 0.0
         return np.arctan2(relative_pos[1], relative_pos[0])
     def get_target_theta(self):
-        relative_pos = self.data.qpos[7:10] - self.data.qpos[:3]
+        relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
         relative_dist = np.linalg.norm(relative_pos)
-        return np.pi/2 - np.arcsin(relative_pos[2] / relative_dist)
+        if relative_dist == 0:
+            return 0.0
+        z_div_dist = np.clip(relative_pos[2] / relative_dist, -1.0, 1.0)
+        return np.pi/2 - np.arcsin(z_div_dist)
     def get_target_phi_dot(self):
         """Get the rate of change of the target's phi angle."""
-        relative_pos = self.data.qpos[7:10] - self.data.qpos[:3]
+        relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
         relative_vel = self.data.qvel[6:9] - self.data.qvel[:3]
         if np.linalg.norm(relative_pos) > 0:
             return (relative_vel[1] * relative_pos[0] - relative_vel[0] * relative_pos[1]) / np.linalg.norm(relative_pos)**2
