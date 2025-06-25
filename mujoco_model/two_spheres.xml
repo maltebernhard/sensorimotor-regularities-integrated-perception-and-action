@@ -1,7 +1,7 @@
 <mujoco model="two_spheres">
     <worldbody>
         <!-- Ground plane -->
-        <geom name="ground" type="plane" pos="0 0 0" size="5 5 0.1" rgba="0.8 0.8 0.8 1"/>
+        <!-- <geom name="ground" type="plane" pos="0 0 0" size="5 5 0.1" rgba="0.8 0.8 0.8 1"/> -->
         <!-- First sphere: independent body -->
         <body name="sphere1" pos="0 0 0.5">
             <joint name="sphere1_joint" type="free"/>
@@ -13,6 +13,7 @@
             <geom name="sphere2_geom" type="sphere" size="0.2" rgba="0 0 1 1"/>
         </body>
     </worldbody>
-    <option timestep="0.01" gravity="0 0 -9.8"/>
+    <!-- <option timestep="0.01" gravity="0 0 -9.8"/> -->
+    <option timestep="0.01" gravity="0 0 0"/>
     <default/>
 </mujoco>

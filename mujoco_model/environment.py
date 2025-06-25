@@ -30,6 +30,7 @@ class MujocoEnv(BaseEnv):
         self.generate_observation_space()
 
         self.current_step = 0
+        self.time = 0.0
         self.real_state_history = {}
         self.observation_history = {}
         
@@ -63,12 +64,11 @@ class MujocoEnv(BaseEnv):
 
         self.data.qvel[:3] = action
 
+        self.current_step += 1
+        self.time += 0.01
         mujoco.mj_step(self.model, self.data)
 
         self.last_state = self._get_state()
-
-        for key in self.observations.keys():
-            print(key, self.last_state[key])
 
         self.last_observation, noise = self.get_observation_from_state(self.last_state.copy())
         # add observation to history
@@ -77,6 +77,8 @@ class MujocoEnv(BaseEnv):
         if self.current_step - 2 in self.observation_history:
             del self.observation_history[self.current_step - 2]
             del self.real_state_history[self.current_step - 2]
+        
+        return np.array(list(self.last_observation.values())), None, None, None, None
 
     def reset(self, seed=None, **kwargs):
         # Reset the mujoco simulation
@@ -89,6 +91,8 @@ class MujocoEnv(BaseEnv):
         self.last_observation, noise = self.get_observation_from_state(self.last_state.copy())
         self.real_state_history[self.current_step] = self.last_state.copy()
         self.observation_history[self.current_step] = (self.last_observation.copy(), noise.copy())
+
+        return np.array(list(self.last_observation.values())), None
 
     def render(self):
         if self.viewer is None:

@@ -368,7 +368,7 @@ class AICON(ABC):
             estimator.reset()
         self.prints = 0
         self.current_step = 0
-        obs, _ = self.env.reset(seed, video_path)
+        obs, _ = self.env.reset(seed)#, video_path) # TODO: removed video path for mujoco env
         self.update_observations()
         self.custom_reset()
 
