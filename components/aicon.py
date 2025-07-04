@@ -58,6 +58,11 @@ class AICON(ABC):
         self.update_observations()
         buffer_dict = self.get_buffer_dict()
         self.prints = prints
+
+        if prints > 0:
+            print(f"======================= PREMEAS State ===========================")
+            self.print_estimators()
+
         self.meas_updates(buffer_dict)
         self.eval_interconnections(buffer_dict)
         for key, state_buffer_dict in buffer_dict.items():
@@ -153,8 +158,6 @@ class AICON(ABC):
         #     print("Measurements: ", [f"{key}: " + (f"{val:.3f}" if val is not None else "{None}") for key, val in self.last_observation[0].items()])
         #     print("Pre Real Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
         #     print("Pre Real Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
-        for key, obs in self.obs.items():
-            print(f"Observation {key}: {obs.last_measurement})")
         for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
@@ -166,25 +169,28 @@ class AICON(ABC):
                     #     print(f"Real Noise (mean,stddev): {real_noise}")
                     #     print(f"Estimated Noise (mean,stddev): {esti_noise}")
                     self.REs[estimator_key].call_update_with_active_interconnection(meas_model, buffer_dict)
-                    if self.prints > 0 and self.current_step % self.prints == 0:
-                        # print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)
-                        if abs(buffer_dict["PolarTargetPos"]["mean"][2].item()) > 3e+4:
-                            raise ValueError("Target distance is too large. Something is wrong.")
+                    print(f"Meas Update: {meas_model.id}")
+                    for observation_key, obs in meas_model.connected_observations.items():
+                        print(f"    {observation_key}: {obs.last_measurement.item():.3f}")
+                    # if self.prints > 0 and self.current_step % self.prints == 0:
+                    #     print(f"Post Real {mm_key} {estimator_key}: "), self.print_estimator(estimator_key, print_cov=2, buffer_dict=buffer_dict)
+                    #     if abs(buffer_dict["PolarTargetPos"]["mean"][2].item()) > 3e+4:
+                    #         raise ValueError("Target distance is too large. Something is wrong.")
 
     def contingent_meas_updates(self, buffer_dict: dict):
         """
         Updates the estimators with the expected measurements and expected measurement noise.
         """
-        #if self.prints > 0 and self.current_step % self.prints == 0:
-            #print("Pre Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
-            #print("Pre Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+        # if self.prints > 0 and self.current_step % self.prints == 0:
+        #     print("Pre Cont Meas Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+        #     #print("Pre Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
         for mm_key, (meas_model, estimator_keys) in self.MMs.items():
             if meas_model.all_observations_updated():
                 for estimator_key in estimator_keys:
                     self.REs[estimator_key].call_update_with_smr(meas_model, buffer_dict)
-                    #if self.prints > 0 and self.current_step % self.prints == 0:
-                        #print(f"Post Cont {mm_key} Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
-                        #print("Post Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
+                    # if self.prints > 0 and self.current_step % self.prints == 0:
+                    #     print(f"Post Cont {mm_key} Target: "), self.print_estimator("PolarTargetPos", print_cov=2, buffer_dict=buffer_dict)
+                    #     #print("Post Cont Meas Robot: "), self.print_estimator("RobotVel", print_cov=2, buffer_dict=buffer_dict)
 
     def set_observations(self):
         """

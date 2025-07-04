@@ -109,7 +109,7 @@ class MujocoAICON(AICON):
             sensor_noise_stddev = 1e-1
         elif "distance" in key:
             sensor_noise_mean   = 0.0
-            sensor_noise_stddev = 1e-1
+            sensor_noise_stddev = 1e0
         else:
             sensor_noise_mean   = 0.0
             sensor_noise_stddev = 5e-1

@@ -55,6 +55,8 @@ class MujocoEnv(BaseEnv):
             """)
         # Configure MuJoCo to use the EGL rendering backend
         os.environ['MUJOCO_GL'] = 'egl'
+        # Clear any previous console prints
+        os.system('clear')
 
     def step(self, action):
         robot_pos = self.data.qpos[:3]
@@ -101,7 +103,12 @@ class MujocoEnv(BaseEnv):
     def render(self):
         if self.viewer is None:
             # If the viewer is not initialized, create it
-            self.viewer = mujoco.viewer.launch_passive(self.model, self.data)
+            self.viewer = mujoco.viewer.launch_passive(
+                model=self.model,
+                data=self.data,
+                show_left_ui=False,
+                show_right_ui=False
+            )
         self.viewer.sync()
 
     def close(self):
@@ -146,7 +153,8 @@ class MujocoEnv(BaseEnv):
         relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
         if np.allclose(relative_pos[:2], 0):
             return 0.0
-        return np.arctan2(relative_pos[1], relative_pos[0])
+        angle = np.arctan2(relative_pos[1], relative_pos[0])
+        return (angle + np.pi) % (2 * np.pi) - np.pi
     def get_target_theta(self):
         relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
         relative_dist = np.linalg.norm(relative_pos)

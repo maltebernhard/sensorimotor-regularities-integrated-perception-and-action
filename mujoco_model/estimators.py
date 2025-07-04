@@ -1,6 +1,6 @@
 import torch
 from components.aicon import RecursiveEstimator
-from components.helpers import rotate_vector_2d, transform_vector_to_rtf
+from components.helpers import rotate_vector_2d, world_to_rtf
 
 # ==================================== Specific Implementations ==============================================
 
@@ -64,7 +64,7 @@ class Polar_Pos_Estimator(RecursiveEstimator):
         old_distance = x_mean[0]
         old_phi = x_mean[1]
         old_theta = x_mean[2]
-        cartesian_robot_rtf_vel = transform_vector_to_rtf(u[1:4], old_phi, old_theta)
+        cartesian_robot_rtf_vel = world_to_rtf(u[1:4], old_phi, old_theta)
 
         if not self.moving_object:
             new_distance = torch.abs(old_distance - cartesian_robot_rtf_vel[0] * timestep)

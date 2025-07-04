@@ -1,6 +1,6 @@
 import torch
 from components.aicon import SensorimotorRegularity
-from components.helpers import transform_vector_to_rtf
+from components.helpers import world_to_rtf
 
 # ==================================================================================================
 
@@ -54,7 +54,7 @@ class DistanceDot_MM(SensorimotorRegularity):
         )
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
-        distance_dot = - transform_vector_to_rtf(action, state[1], state[2])[0]
+        distance_dot = - world_to_rtf(action, state[1], state[2])[0]
         if self.moving_object: distance_dot += state[2]
         return {
             f"{self.object_name.lower()}_distance": state[0],
@@ -104,7 +104,7 @@ class Triangulation_SMR(SensorimotorRegularity):
         )
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
-        rtf_vel = transform_vector_to_rtf(action, state[1], state[2])
+        rtf_vel = world_to_rtf(action, state[1], state[2])
         if self.moving_object: lateral_vel -= torch.atleast_1d([0.0, state[3]*state[0], state[4]*state[0]]) # combine robot and target vel components
         return {
             f"{self.object_name.lower()}_phi_dot": - rtf_vel[1]/state[0],
