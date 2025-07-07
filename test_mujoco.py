@@ -18,7 +18,7 @@ if __name__ == "__main__":
     #         #time.sleep(time_step)  # Sleep for the simulation timestep in seconds
     #         input(f"Press Enter to continue... (timestep: {time_step:.4f}s)")
     # except KeyboardInterrupt:
-    #     print("Simulation interrupted by user.")
+    #     print("\nSimulation interrupted by user.")
     # env.close()
     
 
@@ -27,7 +27,7 @@ if __name__ == "__main__":
         aicon.run(1000, step_by_step=True, prints=1)
         aicon.env.close()
     except KeyboardInterrupt:
-        print("Simulation interrupted by user.")
+        print("\nSimulation interrupted by user.")
         aicon.env.close()
     
     os._exit(0)  # Forcefully terminate the script to ensure no background process remains

@@ -68,7 +68,7 @@ class Polar_Pos_Estimator(RecursiveEstimator):
 
         if not self.moving_object:
             new_distance = torch.abs(old_distance - cartesian_robot_rtf_vel[0] * timestep)
-            new_phi = (old_phi + (cartesian_robot_rtf_vel[1] / old_distance) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
+            new_phi = (old_phi - (cartesian_robot_rtf_vel[1] / old_distance) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
             new_theta = (old_theta + (cartesian_robot_rtf_vel[2] / old_distance) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
             
             ret_mean[0] = new_distance
@@ -83,7 +83,7 @@ class Polar_Pos_Estimator(RecursiveEstimator):
             old_cartesian_target_rtf_vel = torch.stack([old_target_distance_dot, old_target_phi_dot * old_distance, old_target_theta_dot * old_distance])
             new_distance = torch.abs(old_distance + (old_target_distance_dot - cartesian_robot_rtf_vel[0]) * timestep)
             new_phi = (old_phi + (old_target_phi_dot - cartesian_robot_rtf_vel[1] / new_distance) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
-            new_theta = (old_theta + (old_target_theta_dot - cartesian_robot_rtf_vel[2] / new_distance) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
+            new_theta = (old_theta + (old_target_theta_dot + cartesian_robot_rtf_vel[2] / new_distance) * timestep + torch.pi) % (2 * torch.pi) - torch.pi
 
             ret_mean[0] = new_distance
             ret_mean[1] = new_phi

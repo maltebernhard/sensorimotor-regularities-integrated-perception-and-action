@@ -13,7 +13,7 @@ class PolarGoToTargetGoal(Goal):
     def loss_function(self, buffer_dict: Dict[str, Dict[str, torch.Tensor]]):
         # penalty for distance to target
         estimated_distance = buffer_dict['PolarTargetPos']['mean'][0]
-        loss_target_distance = 5e0 * (estimated_distance - self.desired_distance).pow(2)
+        loss_target_distance = 50e0 * (estimated_distance - self.desired_distance).pow(2)
         if estimated_distance < self.desired_distance:
             #loss_mean = (100/self.desired_distance*(estimated_distance - buffer_dict['PolarTargetPos']['mean'][-1])).pow(2)
             loss_target_distance += (1/(torch.max(torch.stack([estimated_distance - buffer_dict['PolarTargetPos']['mean'][-1], torch.tensor(1e-6)])) / self.desired_distance)-1.0).pow(2)

@@ -19,6 +19,10 @@ def rotate_vector_2d(rotation_angle, vector):
     
 def spherical_to_cartesian_direction(phi, theta):
     """Convert spherical angles to a unit direction vector in Cartesian coordinates."""
+    if not torch.is_tensor(phi):
+        phi = torch.tensor(phi)
+    if not torch.is_tensor(theta):
+        theta = torch.tensor(theta)
     x = torch.sin(theta) * torch.cos(phi)
     y = torch.sin(theta) * torch.sin(phi)
     z = torch.cos(theta)
@@ -53,3 +57,8 @@ def world_to_rtf(v_world, phi, theta):
     """Transform a velocity vector from the world to the local frame."""
     R = build_rotation_matrix(phi, theta)
     return torch.matmul(R.T, v_world) if torch.is_tensor(v_world) else R.T @ v_world  # Transpose is the inverse for rotation matrices
+
+def world_to_rtf_numpy(v_world, phi, theta):
+    """Transform a velocity vector from the world to the local frame (numpy version)."""
+    R = build_rotation_matrix(phi, theta).cpu().numpy()
+    return R.T @ v_world if isinstance(v_world, np.ndarray) else R.T @ v_world

@@ -70,8 +70,8 @@ class MujocoAICON(AICON):
     def compute_action_from_gradient(self, gradient):
         # TODO: improve timestep scaling of action generation
         decay = 0.9 ** (0.01 / 0.05)
-        gradient_action = decay * self.last_action - 2e-1 * gradient
-        return -gradient_action
+        gradient_action = decay * self.last_action - 1.0 * gradient
+        return gradient_action
     
     def print_estimators(self, buffer_dict=None):
         env_state = self.env.get_state()
@@ -119,5 +119,5 @@ class MujocoAICON(AICON):
         """
         sets desired distance and obstacles to avoid to the goal function upon environment reset
         """
-        self.goal.desired_distance = 1.0
+        self.goal.desired_distance = 0.0
         self.goal.num_obstacles = 0

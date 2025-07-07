@@ -7,6 +7,7 @@ import mujoco.viewer
 import time
 
 from components.environment import BaseEnv, Observation
+from components.helpers import world_to_rtf_numpy
 
 # =================================================================================
 
@@ -59,12 +60,10 @@ class MujocoEnv(BaseEnv):
         os.system('clear')
 
     def step(self, action):
-        robot_pos = self.data.qpos[:3]
-        target_pos = self.data.qpos[7:10]
-        robot_vel = self.data.qvel[:3]
-        target_vel = self.data.qvel[6:9]
+        self.data.qvel[:3] = action
 
-        self.data.qvel[:3] = action * 10
+        # TODO: moving Target
+        # self.data.qvel[6] = 1.0
 
         self.current_step += 1
         self.time += 0.01
@@ -109,6 +108,8 @@ class MujocoEnv(BaseEnv):
                 show_left_ui=False,
                 show_right_ui=False
             )
+            # Enable the global coordinate frame visualization
+            self.viewer.opt.frame = mujoco.mjtFrame.mjFRAME_GEOM
         self.viewer.sync()
 
     def close(self):
@@ -145,38 +146,66 @@ class MujocoEnv(BaseEnv):
         return np.linalg.norm(self.data.qpos[7:10] - self.data.qpos[:3])
     def get_target_distance_dot(self):
         """Get the rate of change of the distance between the robot and the target."""
-        relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
+        relative_pos = self.data.body('target').xpos - self.data.body('robot').xpos
         relative_vel = self.data.qvel[6:9] - self.data.qvel[:3]
         return np.dot(relative_pos, relative_vel) / np.linalg.norm(relative_pos) if np.linalg.norm(relative_pos) > 0 else 0.0
     def get_target_phi(self):
         """Get the angle between the robot and the target in the x-y plane."""
-        relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
+        relative_pos = self.data.body('target').xpos - self.data.body('robot').xpos
         if np.allclose(relative_pos[:2], 0):
             return 0.0
         angle = np.arctan2(relative_pos[1], relative_pos[0])
         return (angle + np.pi) % (2 * np.pi) - np.pi
     def get_target_theta(self):
-        relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
+        relative_pos = self.data.body('target').xpos - self.data.body('robot').xpos
         relative_dist = np.linalg.norm(relative_pos)
         if relative_dist == 0:
             return 0.0
         z_div_dist = np.clip(relative_pos[2] / relative_dist, -1.0, 1.0)
-        return np.pi/2 - np.arcsin(z_div_dist)
+        return np.arccos(z_div_dist)
     def get_target_phi_dot(self):
-        """Get the rate of change of the target's phi angle."""
-        relative_pos = self.data.body('robot').xpos - self.data.body('target').xpos
-        relative_vel = self.data.qvel[6:9] - self.data.qvel[:3]
-        if np.linalg.norm(relative_pos) > 0:
-            return (relative_vel[1] * relative_pos[0] - relative_vel[0] * relative_pos[1]) / np.linalg.norm(relative_pos)**2
-        return 0.0
+        """Get the rate of change of the target's phi (azimuthal) angle."""
+        # Relative position and velocity in world coordinates
+        relative_pos = self.data.body('target').xpos - self.data.body('robot').xpos
+        vel = self.data.qvel[6:9] - self.data.qvel[:3]
+        xy_dist_sq = relative_pos[0]**2 + relative_pos[1]**2
+
+        if xy_dist_sq == 0:
+            return 0.0
+
+        # d(phi)/dt = (x*vy - y*vx) / (x^2 + y^2)
+        phi_dot = (relative_pos[0] * vel[1] - relative_pos[1] * vel[0]) / xy_dist_sq
+        return phi_dot
+
+    # def get_target_theta_dot(self):
+    #     """Get the rate of change of the target's theta (polar) angle."""
+    #     # Relative position and velocity in world coordinates
+    #     relative_pos = self.data.body('target').xpos - self.data.body('robot').xpos
+    #     relative_vel = self.data.qvel[6:9] - self.data.qvel[:3]
+    #     rtf_vel = world_to_rtf_numpy(relative_vel, self.get_target_phi(), self.get_target_theta())
+    #     theta_dot = np.linalg.norm(relative_pos) / rtf_vel[2]
+    #     return theta_dot
+
     def get_target_theta_dot(self):
-        """Get the rate of change of the target's theta angle."""
-        relative_pos = self.data.qpos[7:10] - self.data.qpos[:3]
+        """
+        Get the rate of change of the target's theta (polar) angle.
+        """
+        # Relative position and velocity in world coordinates
+        relative_pos = self.data.body('target').xpos - self.data.body('robot').xpos
         relative_vel = self.data.qvel[6:9] - self.data.qvel[:3]
-        relative_dist = np.linalg.norm(relative_pos)
-        if relative_dist > 0:
-            return (relative_vel[2] * relative_dist - relative_pos[2] * np.dot(relative_vel, relative_pos) / relative_dist) / (relative_dist**2 * np.sqrt(1 - (relative_pos[2] / relative_dist)**2))
-        return 0.0
+        x, y, z = relative_pos
+        vx, vy, vz = relative_vel
+        r = np.linalg.norm(relative_pos)
+        if r == 0:
+            return 0.0
+        z_over_r = z / r
+        # Avoid division by zero in denominator
+        denom = r**2 * np.sqrt(1 - z_over_r**2)
+        if denom == 0:
+            return 0.0
+        num = r * vz - z * (x * vx + y * vy + z * vz) / r
+        theta_dot = num / denom
+        return theta_dot  # Sign flip because theta is measured from the top (z axis)
 
     def generate_action_space(self):
         raise NotImplementedError

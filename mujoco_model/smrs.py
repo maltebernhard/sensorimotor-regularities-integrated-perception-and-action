@@ -75,13 +75,13 @@ class Angle_MM(SensorimotorRegularity):
             sensory_components = sensory_components,
         )
 
-    # def implicit_interconnection_model(self, meas_dict):
-    #     key_phi = f"{self.object_name.lower()}_phi"
-    #     key_theta = f"{self.object_name.lower()}_theta"
-    #     return torch.tensor([
-    #         (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_phi] - meas_dict[key_phi] + torch.pi) % (2 * torch.pi) - torch.pi,
-    #         (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_theta] - meas_dict[key_theta] + torch.pi) % (2 * torch.pi) - torch.pi
-    #     ])
+    def implicit_interconnection_model(self, meas_dict):
+        key_phi = f"{self.object_name.lower()}_phi"
+        key_theta = f"{self.object_name.lower()}_theta"
+        return torch.atleast_1d(torch.stack([
+            (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_phi] - meas_dict[key_phi] + torch.pi) % (2 * torch.pi) - torch.pi,
+            (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_theta] - meas_dict[key_theta] + torch.pi) % (2 * torch.pi) - torch.pi
+        ]).squeeze())
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         return {
@@ -102,6 +102,20 @@ class Triangulation_SMR(SensorimotorRegularity):
             action_component   = "RobotVel",
             sensory_components = sensory_components,
         )
+
+    def implicit_interconnection_model(self, meas_dict):
+        key_phi_dot = f"{self.object_name.lower()}_phi_dot"
+        key_theta_dot = f"{self.object_name.lower()}_theta_dot"
+        predicted_phi_dot = self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_phi_dot]
+        predicted_theta_dot = self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_theta_dot]
+        
+        print(f"Predicted phi_dot: {predicted_phi_dot:.3f}, Predicted theta_dot: {predicted_theta_dot:.3f}")
+        print(f"Measured phi_dot: {meas_dict[key_phi_dot].item():.3f}, Measured theta_dot: {meas_dict[key_theta_dot].item():.3f}")
+
+        return torch.atleast_1d(torch.stack([
+            (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_phi_dot] - meas_dict[key_phi_dot]),
+            (self.get_predicted_meas(meas_dict[self.state_component], meas_dict[self.action_component])[key_theta_dot] - meas_dict[key_theta_dot])
+        ]).squeeze())
 
     def get_predicted_meas(self, state: torch.Tensor, action: torch.Tensor):
         rtf_vel = world_to_rtf(action, state[1], state[2])
