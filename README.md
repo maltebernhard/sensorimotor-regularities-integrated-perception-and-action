@@ -1,47 +1,71 @@
-# Sensorimotor Regularities in AICON
+# Dynamically Leveraging Sensorimotor Regularities: Implementation Repository
 
-## todo
+This repository contains the complete implementation of the simulation environment and the coupled perception / behavior generation model described in my master's thesis "Dynamically Leveraging Sensorimotor Regularities by Integrating Perception and Behavior Generation".
 
-- test run all configs and plots
-- comment all components
+**📖 For the complete theoretical background and detailed analysis, see the thesis document: [github.com/maltebernhard/master-thesis](https://github.com/maltebernhard/master-thesis)**
 
+Currently, I am working on publishing a paper based on this thesis, which I will reference here once it has been accepted.
+
+## Abstract
+
+This implementation demonstrates a novel method for efficiently leveraging sensorimotor regularities (SMRs) within the Active InterCONnect (AICON) framework. The code provides:
+
+- **AICON Framework**: A system based on a network interconnected recursive estimators, coupling state estimation and gradient-descent-based action generation. The resulting behavior robustly adapts to environment variations and disturbances.
+- **Sensorimotor Regularities**: Implementation of "triangulation" and "divergence" SMRs that encode how motor commands modulate sensory input, allowing the agent to leverage active perception strategies in its behavior.
+- **Environments**: Implementation of the 2d drone environment the thesis is based on, as well as a simple 3d environment using mujoco sim.
+- **Experimental Suite**: Comprehensive experimental analysis (for the drone env only) demonstrating the effectiveness of the approach.
 
 ## Requirements
 
-The code was tested on:
-- Python 3.13.0
-- Numpy 2.2.0
-- Torch 2.5.1
-- Weights & Biases (wandb) 0.19.6
-- Pygame 2.6.1
-- Pyyaml 6.0.2
+### System Requirements
+- **Python**: 3.13 or higher
+- **Operating System**: Windows, Linux, or macOS
+- **Hardware**: CPU sufficient (GPU acceleration available via PyTorch)
 
-Notes:
-- If a Latex Error is thrown during plotting, it can likely be fixed by running
-    ```bash
-    sudo apt install cm-super
-    ```
+### Python Dependencies
+Install all dependencies using:
+```bash
+pip install -r requirements.txt
+```
 
-## Usage
-### Demo
-To run a demo of agent and environment, use
+### Additional Notes
+- If LaTeX errors occur during analysis plotting on Linux, install: `sudo apt install cm-super`
+- For Windows users, ensure you have a recent version of Visual C++ redistributable
+
+## Quick Start
+
+### 1. Interactive Demo
+Launch an interactive demonstration of the AICON agent:
+
 ```bash
 python run_demo.py
 ```
-Within the file, the agent and environment can be easily configured to run demos for different scenarios (e.g. different sensorimotor regularities, obstacles, target motion patterns, etc.).
 
-### Experiments
-To run an analysis recording experimental data, use
+The demo allows you to observe the agent's behavior in real-time. Configure different environment and model paramenters by editing the `variation_config` in `run_demo.py`.
+
+### 2. Run Experiments
+Execute the complete experimental suite from the thesis:
+
 ```bash
-python run_analysis.py <option>
+# Run all experiments (may take several hours)
+python run_analysis.py run_all
+
+# Run a specific experiment - example
+python run_analysis.py run exp1_extended
 ```
-where `<option>` is either of:
-- `run_all`: records and plots all experiments used in this thesis
-- `run <filename>`: records and plots an experiment specified by a config .yaml file (found in ./configs/)
 
-## Project Structure
+Results are automatically saved with plots and analysis data.
 
-Besides the two run files for demo and analysis, the workspace contains 3 folders:
-- `components/`: Contains the AICON and environment classes of our model.
-- `model/`: Contains the model configuration for our experimental evaluation, including the SMRs "triangulation" and "divergence", target position and robot motion estimators, and the goal function.
-- `configs/`: Contains the file `configs.py` specifying different configurable parameters of agent and environment. Additional configs can be added. YAML files specify different experiments, providing variations and plotting configs.
+### Experiment 1: Effective Behavior Composition
+Demonstrates how AICON, as compared to simple, hand-coded control strategies, adapts to disturbances to maintain low perception and task errors.
+
+### Experiment 2: Robustness Analysis
+Tests AICON's performance and individual SMRs' contributions under:
+- Sensor failures and noise
+- Environmental disturbances
+- Partial observability
+- Dynamic obstacles
+
+## License
+
+This code is released under the same terms as the associated thesis. Please respect academic integrity guidelines when using or referencing this work.
